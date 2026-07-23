@@ -35,6 +35,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  color: #475569;
 }
 
 .time-metric-label {
@@ -80,7 +81,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   padding: 12px 24px;
   border-top: 1px solid #e2e8f0;
   background: #f8fafc;
@@ -92,12 +92,46 @@ body {
   z-index: 1200;
 }
 
+.app-footer-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 720px;
+}
+
 .app-footer-links {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.app-footer-link-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.app-footer-link-button:hover {
+  text-decoration: underline;
+}
+
+.app-install-hint {
+  margin: 0;
+  max-width: 420px;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
 .app-footer a {
@@ -1013,7 +1047,7 @@ body {
 }
 
 .scoreboard-overlay.expanded {
-  width: min(680px, calc(100% - 24px));
+  width: min(620px, calc(100% - 24px));
 }
 
 .scoreboard-title {
@@ -1045,21 +1079,22 @@ body {
   max-height: min(50vh, 360px);
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   border-top: 1px solid #e2e8f0;
 }
 
 .scoreboard-table {
   width: 100%;
-  padding: 0 6px 8px;
+  padding: 0 8px 8px;
 }
 
 .scoreboard-header-row,
 .scoreboard-row {
   display: grid;
   grid-template-columns:
-    24px minmax(0, 1.35fr) minmax(42px, 0.48fr) 50px 54px 46px 44px minmax(0, 0.95fr);
+    24px minmax(0, 1fr) minmax(53px, 0.6fr) 57px 53px 55px 51px minmax(79px, 0.94fr);
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   padding: 0 4px;
 }
 
@@ -1111,8 +1146,13 @@ body {
   white-space: normal;
 }
 
-.scoreboard-header-label {
-  color: #475569;
+.scoreboard-task .scoreboard-header-stack,
+.scoreboard-lead .scoreboard-header-stack,
+.scoreboard-alt .scoreboard-header-stack,
+.scoreboard-speed .scoreboard-header-stack,
+.scoreboard-vario .scoreboard-header-stack,
+.scoreboard-next-tp .scoreboard-header-stack {
+  align-items: center;
 }
 
 .scoreboard-header-unit {
@@ -1125,11 +1165,22 @@ body {
   width: 24px;
   color: #64748b;
   font-weight: 700;
+  text-align: center;
 }
 
 .scoreboard-pilot {
   min-width: 0;
   white-space: normal;
+  text-align: left;
+}
+
+.scoreboard-task,
+.scoreboard-lead,
+.scoreboard-alt,
+.scoreboard-speed,
+.scoreboard-vario,
+.scoreboard-next-tp {
+  text-align: center;
 }
 
 .scoreboard-pilot-inner {
@@ -1148,6 +1199,14 @@ body {
 
 .scoreboard-next-tp {
   min-width: 0;
+}
+
+.scoreboard-task-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.15;
+  align-items: center;
 }
 
 .scoreboard-color {
@@ -1182,13 +1241,6 @@ body {
   font-size: 0.78rem;
   font-weight: 600;
   color: #334155;
-}
-
-.scoreboard-task-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  line-height: 1.15;
 }
 
 .scoreboard-muted {

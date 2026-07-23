@@ -25,7 +25,7 @@ import {
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
 import { getTrackSnapshotAtTime } from '../lib/taskProgress';
 import { colorForIndex } from '../lib/tracks';
-import { TASK_PROGRESS_LINE_COLOR } from '../lib/taskMapStyle';
+import { GOAL_COLOR, START_COLOR, TASK_PROGRESS_LINE_COLOR } from '../lib/taskMapStyle';
 import type { TaskProgressMarker } from '../lib/taskProgressMarker';
 import type { CompetitorSnapshot, OptimizedRoute, ProgressTurnpoint } from '../lib/types';
 import { Icon } from './Icon';
@@ -381,10 +381,26 @@ export const AltitudeChart = memo(function AltitudeChart({
 
           {turnpoints.map((tp) => {
             const isStart = tp.number === route.sssIndex + 1;
+            const isGoal = tp.number === route.goalIndex + 1;
             const tagged =
-              !isStart && progressPercent > 0 && progressPercent >= tp.taskPercent - 0.001;
-            const strokeColor = tagged ? TASK_PROGRESS_LINE_COLOR : isStart ? '#2563eb' : '#111827';
-            const labelColor = tagged ? TASK_PROGRESS_LINE_COLOR : isStart ? '#2563eb' : '#475569';
+              !isStart &&
+              !isGoal &&
+              progressPercent > 0 &&
+              progressPercent >= tp.taskPercent - 0.001;
+            const strokeColor = isStart
+              ? START_COLOR
+              : isGoal
+                ? GOAL_COLOR
+                : tagged
+                  ? TASK_PROGRESS_LINE_COLOR
+                  : '#111827';
+            const labelColor = isStart
+              ? START_COLOR
+              : isGoal
+                ? GOAL_COLOR
+                : tagged
+                  ? TASK_PROGRESS_LINE_COLOR
+                  : '#475569';
             return (
             <ReferenceLine
               key={`${tp.number}-${tp.name}`}

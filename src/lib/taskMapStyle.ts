@@ -10,6 +10,10 @@ export interface TaskMapLayerRefs {
 }
 
 const GOAL_COLOR = '#dc2626';
+const START_COLOR = '#2563eb';
+const DEFAULT_TURNPOINT_COLOR = '#64748b';
+
+export { GOAL_COLOR, START_COLOR };
 
 function escapeHtml(text: string): string {
   return text
@@ -33,9 +37,9 @@ function matchesGoal(circle: RoutePoint, route: OptimizedRoute): boolean {
 
 export function getDefaultTurnpointColor(circle: RoutePoint, route: OptimizedRoute): string {
   if (matchesGoal(circle, route)) return GOAL_COLOR;
-  if (circle.type === 'SSS') return '#2563eb';
+  if (circle.type === 'SSS') return START_COLOR;
   if (circle.type === 'ESS') return GOAL_COLOR;
-  return '#64748b';
+  return DEFAULT_TURNPOINT_COLOR;
 }
 
 export function isStartTurnpoint(circle: RoutePoint, route: OptimizedRoute): boolean {
@@ -43,12 +47,23 @@ export function isStartTurnpoint(circle: RoutePoint, route: OptimizedRoute): boo
   return getProgressIndexForCircle(circle, route) === 0;
 }
 
+export function isGoalTurnpoint(circle: RoutePoint, route: OptimizedRoute): boolean {
+  if (matchesGoal(circle, route)) return true;
+  if (circle.type === 'ESS') return true;
+  const index = getProgressIndexForCircle(circle, route);
+  return index >= 0 && index === route.progressTurnpoints.length - 1;
+}
+
+export function isGoalProgressTurnpoint(tpNumber: number, route: OptimizedRoute): boolean {
+  return tpNumber === route.goalIndex + 1;
+}
+
 export function getTurnpointColor(
   circle: RoutePoint,
   route: OptimizedRoute,
   tagged: boolean,
 ): string {
-  if (isStartTurnpoint(circle, route)) {
+  if (isStartTurnpoint(circle, route) || isGoalTurnpoint(circle, route)) {
     return getDefaultTurnpointColor(circle, route);
   }
   return tagged ? TASK_PROGRESS_COLOR : getDefaultTurnpointColor(circle, route);
