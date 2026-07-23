@@ -4,8 +4,6 @@ import { loadIgcFiles } from './tracks';
 export const XCDEMON_DEFAULT_LEAGUE_ID = 17;
 export const XCDEMON_BASE_URL = 'https://xcdemon.com';
 export const XCDEMON_TASK_TIME_ZONE = 'America/Los_Angeles';
-const XCDEMON_FETCH_TIMEOUT_MS = 20_000;
-const XCDEMON_CORS_PROXY = 'https://proxy.cors.sh/';
 
 export interface XcdemonLeague {
   id: number;
@@ -44,31 +42,11 @@ function buildFetchUrl(url: string): string {
       parsed.hostname === 'www.xcdemon.com' ? '/xcdemon-www-proxy' : '/xcdemon-proxy';
     return `${proxyPrefix}${parsed.pathname}${parsed.search}`;
   }
-  return `${XCDEMON_CORS_PROXY}${absolute}`;
-}
-
-async function fetchXcdemon(url: string, init?: RequestInit): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), XCDEMON_FETCH_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(buildFetchUrl(url), {
-      ...init,
-      signal: controller.signal,
-    });
-    return response;
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('Request to XCDemon timed out. Please try again.');
-    }
-    throw error;
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
+  return `https://api.allorigins.win/raw?url=${encodeURIComponent(absolute)}`;
 }
 
 export async function fetchXcdemonText(url: string): Promise<string> {
-  const response = await fetchXcdemon(url);
+  const response = await fetch(buildFetchUrl(url));
   if (!response.ok) {
     throw new Error(`Could not load XCDemon page (${response.status}).`);
   }
@@ -76,7 +54,7 @@ export async function fetchXcdemonText(url: string): Promise<string> {
 }
 
 export async function fetchXcdemonBinary(url: string): Promise<ArrayBuffer> {
-  const response = await fetchXcdemon(url);
+  const response = await fetch(buildFetchUrl(url));
   if (!response.ok) {
     throw new Error(`Could not download XCDemon file (${response.status}).`);
   }

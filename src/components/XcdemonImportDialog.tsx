@@ -44,9 +44,6 @@ export function XcdemonImportDialog({
     void fetchXcdemonActiveLeagues()
       .then((leagues) => {
         if (cancelled) return;
-        if (leagues.length === 0) {
-          throw new Error('No active leagues were found on XCDemon.');
-        }
         setActiveLeagues(leagues);
         setSelectedLeagueId(leagues[0]?.id ?? XCDEMON_DEFAULT_LEAGUE_ID);
       })
