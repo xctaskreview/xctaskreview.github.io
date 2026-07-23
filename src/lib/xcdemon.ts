@@ -134,7 +134,46 @@ function parseIgcZipUrl(trackLogsCell: Element): string | null {
   return null;
 }
 
-export function parseXcdemonResultsPage(html: string): {
+function buildTaskResultUrl(leagueId: number, taskId: string): string {
+  const params = new URLSearchParams({
+    leagueappid: String(leagueId),
+    task_id: taskId,
+  });
+  return `${XCDEMON_BASE_URL}/results_task.php?${params.toString()}`;
+}
+
+function parseTaskResultFromCell(
+  resultsCell: Element,
+  leagueId: number,
+): { taskId: string; taskResultUrl: string } | null {
+  for (const link of resultsCell.querySelectorAll('a[href]')) {
+    const href = link.getAttribute('href') ?? '';
+
+    const modernMatch = href.match(/results_task\.php(?:\?|.*?&)(?:.*?&)?task_id=(\d+)/i);
+    if (modernMatch) {
+      return {
+        taskId: modernMatch[1],
+        taskResultUrl: resolveXcdemonUrl(href),
+      };
+    }
+
+    const legacyMatch = href.match(/task_result_(\d+)\.html/i);
+    if (legacyMatch) {
+      const taskId = legacyMatch[1];
+      return {
+        taskId,
+        taskResultUrl: buildTaskResultUrl(leagueId, taskId),
+      };
+    }
+  }
+
+  return null;
+}
+
+export function parseXcdemonResultsPage(
+  html: string,
+  leagueId: number,
+): {
   leagueName: string;
   activeLeagues: XcdemonLeague[];
   years: number[];
@@ -152,22 +191,15 @@ export function parseXcdemonResultsPage(html: string): {
     const status = cells[2].textContent?.trim() ?? '';
     if (!location || !date || location.toUpperCase() === 'OVERALL') continue;
 
-    const taskResultLink = cells[3].querySelector('a[href*="results_task.php"]');
-    if (!taskResultLink) continue;
-
-    const href = taskResultLink.getAttribute('href');
-    if (!href) continue;
-
-    const taskIdMatch = href.match(/[?&]task_id=(\d+)/);
-    const taskId = taskIdMatch?.[1] ?? '';
-    if (!taskId) continue;
+    const taskResult = parseTaskResultFromCell(cells[3], leagueId);
+    if (!taskResult) continue;
 
     tasks.push({
-      taskId,
+      taskId: taskResult.taskId,
       location,
       date,
       status,
-      taskResultUrl: resolveXcdemonUrl(href),
+      taskResultUrl: taskResult.taskResultUrl,
       igcZipUrl: parseIgcZipUrl(cells[4]),
       label: `${date} · ${location}`,
     });
@@ -338,7 +370,7 @@ export function getXcdemonResultsUrl(leagueId: number, year?: number): string {
 
 export async function fetchXcdemonResults(leagueId: number, year?: number) {
   const html = await fetchXcdemonText(getXcdemonResultsUrl(leagueId, year));
-  return parseXcdemonResultsPage(html);
+  return parseXcdemonResultsPage(html, leagueId);
 }
 
 export async function fetchXcdemonActiveLeagues(
