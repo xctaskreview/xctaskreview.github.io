@@ -240,6 +240,17 @@ body {
   font-weight: 600;
 }
 
+.welcome-import-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.welcome-export {
+  margin-top: 12px;
+}
+
 .welcome-section {
   margin-top: 24px;
   padding-top: 20px;

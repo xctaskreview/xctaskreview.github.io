@@ -3,6 +3,7 @@ import type { FlightTrack, XcTask } from '../lib/types';
 import {
   ArrowRight,
   Clock,
+  Download,
   FileUp,
   FolderUp,
   Gauge,
@@ -63,6 +64,8 @@ interface WelcomeScreenProps {
   onPreferencesChange: (preferences: AppPreferences) => void;
   onContinue: () => void;
   onXcdemonImport: (result: XcdemonImportResult) => void;
+  onSessionBundleImport: (file: File) => void;
+  onSessionBundleExport: () => void;
   onError: (message: string) => void;
   onTaskUpdate: (task: XcTask) => void;
 }
@@ -88,6 +91,8 @@ export function WelcomeScreen({
   onPreferencesChange,
   onContinue,
   onXcdemonImport,
+  onSessionBundleImport,
+  onSessionBundleExport,
   onError,
   onTaskUpdate,
 }: WelcomeScreenProps) {
@@ -111,14 +116,36 @@ export function WelcomeScreen({
 
         <div className="welcome-xcdemon-import">
           <div className="welcome-xcdemon-import-label">Import from</div>
-          <button
-            type="button"
-            className="welcome-inline-button xcdemon-import-button"
-            onClick={() => setXcdemonOpen(true)}
-          >
-            <XcdemonButtonContent>XCDemon</XcdemonButtonContent>
-          </button>
+          <div className="welcome-import-buttons">
+            <label className="welcome-inline-button">
+              <IconButtonContent icon={FileUp}>File</IconButtonContent>
+              <input
+                type="file"
+                accept=".zip,application/zip"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) onSessionBundleImport(file);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              className="welcome-inline-button xcdemon-import-button"
+              onClick={() => setXcdemonOpen(true)}
+            >
+              <XcdemonButtonContent>XCDemon</XcdemonButtonContent>
+            </button>
+          </div>
         </div>
+
+        {task && (
+          <div className="welcome-export">
+            <button type="button" className="welcome-inline-button" onClick={onSessionBundleExport}>
+              <IconButtonContent icon={Download}>Export task and tracks</IconButtonContent>
+            </button>
+          </div>
+        )}
 
         <section className="welcome-section">
           <div className="welcome-section-header">

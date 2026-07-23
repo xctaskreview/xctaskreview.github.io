@@ -33,6 +33,7 @@ import {
   resolveTaskLocationLabel,
 } from './lib/xctask';
 import { loadPersistedSession, savePersistedSession } from './lib/persistedSession';
+import { downloadSessionBundle, importSessionBundle } from './lib/sessionBundle';
 import type { TaskProgressMarker } from './lib/taskProgressMarker';
 import { computeTurnpointReachTimes } from './lib/taskProgressMarker';
 import {
@@ -529,6 +530,62 @@ export default function App() {
     });
   }, []);
 
+
+const applyPersistedSession = useCallback((session: {
+  task: XcTask;
+  taskFileName?: string;
+  tracks: FlightTrack[];
+  enabledTrackIds: string[];
+  trackColors: Record<string, string>;
+  preferences: AppPreferences;
+  view?: AppView;
+}) => {
+  hadTaskRef.current = true;
+  setTask(session.task);
+  setTaskFileName(session.taskFileName ?? '');
+  setTracks(session.tracks);
+  setEnabledTrackIds(new Set(session.enabledTrackIds));
+  setTrackColors(assignUniqueTrackColors(session.tracks, session.trackColors));
+  setPreferences(session.preferences);
+  setView(session.view === 'review' ? 'review' : 'welcome');
+  setTaskFitKey(`${session.taskFileName ?? 'task'}-${Date.now()}`);
+}, []);
+
+const onSessionBundleImport = useCallback(async (file: File) => {
+  try {
+    setError(null);
+    const { session, warnings } = await importSessionBundle(file);
+    applyPersistedSession(session);
+
+    if (warnings.length > 0) {
+      setError(
+        `Imported task and ${session.tracks.length} tracklog(s). Skipped ${warnings.length} file(s): ${warnings.join('; ')}`,
+      );
+    }
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to import session bundle');
+  }
+}, [applyPersistedSession]);
+
+const onSessionBundleExport = useCallback(async () => {
+  if (!task) return;
+
+  try {
+    setError(null);
+    await downloadSessionBundle({
+      task,
+      taskFileName,
+      tracks,
+      enabledTrackIds: [...enabledTrackIds],
+      trackColors,
+      preferences,
+      view,
+    });
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to export session bundle');
+  }
+}, [task, taskFileName, tracks, enabledTrackIds, trackColors, preferences, view]);
+
   const onXcdemonImport = useCallback((result: XcdemonImportResult) => {
     setError(null);
     setTask(result.task);
@@ -573,6 +630,8 @@ export default function App() {
           onContinue={() => setView('review')}
           onDismissError={() => setError(null)}
           onXcdemonImport={onXcdemonImport}
+          onSessionBundleImport={(file) => void onSessionBundleImport(file)}
+          onSessionBundleExport={() => void onSessionBundleExport()}
           onError={setError}
           onTaskUpdate={onTaskUpdate}
         />
