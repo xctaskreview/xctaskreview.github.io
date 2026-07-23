@@ -1,0 +1,20 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules
+
+# Build
+dist
+tsconfig.tsbuildinfo
+
+# Editor
+.DS_Store
+.idea
+.vscode
+
+# Local env
+.env
+.env.*
