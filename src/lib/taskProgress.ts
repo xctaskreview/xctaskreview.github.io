@@ -116,7 +116,7 @@ export function enrichTrackWithTaskProgress(
   let hasExitedSss = false;
   let currentLeg = -1;
   let finished = false;
-  let finishTime = track.finishTime;
+  let finishTime: Date | undefined;
 
   const taskStartMs = taskStart?.getTime();
 

@@ -1112,33 +1112,36 @@ body {
 }
 
 .current-time-block {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 1px;
+  flex: 0 0 9rem;
+  width: 9rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 8ch;
+  column-gap: 6px;
+  row-gap: 1px;
+  align-items: center;
 }
 
 .current-time-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: contents;
 }
 
 .time-metric-label {
   color: #64748b;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  min-width: 0;
 }
 
 .current-time {
   font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .task-elapsed {
   color: #0f172a;
   font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .slider-shell {
