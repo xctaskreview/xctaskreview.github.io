@@ -105,6 +105,17 @@ export function WelcomeScreen({
           Load a competition task and competitor tracklogs to replay the race on a shared timeline.
         </p>
 
+        <div className="welcome-xcdemon-import">
+          <div className="welcome-xcdemon-import-label">Import from</div>
+          <button
+            type="button"
+            className="welcome-inline-button xcdemon-import-button"
+            onClick={() => setXcdemonOpen(true)}
+          >
+            <XcdemonButtonContent>XCDemon</XcdemonButtonContent>
+          </button>
+        </div>
+
         <section className="welcome-section">
           <div className="welcome-section-header">
             <h2 className="welcome-section-title">
@@ -112,13 +123,6 @@ export function WelcomeScreen({
               Task
             </h2>
             <div className="welcome-section-actions">
-              <button
-                type="button"
-                className="welcome-inline-button xcdemon-import-button"
-                onClick={() => setXcdemonOpen(true)}
-              >
-                <XcdemonButtonContent>Import from XCDemon</XcdemonButtonContent>
-              </button>
               <label className="welcome-inline-button">
                 <IconButtonContent icon={FileUp}>Load task</IconButtonContent>
                 <input
