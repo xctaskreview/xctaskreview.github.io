@@ -23,6 +23,7 @@ import { getTaskDisplayInfo } from '../lib/xctask';
 import type { AppPreferences } from '../lib/preferences';
 import { getMapTypeOptions, getSpeedUnitOptions, getTimezoneOptions, getVerticalSpeedUnitOptions, normalizePilotTrailLengthM } from '../lib/preferences';
 import { AppHomeLink } from './AppHomeLink';
+import { FileDropZone } from './FileDropZone';
 import { Icon, IconButtonContent, IconLabel, XcdemonButtonContent } from './Icon';
 import { XcdemonImportDialog } from './XcdemonImportDialog';
 
@@ -62,6 +63,7 @@ interface WelcomeScreenProps {
   onContinue: () => void;
   onXcdemonImport: (result: XcdemonImportResult) => void;
   onError: (message: string) => void;
+  onTaskUpdate: (task: XcTask) => void;
 }
 
 export function WelcomeScreen({
@@ -86,6 +88,7 @@ export function WelcomeScreen({
   onContinue,
   onXcdemonImport,
   onError,
+  onTaskUpdate,
 }: WelcomeScreenProps) {
   const [xcdemonOpen, setXcdemonOpen] = useState(false);
 
@@ -138,7 +141,11 @@ export function WelcomeScreen({
             </div>
           </div>
 
-          <div className={`welcome-task-panel${task ? ' loaded' : ''}`}>
+          <FileDropZone
+            accept={['.xctsk', '.json']}
+            className={`welcome-task-panel${task ? ' loaded' : ''}`}
+            onFiles={(files) => onTaskFile(files[0])}
+          >
             {task && taskDisplay ? (
               <>
                 <div className="welcome-task-name">{taskDisplay.name}</div>
@@ -150,11 +157,12 @@ export function WelcomeScreen({
                 {taskFileName && taskDisplay.name !== taskFileName.replace(/\.(xctsk|json)$/i, '') && (
                   <div className="welcome-task-file">{taskFileName}</div>
                 )}
+                <TaskEditForm task={task} onApply={onTaskUpdate} onError={onError} />
               </>
             ) : (
-              <div className="welcome-task-empty">No task loaded yet</div>
+              <div className="welcome-task-empty">No task loaded yet — drop a .xctsk or .json file here</div>
             )}
-          </div>
+          </FileDropZone>
         </section>
 
         <section className="welcome-section">
@@ -187,53 +195,65 @@ export function WelcomeScreen({
 
           {!task && <p className="welcome-section-hint">Load a task before adding tracklogs.</p>}
 
-          {tracks.length > 0 ? (
-            <>
-              <p className="welcome-section-hint">Uncheck pilots to hide them in the review.</p>
-              <ul className="welcome-pilot-list">
-                {tracks.map((track) => {
-                  const pilotName = extractPilotDisplayName(track);
-                  const gliderType = extractGliderType(track);
+          <FileDropZone
+            accept={['.igc', '.zip']}
+            disabled={!task}
+            multiple
+            className={`welcome-tracks-drop-zone${tracks.length > 0 ? ' has-tracks' : ''}`}
+            onFiles={onTrackFiles}
+          >
+            {tracks.length > 0 ? (
+              <>
+                <p className="welcome-section-hint">Uncheck pilots to hide them in the review.</p>
+                <ul className="welcome-pilot-list">
+                  {tracks.map((track) => {
+                    const pilotName = extractPilotDisplayName(track);
+                    const gliderType = extractGliderType(track);
 
-                  return (
-                  <li key={track.id}>
-                    <label className="welcome-pilot-item">
-                      <input
-                        type="checkbox"
-                        checked={enabledTrackIds.has(track.id)}
-                        onChange={(e) => onToggleTrack(track.id, e.target.checked)}
-                      />
-                      <input
-                        type="color"
-                        className="welcome-pilot-color"
-                        value={trackColors[track.id] ?? '#4363d8'}
-                        aria-label={`Color for ${pilotName}`}
-                        onChange={(e) => onTrackColorChange(track.id, e.target.value)}
-                      />
-                      <span className="welcome-pilot-name">
-                        <span className="welcome-pilot-line">
-                          {pilotName}
-                          <span className="welcome-pilot-file"> ({extractPilotFileName(track)})</span>
+                    return (
+                    <li key={track.id}>
+                      <label className="welcome-pilot-item">
+                        <input
+                          type="checkbox"
+                          checked={enabledTrackIds.has(track.id)}
+                          onChange={(e) => onToggleTrack(track.id, e.target.checked)}
+                        />
+                        <input
+                          type="color"
+                          className="welcome-pilot-color"
+                          value={trackColors[track.id] ?? '#4363d8'}
+                          aria-label={`Color for ${pilotName}`}
+                          onChange={(e) => onTrackColorChange(track.id, e.target.value)}
+                        />
+                        <span className="welcome-pilot-name">
+                          <span className="welcome-pilot-line">
+                            {pilotName}
+                            <span className="welcome-pilot-file"> ({extractPilotFileName(track)})</span>
+                          </span>
+                          {gliderType && <span className="welcome-pilot-glider">{gliderType}</span>}
                         </span>
-                        {gliderType && <span className="welcome-pilot-glider">{gliderType}</span>}
-                      </span>
-                    </label>
-                    <button
-                      type="button"
-                      className="welcome-icon-button"
-                      aria-label={`Remove ${pilotName}`}
-                      onClick={() => onRemoveTrack(track.id)}
-                    >
-                      <Icon icon={X} size="sm" />
-                    </button>
-                  </li>
-                  );
-                })}
-              </ul>
-            </>
-          ) : (
-            <div className="welcome-tracks-empty">No tracklogs loaded yet</div>
-          )}
+                      </label>
+                      <button
+                        type="button"
+                        className="welcome-icon-button"
+                        aria-label={`Remove ${pilotName}`}
+                        onClick={() => onRemoveTrack(track.id)}
+                      >
+                        <Icon icon={X} size="sm" />
+                      </button>
+                    </li>
+                    );
+                  })}
+                </ul>
+              </>
+            ) : (
+              <div className="welcome-tracks-empty">
+                {task
+                  ? 'No tracklogs loaded yet — drop .igc files or a .zip archive here'
+                  : 'No tracklogs loaded yet'}
+              </div>
+            )}
+          </FileDropZone>
         </section>
 
         <div className="welcome-preferences">
