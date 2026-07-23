@@ -1,7 +1,7 @@
 import { extractGliderType, pilotFirstName } from './igc';
 import { clampDisplayAltitudeMeters, computeSpeedsAtTime } from './geo';
 import type { EnrichedFlightTrack } from './taskProgress';
-import { colorForIndex, getTrackSnapshotAtTime } from './tracks';
+import { getTrackColor, getTrackSnapshotAtTime } from './tracks';
 import type { CompetitorSnapshot, OptimizedRoute } from './types';
 
 export function buildCompetitorSnapshots(
@@ -13,7 +13,7 @@ export function buildCompetitorSnapshots(
 ): CompetitorSnapshot[] {
   const taskDistanceKm = route.progressTotalDistance / 1000;
 
-  return tracks.flatMap((track) => {
+  return tracks.flatMap((track, index) => {
     const snapshot = getTrackSnapshotAtTime(track, currentTime, route);
     if (!snapshot) return [];
 
@@ -35,7 +35,7 @@ export function buildCompetitorSnapshots(
         alt: clampDisplayAltitudeMeters(snapshot.alt),
         taskPercent: snapshot.taskPercent,
         taskKm,
-        color: trackColors[track.id] ?? colorForIndex(0),
+        color: getTrackColor(track.id, trackColors, index),
         landed: snapshot.landed,
         groundSpeedMps: speeds.groundSpeedMps,
         verticalSpeedMps: speeds.verticalSpeedMps,

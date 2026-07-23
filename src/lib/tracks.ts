@@ -91,3 +91,73 @@ export function computeTaskTiming(task: XcTask, tracks: EnrichedFlightTrack[]): 
 export function colorForIndex(index: number): string {
   return COMPETITOR_COLORS[index % COMPETITOR_COLORS.length];
 }
+
+function normalizeColorKey(color: string): string {
+  return color.trim().toLowerCase();
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const saturation = s / 100;
+  const lightness = l / 100;
+  const chroma = saturation * Math.min(lightness, 1 - lightness);
+  const component = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const value = lightness - chroma * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * value)
+      .toString(16)
+      .padStart(2, '0');
+  };
+  return `#${component(0)}${component(8)}${component(4)}`;
+}
+
+export function generateDistinctColor(index: number): string {
+  if (index < COMPETITOR_COLORS.length) {
+    return COMPETITOR_COLORS[index];
+  }
+  const extraIndex = index - COMPETITOR_COLORS.length;
+  const hue = (extraIndex * 137.508) % 360;
+  return hslToHex(hue, 72, 42);
+}
+
+export function getTrackColor(
+  trackId: string,
+  trackColors: Record<string, string>,
+  fallbackIndex = 0,
+): string {
+  return trackColors[trackId] ?? colorForIndex(fallbackIndex);
+}
+
+export function assignUniqueTrackColors(
+  tracks: Array<{ id: string }>,
+  existing: Record<string, string> = {},
+): Record<string, string> {
+  const sortedTracks = [...tracks].sort((a, b) => a.id.localeCompare(b.id));
+  const usedColors = new Set<string>();
+  const result: Record<string, string> = {};
+
+  for (const track of sortedTracks) {
+    const color = existing[track.id]?.trim();
+    if (!color) continue;
+    const key = normalizeColorKey(color);
+    if (usedColors.has(key)) continue;
+    result[track.id] = color;
+    usedColors.add(key);
+  }
+
+  let paletteIndex = 0;
+  for (const track of sortedTracks) {
+    if (result[track.id]) continue;
+
+    while (paletteIndex < 1000) {
+      const candidate = generateDistinctColor(paletteIndex);
+      paletteIndex += 1;
+      const key = normalizeColorKey(candidate);
+      if (usedColors.has(key)) continue;
+      result[track.id] = candidate;
+      usedColors.add(key);
+      break;
+    }
+  }
+
+  return result;
+}

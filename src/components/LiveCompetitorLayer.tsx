@@ -13,7 +13,7 @@ import {
   turnpointIcon,
   type TaskMapLayerRefs,
 } from '../lib/taskMapStyle';
-import { colorForIndex, getTrackSnapshotAtTime } from '../lib/tracks';
+import { getTrackColor, getTrackSnapshotAtTime } from '../lib/tracks';
 import { computeCompetitorPositions } from '../lib/competitors';
 import { buildPilotTrailLatLngs } from '../lib/pilotTrail';
 import {
@@ -204,8 +204,8 @@ export function LiveCompetitorLayer({
       }
     }
 
-    for (const track of tracks) {
-      const color = trackColors[track.id] ?? colorForIndex(0);
+    for (const [index, track] of tracks.entries()) {
+      const color = getTrackColor(track.id, trackColors, index);
 
       if (!trails.has(track.id)) {
         const polyline = L.polyline([], {

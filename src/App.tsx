@@ -15,7 +15,7 @@ import {
   type AppPreferences,
 } from './lib/preferences';
 import {
-  colorForIndex,
+  assignUniqueTrackColors,
   computeTaskTiming,
   advanceLeadPercentages,
   enrichTracksWithTaskProgress,
@@ -82,7 +82,7 @@ export default function App() {
           setTaskFileName(persisted.taskFileName ?? '');
           setTracks(persisted.tracks);
           setEnabledTrackIds(new Set(persisted.enabledTrackIds));
-          setTrackColors(persisted.trackColors);
+          setTrackColors(assignUniqueTrackColors(persisted.tracks, persisted.trackColors));
           setPreferences(persisted.preferences);
           if (persisted.taskFileName) {
             setTaskFitKey(`${persisted.taskFileName}-restored`);
@@ -110,6 +110,19 @@ export default function App() {
       return next.some((track, index) => track !== prev[index]) ? next : prev;
     });
   }, []);
+
+  useEffect(() => {
+    if (!storageReady || tracks.length === 0) return;
+
+    setTrackColors((prev) => {
+      const next = assignUniqueTrackColors(tracks, prev);
+      const trackIds = new Set(tracks.map((track) => track.id));
+      const unchanged =
+        Object.keys(prev).length === Object.keys(next).length &&
+        [...trackIds].every((id) => prev[id] === next[id]);
+      return unchanged ? prev : next;
+    });
+  }, [storageReady, tracks]);
 
   const route = useMemo(() => (task ? buildOptimizedRoute(task) : null), [task]);
   const visibleTracks = useMemo(
@@ -412,13 +425,9 @@ export default function App() {
         newTracks.forEach((track) => next.add(track.id));
         return next;
       });
-      setTrackColors((prev) => {
-        const next = { ...prev };
-        newTracks.forEach((track, index) => {
-          next[track.id] = colorForIndex(Object.keys(next).length + index);
-        });
-        return next;
-      });
+      setTrackColors((prev) =>
+        assignUniqueTrackColors([...updatedTracks, ...newTracks], prev),
+      );
 
       const duplicateCount = loaded.length - newTracks.length;
       if (duplicateCount > 0 && metadataUpdated) {

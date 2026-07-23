@@ -24,7 +24,7 @@ import {
 } from '../lib/preferences';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
 import { getTrackSnapshotAtTime } from '../lib/taskProgress';
-import { colorForIndex } from '../lib/tracks';
+import { getTrackColor } from '../lib/tracks';
 import { GOAL_COLOR, START_COLOR, TASK_PROGRESS_LINE_COLOR } from '../lib/taskMapStyle';
 import type { TaskProgressMarker } from '../lib/taskProgressMarker';
 import type { CompetitorSnapshot, OptimizedRoute, ProgressTurnpoint } from '../lib/types';
@@ -148,7 +148,7 @@ function buildChartTrails(
     return [];
   }
 
-  return enrichedTracks.flatMap((track) => {
+  return enrichedTracks.flatMap((track, index) => {
     const snapshot = getTrackSnapshotAtTime(track, time, route);
     if (!snapshot) return [];
 
@@ -169,7 +169,7 @@ function buildChartTrails(
     return [
       {
         id: track.id,
-        color: trackColors[track.id] ?? colorForIndex(0),
+        color: getTrackColor(track.id, trackColors, index),
         landed: snapshot.landed,
         points,
       },

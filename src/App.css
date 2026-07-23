@@ -1092,7 +1092,7 @@ body {
 .scoreboard-row {
   display: grid;
   grid-template-columns:
-    24px minmax(0, 1fr) minmax(53px, 0.6fr) 57px 53px 55px 51px minmax(79px, 0.94fr);
+    24px minmax(0, 1.1fr) minmax(53px, 0.6fr) 57px 53px 55px 51px minmax(79px, 0.94fr);
   align-items: center;
   gap: 6px;
   padding: 0 4px;
