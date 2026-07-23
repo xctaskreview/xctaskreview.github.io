@@ -14,6 +14,7 @@ const GOAL_COLOR = '#dc2626';
 const START_COLOR = '#2563eb';
 const DEFAULT_TURNPOINT_COLOR = '#64748b';
 const LANDING_COLOR = DEFAULT_TURNPOINT_COLOR;
+export const EXCLUDED_TURNPOINT_COLOR = '#94a3b8';
 
 export { DEFAULT_TURNPOINT_COLOR, GOAL_COLOR, LANDING_COLOR, START_COLOR };
 
@@ -52,22 +53,32 @@ export function isLandingTurnpoint(circle: RoutePoint, route: OptimizedRoute): b
   return circle.number - 1 > route.goalIndex;
 }
 
+export function isBeforeStartTurnpoint(circle: RoutePoint, route: OptimizedRoute): boolean {
+  if (circle.number === undefined) return false;
+  return circle.number - 1 < route.sssIndex;
+}
+
+export function isExcludedTurnpoint(circle: RoutePoint, route: OptimizedRoute): boolean {
+  return isBeforeStartTurnpoint(circle, route) || isLandingTurnpoint(circle, route);
+}
+
 export function getDefaultTurnpointColor(circle: RoutePoint, route: OptimizedRoute): string {
-  if (matchesGoal(circle, route)) return GOAL_COLOR;
-  if (circle.type === 'SSS') return START_COLOR;
-  if (circle.type === 'ESS') return GOAL_COLOR;
-  if (isLandingTurnpoint(circle, route)) return LANDING_COLOR;
+  if (isExcludedTurnpoint(circle, route)) return EXCLUDED_TURNPOINT_COLOR;
+  if (isStartTurnpoint(circle, route)) return START_COLOR;
+  if (isGoalTurnpoint(circle, route)) return GOAL_COLOR;
   return DEFAULT_TURNPOINT_COLOR;
 }
 
 export function isStartTurnpoint(circle: RoutePoint, route: OptimizedRoute): boolean {
-  if (circle.type === 'SSS') return true;
+  if (isBeforeStartTurnpoint(circle, route)) return false;
+  if (circle.number !== undefined) return circle.number - 1 === route.sssIndex;
   return getProgressIndexForCircle(circle, route) === 0;
 }
 
 export function isGoalTurnpoint(circle: RoutePoint, route: OptimizedRoute): boolean {
+  if (isLandingTurnpoint(circle, route)) return false;
+  if (circle.number !== undefined) return circle.number - 1 === route.goalIndex;
   if (matchesGoal(circle, route)) return true;
-  if (circle.type === 'ESS') return true;
   const index = getProgressIndexForCircle(circle, route);
   return index >= 0 && index === route.progressTurnpoints.length - 1;
 }
@@ -81,7 +92,10 @@ export function getTurnpointColor(
   route: OptimizedRoute,
   tagged: boolean,
 ): string {
-  if (isStartTurnpoint(circle, route) || isGoalTurnpoint(circle, route) || isLandingTurnpoint(circle, route)) {
+  if (isExcludedTurnpoint(circle, route)) {
+    return EXCLUDED_TURNPOINT_COLOR;
+  }
+  if (isStartTurnpoint(circle, route) || isGoalTurnpoint(circle, route)) {
     return getDefaultTurnpointColor(circle, route);
   }
   return tagged ? TASK_PROGRESS_COLOR : getDefaultTurnpointColor(circle, route);
@@ -100,7 +114,7 @@ export function getTurnpointCirclePathOptions(
     weight,
     fillColor: color,
     fillOpacity: 0.08,
-    dashArray: isLandingTurnpoint(circle, route) ? ROUTE_DASH_ARRAY : undefined,
+    dashArray: isExcludedTurnpoint(circle, route) ? ROUTE_DASH_ARRAY : undefined,
   };
 }
 

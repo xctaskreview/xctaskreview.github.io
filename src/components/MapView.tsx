@@ -10,7 +10,7 @@ import {
   getPostGoalRouteSegments,
   getProgressRouteLegs,
   getTurnpointCirclePathOptions,
-  LANDING_COLOR,
+  EXCLUDED_TURNPOINT_COLOR,
   ROUTE_DASH_ARRAY,
   turnpointIcon,
   type TaskMapLayerRefs,
@@ -216,7 +216,7 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
       {preRacePoints.length > 1 && (
         <Polyline
           positions={preRacePoints.map((p) => [p.lat, p.lon])}
-          pathOptions={{ color: '#111827', weight: 1.5, dashArray: ROUTE_DASH_ARRAY, interactive: false }}
+          pathOptions={{ color: EXCLUDED_TURNPOINT_COLOR, weight: 1.5, dashArray: ROUTE_DASH_ARRAY, interactive: false }}
         />
       )}
 
@@ -241,7 +241,7 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
             [segment[1].lat, segment[1].lon],
           ]}
           pathOptions={{
-            color: LANDING_COLOR,
+            color: EXCLUDED_TURNPOINT_COLOR,
             weight: 1.5,
             dashArray: ROUTE_DASH_ARRAY,
             interactive: false,
