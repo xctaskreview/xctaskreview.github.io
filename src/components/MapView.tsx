@@ -17,7 +17,9 @@ import {
 } from '../lib/taskMapStyle';
 import { getUniqueTurnpointMarkers } from '../lib/xctask';
 import { LiveCompetitorLayer } from './LiveCompetitorLayer';
+import { AirStatsOverlay } from './AirStatsOverlay';
 import { MapLegend } from './MapLegend';
+import { MapOverlayControls } from './MapOverlayControls';
 import { Scoreboard } from './Scoreboard';
 import type { TaskProgressMarker, TurnpointReachMarker } from '../lib/taskProgressMarker';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
@@ -25,6 +27,7 @@ import { buildReachMarkerMap, buildTurnpointTooltipFromCircle } from '../lib/tur
 import { TurnpointPopupContent } from './TurnpointHoverTooltip';
 import type { CompetitorSnapshot, OptimizedRoute, RoutePoint } from '../lib/types';
 import type { DistanceUnit } from '../lib/preferences';
+import type { GeneralAirStats } from '../lib/airStats';
 
 function formatTurnpointPopup(
   circle: RoutePoint,
@@ -300,8 +303,12 @@ export function MapView({
   trackKey,
   taskProgressMarkerRef,
   turnpointReachMarkers,
+  airStats,
+  onPreferencesChange,
 }: MapViewProps) {
   const tile = MAP_TILES[preferences.mapType];
+  const showThermalOverlay = preferences.showThermalOverlay ?? false;
+  const showWindOverlay = preferences.showWindOverlay ?? false;
   const layerRefs = useRef<TaskMapLayerRefs>({
     circles: new Map(),
     markers: new Map(),
@@ -316,6 +323,11 @@ export function MapView({
       <MapContainer bounds={bounds} scrollWheelZoom className="task-map" key={`${fitKey}-${preferences.mapType}`}>
         <TileLayer attribution={tile.attribution} url={tile.url} />
         <FitBounds bounds={bounds} fitKey={fitKey} />
+        <AirStatsOverlay
+          airStats={airStats}
+          showThermalOverlay={showThermalOverlay}
+          showWindOverlay={showWindOverlay}
+        />
         <MapTaskOverlay
           circles={circles}
           optimizedRoute={optimizedRoute}
@@ -344,6 +356,13 @@ export function MapView({
       <Scoreboard
         competitors={scoreboardCompetitors}
         leadPercentages={leadPercentages}
+        preferences={preferences}
+        playing={playing}
+      />
+    </div>
+  );
+}
+ntages={leadPercentages}
         preferences={preferences}
         playing={playing}
       />
