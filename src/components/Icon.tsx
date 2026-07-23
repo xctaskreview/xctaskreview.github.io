@@ -69,3 +69,36 @@ export function IconButtonContent({
     </IconLabel>
   );
 }
+
+export const XCDEMON_ICON_URL = '/xcdemon-icon.png';
+
+export function XcdemonIcon({ size = 'sm', className }: { size?: IconSize; className?: string }) {
+  const px = SIZE_PX[size];
+  const classes = ['ui-icon', 'xcdemon-icon', className].filter(Boolean).join(' ');
+
+  return (
+    <img
+      src={XCDEMON_ICON_URL}
+      alt=""
+      aria-hidden="true"
+      className={classes}
+      width={px}
+      height={px}
+    />
+  );
+}
+
+export function XcdemonButtonContent({
+  children,
+  iconSize = 'sm',
+}: {
+  children: ReactNode;
+  iconSize?: IconSize;
+}) {
+  return (
+    <span className="icon-label icon-button-content">
+      <XcdemonIcon size={iconSize} />
+      <span>{children}</span>
+    </span>
+  );
+}

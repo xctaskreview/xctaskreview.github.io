@@ -1,6 +1,6 @@
 import type { LatLon, OptimizedRoute, RoutePoint, XcTask } from './types';
 import { computeOptimizedRoute } from './route';
-import { haversine, parseUtcTimeOnDate } from './geo';
+import { haversine, parseIsoDate, parseLocalTimeOnDate, parseUtcTimeOnDate } from './geo';
 
 export function parseXcTask(text: string): XcTask {
   const task = JSON.parse(text) as XcTask;
@@ -79,7 +79,15 @@ export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
 export function getTaskStartTime(task: XcTask, referenceDate: Date): Date | undefined {
   const gate = task.sss?.timeGates?.[0];
   if (!gate) return undefined;
-  return parseUtcTimeOnDate(gate, referenceDate);
+
+  const date =
+    task.eventDate !== undefined ? parseIsoDate(task.eventDate) : referenceDate;
+
+  if (task.timeZone) {
+    return parseLocalTimeOnDate(gate, date, task.timeZone);
+  }
+
+  return parseUtcTimeOnDate(gate, date);
 }
 
 export function getUniqueTurnpointCircles(task: XcTask): RoutePoint[] {

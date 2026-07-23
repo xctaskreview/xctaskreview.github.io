@@ -39,6 +39,10 @@ export interface XcTask {
     deadline?: string;
   };
   earthModel?: string;
+  /** IANA timezone for interpreting local time gates (e.g. America/Los_Angeles). */
+  timeZone?: string;
+  /** Task date as YYYY-MM-DD when known (e.g. from XCDemon). */
+  eventDate?: string;
 }
 
 export interface TrackPoint {

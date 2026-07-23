@@ -21,6 +21,7 @@ import {
   enrichTracksWithTaskProgress,
   loadIgcFiles,
 } from './lib/tracks';
+import type { XcdemonImportResult } from './lib/xcdemon';
 import type { FlightTrack, TaskTiming, XcTask } from './lib/types';
 import {
   buildOptimizedRoute,
@@ -478,6 +479,26 @@ export default function App() {
     });
   }, []);
 
+  const onXcdemonImport = useCallback((result: XcdemonImportResult) => {
+    setError(null);
+    setTask(result.task);
+    setTaskFileName(result.taskFileName);
+    setTaskFitKey(`${result.taskFileName}-${Date.now()}`);
+    setTracks(result.tracks);
+    setEnabledTrackIds(new Set(result.tracks.map((track) => track.id)));
+    setTrackColors(assignUniqueTrackColors(result.tracks));
+
+    if (result.tracks.length === 0 && result.trackErrors.length > 0) {
+      setError(result.trackErrors[0] ?? 'Imported task, but no tracklogs could be loaded.');
+    } else if (result.tracks.length === 0) {
+      setError('Imported task. No IGC zip was available for this event.');
+    } else if (result.trackErrors.length > 0) {
+      setError(
+        `Imported task and ${result.tracks.length} tracklog(s). Skipped ${result.trackErrors.length} file(s): ${result.trackErrors.join('; ')}`,
+      );
+    }
+  }, []);
+
   if (!showReview) {
     return (
       <div className="app-shell">
@@ -501,6 +522,8 @@ export default function App() {
           onPreferencesChange={setPreferences}
           onContinue={() => setView('review')}
           onDismissError={() => setError(null)}
+          onXcdemonImport={onXcdemonImport}
+          onError={setError}
         />
         <AppFooter />
       </div>

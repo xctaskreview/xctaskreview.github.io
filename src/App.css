@@ -13,6 +13,11 @@
   flex-shrink: 0;
 }
 
+.xcdemon-icon {
+  display: block;
+  object-fit: contain;
+}
+
 .icon-label {
   display: inline-flex;
   align-items: center;
@@ -446,6 +451,126 @@ body {
   margin: 0 0 12px;
   color: #64748b;
   font-size: 0.9rem;
+}
+
+.xcdemon-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.xcdemon-dialog {
+  width: min(520px, 100%);
+  max-height: min(90vh, 720px);
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+}
+
+.xcdemon-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.xcdemon-dialog-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.xcdemon-dialog-subtitle {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.xcdemon-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px;
+}
+
+.xcdemon-dialog-summary {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.xcdemon-dialog-warning {
+  color: #b45309;
+}
+
+.xcdemon-dialog-hint,
+.xcdemon-dialog-status {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.xcdemon-dialog-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.xcdemon-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px 18px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.xcdemon-import-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.welcome-inline-button.xcdemon-import-button {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
+.welcome-inline-button.xcdemon-import-button:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.welcome-inline-button.xcdemon-import-button:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  opacity: 1;
+}
+
+.spin-icon {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .welcome-pilot-list {

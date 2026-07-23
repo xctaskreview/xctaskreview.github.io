@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { FlightTrack, XcTask } from '../lib/types';
 import {
   ArrowRight,
@@ -17,11 +18,13 @@ import {
   X,
 } from 'lucide-react';
 import { extractGliderType, extractPilotDisplayName, extractPilotFileName } from '../lib/igc';
+import type { XcdemonImportResult } from '../lib/xcdemon';
 import { getTaskDisplayInfo } from '../lib/xctask';
 import type { AppPreferences } from '../lib/preferences';
 import { getMapTypeOptions, getSpeedUnitOptions, getTimezoneOptions, getVerticalSpeedUnitOptions, normalizePilotTrailLengthM } from '../lib/preferences';
 import { AppHomeLink } from './AppHomeLink';
-import { Icon, IconButtonContent, IconLabel } from './Icon';
+import { Icon, IconButtonContent, IconLabel, XcdemonButtonContent } from './Icon';
+import { XcdemonImportDialog } from './XcdemonImportDialog';
 
 function getDistanceUnitOptions() {
   return [
@@ -57,6 +60,8 @@ interface WelcomeScreenProps {
   onRemoveAllTracks: () => void;
   onPreferencesChange: (preferences: AppPreferences) => void;
   onContinue: () => void;
+  onXcdemonImport: (result: XcdemonImportResult) => void;
+  onError: (message: string) => void;
 }
 
 export function WelcomeScreen({
@@ -79,7 +84,11 @@ export function WelcomeScreen({
   onRemoveAllTracks,
   onPreferencesChange,
   onContinue,
+  onXcdemonImport,
+  onError,
 }: WelcomeScreenProps) {
+  const [xcdemonOpen, setXcdemonOpen] = useState(false);
+
   const updatePreference = <K extends keyof AppPreferences>(key: K, value: AppPreferences[K]) => {
     onPreferencesChange({ ...preferences, [key]: value });
   };
@@ -102,18 +111,27 @@ export function WelcomeScreen({
               <Icon icon={MapPinned} size="sm" />
               Task
             </h2>
-            <label className="welcome-inline-button">
-              <IconButtonContent icon={FileUp}>Load task</IconButtonContent>
-              <input
-                type="file"
-                accept=".xctsk,.json"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) onTaskFile(file);
-                  e.target.value = '';
-                }}
-              />
-            </label>
+            <div className="welcome-section-actions">
+              <button
+                type="button"
+                className="welcome-inline-button xcdemon-import-button"
+                onClick={() => setXcdemonOpen(true)}
+              >
+                <XcdemonButtonContent>Import from XCDemon</XcdemonButtonContent>
+              </button>
+              <label className="welcome-inline-button">
+                <IconButtonContent icon={FileUp}>Load task</IconButtonContent>
+                <input
+                  type="file"
+                  accept=".xctsk,.json"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) onTaskFile(file);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
           </div>
 
           <div className={`welcome-task-panel${task ? ' loaded' : ''}`}>
@@ -342,6 +360,13 @@ export function WelcomeScreen({
           </div>
         )}
       </div>
+
+      <XcdemonImportDialog
+        open={xcdemonOpen}
+        onClose={() => setXcdemonOpen(false)}
+        onImported={onXcdemonImport}
+        onError={onError}
+      />
     </div>
   );
 }

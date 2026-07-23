@@ -284,6 +284,79 @@ export function parseUtcTimeOnDate(timeGate: string, date: Date): Date {
   return result;
 }
 
+function getZonedTimeParts(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  });
+  const parts = formatter.formatToParts(date);
+  const read = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0);
+
+  return {
+    year: read('year'),
+    month: read('month'),
+    day: read('day'),
+    hour: read('hour'),
+    minute: read('minute'),
+    second: read('second'),
+  };
+}
+
+export function parseIsoDate(isoDate: string): Date {
+  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) throw new Error(`Invalid date: ${isoDate}`);
+  return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0));
+}
+
+export function parseLocalTimeOnDate(timeGate: string, date: Date, timeZone: string): Date {
+  const match = timeGate.match(/^(\d{2}):(\d{2})(?::(\d{2}))?Z?$/i);
+  if (!match) throw new Error(`Invalid time gate: ${timeGate}`);
+
+  const target = {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+    hour: Number(match[1]),
+    minute: Number(match[2]),
+    second: Number(match[3] ?? 0),
+  };
+
+  const compareParts = (
+    parts: ReturnType<typeof getZonedTimeParts>,
+  ) => {
+    if (parts.year !== target.year) return parts.year - target.year;
+    if (parts.month !== target.month) return parts.month - target.month;
+    if (parts.day !== target.day) return parts.day - target.day;
+    if (parts.hour !== target.hour) return parts.hour - target.hour;
+    if (parts.minute !== target.minute) return parts.minute - target.minute;
+    return parts.second - target.second;
+  };
+
+  let low = Date.UTC(target.year, target.month - 1, target.day - 1, 0, 0, 0);
+  let high = Date.UTC(target.year, target.month - 1, target.day + 1, 23, 59, 59);
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const cmp = compareParts(getZonedTimeParts(new Date(mid), timeZone));
+    if (cmp === 0) return new Date(mid);
+    if (cmp < 0) low = mid + 1;
+    else high = mid - 1;
+  }
+
+  throw new Error(`Could not resolve local time ${timeGate} on ${isoDateFromUtcDate(date)} in ${timeZone}`);
+}
+
+function isoDateFromUtcDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
 export const LANDED_COLOR = '#94a3b8';
 
 export function isLandedAtTime(landingTime: Date | undefined, time: Date): boolean {
