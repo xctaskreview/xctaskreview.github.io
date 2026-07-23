@@ -13,6 +13,7 @@ import { clampChartAltitudeDisplay, LANDED_COLOR } from '../lib/geo';
 import type { AppPreferences } from '../lib/preferences';
 import {
   altitudeAxisLabel,
+  buildChartAltitudeTicks,
   distanceAxisLabel,
   kmToDistanceUnit,
   metersToAltitudeUnit,
@@ -31,6 +32,7 @@ interface AltitudeChartProps {
   turnpoints: ProgressTurnpoint[];
   altitudeMin: number;
   altitudeMax: number;
+  altitudeStep: number;
   taskDistanceKm: number;
   preferences: AppPreferences;
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
@@ -123,6 +125,7 @@ export const AltitudeChart = memo(function AltitudeChart({
   turnpoints,
   altitudeMin,
   altitudeMax,
+  altitudeStep,
   taskDistanceKm,
   preferences,
   taskProgressMarkerRef,
@@ -144,6 +147,11 @@ export const AltitudeChart = memo(function AltitudeChart({
   });
 
   const taskDistanceDisplay = kmToDistanceUnit(taskDistanceKm, preferences.distanceUnit);
+
+  const yTicks = useMemo(
+    () => buildChartAltitudeTicks(altitudeMin, altitudeMax, altitudeStep),
+    [altitudeMin, altitudeMax, altitudeStep],
+  );
 
   const points = useMemo(
     () =>
@@ -167,7 +175,7 @@ export const AltitudeChart = memo(function AltitudeChart({
       <div className="panel-title">Altitude vs task distance</div>
       <ResponsiveContainer width="100%" height={320}>
         <ComposedChart margin={{ top: 28, right: 24, left: 8, bottom: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
           <XAxis
             type="number"
             dataKey="taskDistance"
@@ -183,7 +191,9 @@ export const AltitudeChart = memo(function AltitudeChart({
             type="number"
             dataKey="altitude"
             domain={[altitudeMin, altitudeMax]}
+            ticks={yTicks}
             allowDataOverflow={false}
+            tickFormatter={(value) => `${value}`}
             label={{
               value: altitudeAxisLabel(preferences.altitudeUnit),
               angle: -90,

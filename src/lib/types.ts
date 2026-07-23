@@ -66,6 +66,7 @@ export interface RoutePoint {
   name?: string;
   radius: number;
   type?: 'SSS' | 'ESS';
+  number?: number;
 }
 
 export interface ProgressTurnpoint {

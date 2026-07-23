@@ -11,12 +11,13 @@ export function parseXcTask(text: string): XcTask {
 }
 
 export function getRoutePoints(task: XcTask): RoutePoint[] {
-  return task.turnpoints.map((tp) => ({
+  return task.turnpoints.map((tp, index) => ({
     lat: tp.waypoint.lat,
     lon: tp.waypoint.lon,
     name: tp.waypoint.name,
     radius: tp.radius,
     type: tp.type,
+    number: index + 1,
   }));
 }
 
@@ -85,7 +86,7 @@ export function getUniqueTurnpointCircles(task: XcTask): RoutePoint[] {
   const seen = new Set<string>();
   const circles: RoutePoint[] = [];
 
-  for (const tp of task.turnpoints) {
+  for (const [index, tp] of task.turnpoints.entries()) {
     const key = `${tp.waypoint.name}:${tp.waypoint.lat.toFixed(6)}:${tp.waypoint.lon.toFixed(6)}:${tp.radius}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -95,6 +96,7 @@ export function getUniqueTurnpointCircles(task: XcTask): RoutePoint[] {
       name: tp.waypoint.name,
       radius: tp.radius,
       type: tp.type,
+      number: index + 1,
     });
   }
 

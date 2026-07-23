@@ -4,11 +4,10 @@ import { MapView } from './components/MapView';
 import { TimeControls } from './components/TimeControls';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { extractGliderType, mergeTrackMetadata } from './lib/igc';
-import { isFlyingAltitudeMeters } from './lib/geo';
 import { buildCompetitorSnapshots } from './lib/competitors';
+import { computeChartAltitudeRange } from './lib/chartAltitude';
 import {
   createDefaultPreferences,
-  metersToAltitudeUnit,
   type AppPreferences,
 } from './lib/preferences';
 import {
@@ -287,32 +286,10 @@ export default function App() {
     return buildCompetitorSnapshots(enrichedTracks, trackColors, route, time, true);
   }, [enrichedTracks, trackColors, route, playing, chartTime, currentTime]);
 
-  const altitudeRange = useMemo(() => {
-    let min = Infinity;
-    let max = -Infinity;
-
-    for (const track of enrichedTracks) {
-      for (const point of track.points) {
-        if (!isFlyingAltitudeMeters(point.alt)) continue;
-        min = Math.min(min, point.alt);
-        max = Math.max(max, point.alt);
-      }
-    }
-
-    if (!Number.isFinite(min) || !Number.isFinite(max)) {
-      const fallbackMin = 0;
-      const fallbackMax = preferences.altitudeUnit === 'ft' ? 3280 : 1000;
-      return { min: fallbackMin, max: fallbackMax };
-    }
-
-    const paddedMin = Math.floor((min - 100) / 100) * 100;
-    const paddedMax = Math.ceil((max + 100) / 100) * 100;
-
-    return {
-      min: metersToAltitudeUnit(paddedMin, preferences.altitudeUnit),
-      max: metersToAltitudeUnit(paddedMax, preferences.altitudeUnit),
-    };
-  }, [enrichedTracks, preferences.altitudeUnit]);
+  const altitudeRange = useMemo(
+    () => computeChartAltitudeRange(enrichedTracks, preferences.altitudeUnit),
+    [enrichedTracks, preferences.altitudeUnit],
+  );
 
   const taskDistanceKm = route ? route.progressTotalDistance / 1000 : 0;
 
@@ -559,6 +536,7 @@ export default function App() {
             turnpoints={route.progressTurnpoints}
             altitudeMin={altitudeRange.min}
             altitudeMax={altitudeRange.max}
+            altitudeStep={altitudeRange.step}
             taskDistanceKm={taskDistanceKm}
             preferences={preferences}
             taskProgressMarkerRef={taskProgressMarkerRef}

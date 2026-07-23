@@ -47,6 +47,19 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
+function formatTurnpointPopup(circle: RoutePoint) {
+  const name = circle.name ?? 'Turnpoint';
+  const title = circle.number !== undefined ? `#${circle.number} ${name}` : name;
+
+  return (
+    <>
+      {title}
+      <br />
+      Radius: {circle.radius} m
+    </>
+  );
+}
+
 function FitBounds({ bounds, fitKey }: { bounds: [[number, number], [number, number]]; fitKey: string }) {
   const map = useMap();
   useEffect(() => {
@@ -77,9 +90,7 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
             fillOpacity: 0.08,
           }}
         >
-          <Popup>
-            {circle.name} ({circle.radius}m)
-          </Popup>
+          <Popup>{formatTurnpointPopup(circle)}</Popup>
         </Circle>
       ))}
 
@@ -97,9 +108,7 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
           zIndexOffset={100}
           icon={turnpointIcon(getCircleColor(circle, optimizedRoute), circle.name ?? 'TP')}
         >
-          <Popup>
-            {circle.name} ({circle.radius}m)
-          </Popup>
+          <Popup>{formatTurnpointPopup(circle)}</Popup>
         </Marker>
       ))}
     </>

@@ -48,6 +48,18 @@ export function metersToAltitudeUnit(meters: number, unit: AltitudeUnit): number
   return unit === 'ft' ? meters * M_TO_FT : meters;
 }
 
+export function chartAltitudeStep(unit: AltitudeUnit): number {
+  return unit === 'ft' ? 1000 : 500;
+}
+
+export function buildChartAltitudeTicks(min: number, max: number, step: number): number[] {
+  const ticks: number[] = [];
+  for (let value = min; value <= max; value += step) {
+    ticks.push(value);
+  }
+  return ticks;
+}
+
 export function formatDistance(km: number, unit: DistanceUnit, digits = 1): string {
   const value = kmToDistanceUnit(km, unit);
   const suffix = unit === 'mi' ? 'mi' : 'km';
