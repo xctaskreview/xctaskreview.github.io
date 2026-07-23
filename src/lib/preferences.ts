@@ -40,6 +40,10 @@ export function kmToDistanceUnit(km: number, unit: DistanceUnit): number {
   return unit === 'mi' ? km * KM_TO_MI : km;
 }
 
+export function distanceUnitToKm(value: number, unit: DistanceUnit): number {
+  return unit === 'mi' ? value / KM_TO_MI : value;
+}
+
 export function metersToAltitudeUnit(meters: number, unit: AltitudeUnit): number {
   return unit === 'ft' ? meters * M_TO_FT : meters;
 }

@@ -92,12 +92,21 @@ export function interpolateTrackPoint(
     return { lat: last.lat, lon: last.lon, alt: last.alt };
   }
 
-  for (let i = 0; i < points.length - 1; i++) {
-    const a = points[i];
-    const b = points[i + 1];
+  let low = 0;
+  let high = points.length - 2;
+
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    const a = points[mid];
+    const b = points[mid + 1];
     const ta = a.time.getTime();
     const tb = b.time.getTime();
-    if (t >= ta && t <= tb) {
+
+    if (t < ta) {
+      high = mid - 1;
+    } else if (t > tb) {
+      low = mid + 1;
+    } else {
       const ratio = tb === ta ? 0 : (t - ta) / (tb - ta);
       return {
         lat: a.lat + (b.lat - a.lat) * ratio,

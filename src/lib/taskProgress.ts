@@ -343,7 +343,7 @@ function leadSecondsToPercentages(
 }
 
 const MAX_LEAD_SAMPLES = 4000;
-const MAX_INCREMENTAL_SECONDS = 120;
+const MAX_INCREMENTAL_SECONDS = 8;
 
 function sampleLeadSeconds(
   tracks: EnrichedFlightTrack[],

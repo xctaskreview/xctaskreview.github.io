@@ -3,8 +3,9 @@ import { AltitudeChart } from './components/AltitudeChart';
 import { MapView } from './components/MapView';
 import { TimeControls } from './components/TimeControls';
 import { WelcomeScreen } from './components/WelcomeScreen';
-import { extractGliderType, extractPilotDisplayName, mergeTrackMetadata, pilotFirstName } from './lib/igc';
-import { clampDisplayAltitudeMeters, computeSpeedsAtTime, isFlyingAltitudeMeters } from './lib/geo';
+import { extractGliderType, mergeTrackMetadata } from './lib/igc';
+import { isFlyingAltitudeMeters } from './lib/geo';
+import { buildCompetitorSnapshots } from './lib/competitors';
 import {
   createDefaultPreferences,
   metersToAltitudeUnit,
@@ -15,11 +16,9 @@ import {
   computeTaskTiming,
   advanceLeadPercentages,
   enrichTracksWithTaskProgress,
-  getTrackSnapshotAtTime,
   loadIgcFiles,
 } from './lib/tracks';
-import type { EnrichedFlightTrack } from './lib/taskProgress';
-import type { CompetitorSnapshot, FlightTrack, TaskTiming, XcTask } from './lib/types';
+import type { FlightTrack, TaskTiming, XcTask } from './lib/types';
 import {
   buildOptimizedRoute,
   getTaskBounds,
@@ -29,48 +28,8 @@ import {
   resolveTaskLocationLabel,
 } from './lib/xctask';
 import { loadPersistedSession, savePersistedSession } from './lib/persistedSession';
+import { useThrottledDate } from './lib/useThrottledDate';
 import './App.css';
-
-function buildCompetitorSnapshots(
-  tracks: EnrichedFlightTrack[],
-  trackColors: Record<string, string>,
-  route: NonNullable<ReturnType<typeof buildOptimizedRoute>>,
-  currentTime: Date,
-  leadPercentages: Map<string, number>,
-): CompetitorSnapshot[] {
-  const taskDistanceKm = route.progressTotalDistance / 1000;
-
-  return tracks.flatMap((track) => {
-    const snapshot = getTrackSnapshotAtTime(track, currentTime, route);
-    if (!snapshot) return [];
-
-    const pilotName = extractPilotDisplayName(track);
-    const taskKm = (snapshot.taskPercent / 100) * taskDistanceKm;
-    const speeds = snapshot.landed
-      ? { groundSpeedMps: 0, verticalSpeedMps: 0 }
-      : computeSpeedsAtTime(track.points, currentTime);
-
-    return [
-      {
-        id: track.id,
-        pilotName,
-        firstName: pilotFirstName(pilotName),
-        gliderType: extractGliderType(track),
-        lat: snapshot.lat,
-        lon: snapshot.lon,
-        alt: clampDisplayAltitudeMeters(snapshot.alt),
-        taskPercent: snapshot.taskPercent,
-        taskKm,
-        color: trackColors[track.id] ?? colorForIndex(0),
-        landed: snapshot.landed,
-        groundSpeedMps: speeds.groundSpeedMps,
-        verticalSpeedMps: speeds.verticalSpeedMps,
-        nextTurnpointName: snapshot.nextTurnpointName,
-        leadPercent: leadPercentages.get(track.id) ?? 0,
-      },
-    ];
-  });
-}
 
 type AppView = 'welcome' | 'review';
 
@@ -175,6 +134,11 @@ export default function App() {
   }, [showReview]);
 
   useEffect(() => {
+    if (playing) return;
+    setCurrentTime(currentTimeRef.current);
+  }, [playing]);
+
+  useEffect(() => {
     currentTimeRef.current = currentTime;
   }, [currentTime]);
 
@@ -183,6 +147,7 @@ export default function App() {
 
     let rafId = 0;
     let lastFrameTime = performance.now();
+    let lastReactUpdate = 0;
     const endMs = timing.trackEnd.getTime();
 
     const tick = (now: number) => {
@@ -192,7 +157,11 @@ export default function App() {
       const nextMs = Math.min(currentTimeRef.current.getTime() + deltaMs * speed, endMs);
       const next = new Date(nextMs);
       currentTimeRef.current = next;
-      setCurrentTime(next);
+
+      if (now - lastReactUpdate >= 50 || nextMs >= endMs) {
+        lastReactUpdate = now;
+        setCurrentTime(next);
+      }
 
       if (nextMs >= endMs) {
         setPlaying(false);
@@ -204,6 +173,7 @@ export default function App() {
 
     rafId = requestAnimationFrame((now) => {
       lastFrameTime = now;
+      lastReactUpdate = now;
       tick(now);
     });
 
@@ -225,24 +195,22 @@ export default function App() {
 
   const [leadPercentages, setLeadPercentages] = useState<Map<string, number>>(() => new Map());
 
-  useEffect(() => {
-    if (!showReview || !route || !timing.taskStart || enrichedTracks.length === 0) {
-      leadCacheRef.current = null;
-      setLeadPercentages(new Map());
-      return;
-    }
+  const updateLeadPercentages = useCallback(
+    (endTime: Date) => {
+      if (!route || !timing.taskStart || enrichedTracks.length === 0) {
+        leadCacheRef.current = null;
+        setLeadPercentages(new Map());
+        return;
+      }
 
-    const taskStartMs = timing.taskStart.getTime();
-    const cache = leadCacheRef.current;
-    const needsReset =
-      !cache || cache.trackKey !== leadTrackKey || cache.taskStartMs !== taskStartMs;
+      const taskStartMs = timing.taskStart.getTime();
+      const cache = leadCacheRef.current;
+      const needsReset =
+        !cache || cache.trackKey !== leadTrackKey || cache.taskStartMs !== taskStartMs;
 
-    const endTime = new Date(leadSecond * 1000);
-
-    if (needsReset) {
-      const startSecond = Math.floor(taskStartMs / 1000);
-      const { leadSeconds, endSecond, leadPercentages: leadPercentagesResult } =
-        advanceLeadPercentages(
+      if (needsReset) {
+        const startSecond = Math.floor(taskStartMs / 1000);
+        const { leadSeconds, endSecond, leadPercentages: result } = advanceLeadPercentages(
           enrichedTracks,
           route,
           timing.taskStart,
@@ -250,48 +218,71 @@ export default function App() {
           new Map(enrichedTracks.map((track) => [track.id, 0])),
           startSecond - 1,
         );
+        leadCacheRef.current = {
+          trackKey: leadTrackKey,
+          taskStartMs,
+          endSecond,
+          leadSeconds,
+        };
+        setLeadPercentages(result);
+        return;
+      }
+
+      const advanced = advanceLeadPercentages(
+        enrichedTracks,
+        route,
+        timing.taskStart,
+        endTime,
+        cache.leadSeconds,
+        cache.endSecond,
+      );
+
+      if (advanced.endSecond === cache.endSecond) return;
+
       leadCacheRef.current = {
         trackKey: leadTrackKey,
         taskStartMs,
-        endSecond,
-        leadSeconds,
+        endSecond: advanced.endSecond,
+        leadSeconds: advanced.leadSeconds,
       };
-      setLeadPercentages(leadPercentagesResult);
+      setLeadPercentages(advanced.leadPercentages);
+    },
+    [enrichedTracks, route, timing.taskStart, leadTrackKey],
+  );
+
+  useEffect(() => {
+    if (!showReview) {
+      leadCacheRef.current = null;
+      setLeadPercentages(new Map());
       return;
     }
 
-    const advanced = advanceLeadPercentages(
-      enrichedTracks,
-      route,
-      timing.taskStart,
-      endTime,
-      cache.leadSeconds,
-      cache.endSecond,
-    );
+    if (playing) return;
 
-    if (advanced.endSecond === cache.endSecond) {
-      return;
-    }
+    const endTime = new Date(leadSecond * 1000);
+    const frame = window.requestAnimationFrame(() => updateLeadPercentages(endTime));
+    return () => window.cancelAnimationFrame(frame);
+  }, [showReview, playing, leadSecond, updateLeadPercentages]);
 
-    leadCacheRef.current = {
-      trackKey: leadTrackKey,
-      taskStartMs,
-      endSecond: advanced.endSecond,
-      leadSeconds: advanced.leadSeconds,
+  useEffect(() => {
+    if (!showReview || !playing) return;
+
+    const tick = () => {
+      const endTime = new Date(Math.floor(currentTimeRef.current.getTime() / 1000) * 1000);
+      updateLeadPercentages(endTime);
     };
-    setLeadPercentages(advanced.leadPercentages);
-  }, [showReview, enrichedTracks, route, timing.taskStart, leadSecond, leadTrackKey]);
 
-  const competitors = useMemo(() => {
+    const interval = window.setInterval(tick, 5000);
+    return () => window.clearInterval(interval);
+  }, [showReview, playing, updateLeadPercentages]);
+
+  const chartTime = useThrottledDate(currentTime, playing, 500);
+
+  const scoreboardCompetitors = useMemo(() => {
     if (!route) return [];
-    return buildCompetitorSnapshots(
-      enrichedTracks,
-      trackColors,
-      route,
-      currentTime,
-      leadPercentages,
-    );
-  }, [enrichedTracks, trackColors, route, currentTime, leadPercentages]);
+    const time = playing ? chartTime : currentTime;
+    return buildCompetitorSnapshots(enrichedTracks, trackColors, route, time, true);
+  }, [enrichedTracks, trackColors, route, playing, chartTime, currentTime]);
 
   const altitudeRange = useMemo(() => {
     let min = Infinity;
@@ -303,12 +294,6 @@ export default function App() {
         min = Math.min(min, point.alt);
         max = Math.max(max, point.alt);
       }
-    }
-
-    for (const competitor of competitors) {
-      if (!isFlyingAltitudeMeters(competitor.alt)) continue;
-      min = Math.min(min, competitor.alt);
-      max = Math.max(max, competitor.alt);
     }
 
     if (!Number.isFinite(min) || !Number.isFinite(max)) {
@@ -324,7 +309,9 @@ export default function App() {
       min: metersToAltitudeUnit(paddedMin, preferences.altitudeUnit),
       max: metersToAltitudeUnit(paddedMax, preferences.altitudeUnit),
     };
-  }, [enrichedTracks, competitors, preferences.altitudeUnit]);
+  }, [enrichedTracks, preferences.altitudeUnit]);
+
+  const taskDistanceKm = route ? route.progressTotalDistance / 1000 : 0;
 
   useEffect(() => {
     if (!task) {
@@ -366,8 +353,8 @@ export default function App() {
       enabledTrackIds: [...enabledTrackIds],
       trackColors,
       preferences,
-    }).then((saved) => {
-      if (!saved) {
+    }).then((result) => {
+      if (result === 'failed') {
         setError('Could not save session to browser storage. The tracklogs may be too large.');
       }
     });
@@ -532,10 +519,15 @@ export default function App() {
           bounds={bounds}
           circles={circles}
           optimizedRoute={route}
-          competitors={competitors}
+          enrichedTracks={enrichedTracks}
+          trackColors={trackColors}
+          currentTimeRef={currentTimeRef}
+          leadPercentages={leadPercentages}
           fitKey={taskFitKey || 'task'}
           preferences={preferences}
           playing={playing}
+          pausedTime={currentTime}
+          scoreboardCompetitors={scoreboardCompetitors}
         />
       )}
 
@@ -552,11 +544,16 @@ export default function App() {
             onSpeedChange={setSpeed}
           />
           <AltitudeChart
-            competitors={competitors}
+            enrichedTracks={enrichedTracks}
+            trackColors={trackColors}
+            route={route}
+            currentTimeRef={currentTimeRef}
+            playing={playing}
+            pausedTime={currentTime}
             turnpoints={route.progressTurnpoints}
             altitudeMin={altitudeRange.min}
             altitudeMax={altitudeRange.max}
-            taskDistanceKm={route.progressTotalDistance / 1000}
+            taskDistanceKm={taskDistanceKm}
             preferences={preferences}
           />
         </>

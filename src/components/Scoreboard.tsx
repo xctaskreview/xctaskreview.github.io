@@ -18,6 +18,7 @@ interface ScoreboardEntry extends CompetitorSnapshot {
 
 interface ScoreboardProps {
   competitors: CompetitorSnapshot[];
+  leadPercentages: Map<string, number>;
   preferences: AppPreferences;
   playing: boolean;
 }
@@ -85,12 +86,18 @@ function buildScoreboardLayout(entries: ScoreboardEntry[]) {
   return { rankById, renderEntries };
 }
 
-export function Scoreboard({ competitors, preferences, playing }: ScoreboardProps) {
+export function Scoreboard({ competitors, leadPercentages, preferences, playing }: ScoreboardProps) {
   const [expanded, setExpanded] = useState(false);
   const displayedCompetitors = useThrottledCompetitors(competitors, playing, UPDATE_INTERVAL_MS);
   const entries = useMemo(
-    () => sortScoreboardEntries(displayedCompetitors),
-    [displayedCompetitors],
+    () =>
+      sortScoreboardEntries(
+        displayedCompetitors.map((entry) => ({
+          ...entry,
+          leadPercent: leadPercentages.get(entry.id) ?? 0,
+        })),
+      ),
+    [displayedCompetitors, leadPercentages],
   );
   const { rankById, renderEntries } = useMemo(() => buildScoreboardLayout(entries), [entries]);
 
