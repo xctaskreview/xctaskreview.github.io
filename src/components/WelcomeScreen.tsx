@@ -29,6 +29,7 @@ interface WelcomeScreenProps {
   preferences: AppPreferences;
   error: string | null;
   canContinue: boolean;
+  onDismissError: () => void;
   onTaskFile: (file: File) => void;
   onTrackFiles: (files: FileList | File[]) => void;
   onToggleTrack: (trackId: string, enabled: boolean) => void;
@@ -50,6 +51,7 @@ export function WelcomeScreen({
   preferences,
   error,
   canContinue,
+  onDismissError,
   onTaskFile,
   onTrackFiles,
   onToggleTrack,
@@ -282,7 +284,19 @@ export function WelcomeScreen({
           </button>
         )}
 
-        {error && <div className="welcome-error">{error}</div>}
+        {error && (
+          <div className="welcome-error">
+            <span className="error-message-text">{error}</span>
+            <button
+              type="button"
+              className="error-dismiss"
+              aria-label="Dismiss error"
+              onClick={onDismissError}
+            >
+              ×
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

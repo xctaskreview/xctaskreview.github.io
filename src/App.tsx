@@ -71,50 +71,56 @@ function buildCompetitorSnapshots(
 
 type AppView = 'welcome' | 'review';
 
-function createInitialState() {
-  const persisted = loadPersistedSession();
-  if (!persisted) {
-    return {
-      task: null as XcTask | null,
-      taskFileName: '',
-      tracks: [] as FlightTrack[],
-      enabledTrackIds: new Set<string>(),
-      trackColors: {} as Record<string, string>,
-      preferences: createDefaultPreferences(),
-    };
-  }
-
-  return {
-    task: persisted.task,
-    taskFileName: persisted.taskFileName ?? '',
-    tracks: persisted.tracks,
-    enabledTrackIds: new Set(persisted.enabledTrackIds),
-    trackColors: persisted.trackColors,
-    preferences: persisted.preferences,
-  };
-}
+const EMPTY_APP_STATE = {
+  task: null as XcTask | null,
+  taskFileName: '',
+  tracks: [] as FlightTrack[],
+  enabledTrackIds: new Set<string>(),
+  trackColors: {} as Record<string, string>,
+  preferences: createDefaultPreferences(),
+};
 
 export default function App() {
-  const [initialState] = useState(createInitialState);
-  const [task, setTask] = useState<XcTask | null>(initialState.task);
-  const [taskFileName, setTaskFileName] = useState(initialState.taskFileName);
-  const [tracks, setTracks] = useState<FlightTrack[]>(initialState.tracks);
-  const [enabledTrackIds, setEnabledTrackIds] = useState<Set<string>>(initialState.enabledTrackIds);
-  const [trackColors, setTrackColors] = useState<Record<string, string>>(initialState.trackColors);
-  const [preferences, setPreferences] = useState<AppPreferences>(initialState.preferences);
+  const [task, setTask] = useState<XcTask | null>(EMPTY_APP_STATE.task);
+  const [taskFileName, setTaskFileName] = useState(EMPTY_APP_STATE.taskFileName);
+  const [tracks, setTracks] = useState<FlightTrack[]>(EMPTY_APP_STATE.tracks);
+  const [enabledTrackIds, setEnabledTrackIds] = useState<Set<string>>(EMPTY_APP_STATE.enabledTrackIds);
+  const [trackColors, setTrackColors] = useState<Record<string, string>>(EMPTY_APP_STATE.trackColors);
+  const [preferences, setPreferences] = useState<AppPreferences>(EMPTY_APP_STATE.preferences);
   const [view, setView] = useState<AppView>('welcome');
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(50);
-  const [taskFitKey, setTaskFitKey] = useState(
-    initialState.taskFileName ? `${initialState.taskFileName}-restored` : '',
-  );
+  const [taskFitKey, setTaskFitKey] = useState('');
   const [taskLocationLabel, setTaskLocationLabel] = useState<string | null>(null);
   const [taskLocationLoading, setTaskLocationLoading] = useState(false);
   const skipNextPersistRef = useRef(true);
   const currentTimeRef = useRef(currentTime);
   const enabledTrackIdsKey = useMemo(() => [...enabledTrackIds].sort().join('|'), [enabledTrackIds]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadPersistedSession().then((persisted) => {
+      if (cancelled || !persisted) return;
+
+      skipNextPersistRef.current = true;
+      setTask(persisted.task);
+      setTaskFileName(persisted.taskFileName ?? '');
+      setTracks(persisted.tracks);
+      setEnabledTrackIds(new Set(persisted.enabledTrackIds));
+      setTrackColors(persisted.trackColors);
+      setPreferences(persisted.preferences);
+      if (persisted.taskFileName) {
+        setTaskFitKey(`${persisted.taskFileName}-restored`);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setTracks((prev) => {
@@ -268,22 +274,22 @@ export default function App() {
     }
 
     if (!task) {
-      savePersistedSession(null);
+      void savePersistedSession(null);
       return;
     }
 
-    const saved = savePersistedSession({
+    void savePersistedSession({
       task,
       taskFileName,
       tracks,
       enabledTrackIds: [...enabledTrackIds],
       trackColors,
       preferences,
+    }).then((saved) => {
+      if (!saved) {
+        setError('Could not save session to browser storage. The tracklogs may be too large.');
+      }
     });
-
-    if (!saved) {
-      setError('Could not save session to browser storage. The tracklogs may be too large.');
-    }
   }, [task, taskFileName, tracks, enabledTrackIdsKey, trackColors, preferences]);
 
   const onTaskFile = useCallback(async (file: File) => {
@@ -412,6 +418,7 @@ export default function App() {
         onRemoveAllTracks={onRemoveAllTracks}
         onPreferencesChange={setPreferences}
         onContinue={() => setView('review')}
+        onDismissError={() => setError(null)}
       />
     );
   }
@@ -425,7 +432,19 @@ export default function App() {
         </button>
       </header>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && (
+        <div className="error-banner">
+          <span className="error-message-text">{error}</span>
+          <button
+            type="button"
+            className="error-dismiss"
+            aria-label="Dismiss error"
+            onClick={() => setError(null)}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {bounds && route && (
         <MapView

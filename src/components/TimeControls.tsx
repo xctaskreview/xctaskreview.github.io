@@ -108,8 +108,11 @@ export function TimeControls({
         </button>
 
         <label className="speed-control">
-          Speed
-          <select value={speed} onChange={(e) => onSpeedChange(Number(e.target.value))}>
+          <select
+            value={speed}
+            aria-label="Playback speed"
+            onChange={(e) => onSpeedChange(Number(e.target.value))}
+          >
             {SPEEDS.map((value) => (
               <option key={value} value={value}>
                 x{value}
@@ -117,6 +120,63 @@ export function TimeControls({
             ))}
           </select>
         </label>
+
+        <div className="slider-shell">
+          <div className="slider-markers">
+            {taskStartPct !== null && timing.taskStart && (
+              <button
+                type="button"
+                className="time-marker-column start-marker-column"
+                style={{ left: `${taskStartPct}%` }}
+                title={`Jump to task start ${formatTime(timing.taskStart, timezone)}`}
+                onClick={() => onTimeChange(timing.taskStart!)}
+              >
+                <span className="time-marker-label start-label">Start</span>
+                <span className="time-marker task-start-marker" aria-hidden="true" />
+              </button>
+            )}
+            {finishPct !== null && (
+              <div
+                className="time-marker-column finish-marker-column"
+                style={{ left: `${finishPct}%` }}
+                title={`Fastest ${fastestElapsed ?? ''}${
+                  timing.fastestPilot ? `\n${timing.fastestPilot}` : ''
+                }${timing.fastestFinish ? `\n${formatTime(timing.fastestFinish, timezone)}` : ''}`}
+              >
+                <span className="time-marker-label finish-label">Fastest</span>
+                <span className="time-marker finish-marker" aria-hidden="true" />
+              </div>
+            )}
+          </div>
+
+          <input
+            type="range"
+            min={startMs}
+            max={endMs}
+            value={Math.min(Math.max(currentMs, startMs), endMs)}
+            onChange={(e) => onTimeChange(new Date(Number(e.target.value)))}
+          />
+
+          <div className="slider-times">
+            <span className="slider-edge-time slider-edge-time-start">
+              {formatTime(timing.trackStart, timezone)}
+            </span>
+            {taskStartPct !== null && timing.taskStart && (
+              <span className="slider-marker-time start-marker-time" style={{ left: `${taskStartPct}%` }}>
+                {formatTime(timing.taskStart, timezone)}
+              </span>
+            )}
+            {finishPct !== null && fastestElapsed && (
+              <span className="slider-marker-time finish-marker-time" style={{ left: `${finishPct}%` }}>
+                <span>{`Elapsed ${fastestElapsed}`}</span>
+                {timing.fastestPilot && <span className="finish-pilot">{timing.fastestPilot}</span>}
+              </span>
+            )}
+            <span className="slider-edge-time slider-edge-time-end">
+              {formatTime(timing.trackEnd, timezone)}
+            </span>
+          </div>
+        </div>
 
         <div className="current-time-block">
           <div className="current-time-row">
@@ -130,64 +190,6 @@ export function TimeControls({
             </div>
           )}
         </div>
-      </div>
-
-      <div className="slider-shell">
-        {taskStartPct !== null && (
-          <button
-            type="button"
-            className="time-marker-hit start-marker-hit"
-            style={{ left: `${taskStartPct}%` }}
-            title={`Jump to task start ${formatTime(timing.taskStart!, timezone)}`}
-            onClick={() => onTimeChange(timing.taskStart!)}
-          >
-            <span className="time-marker-label start-label">Start</span>
-            <span className="time-marker task-start-marker" aria-hidden="true" />
-          </button>
-        )}
-        {finishPct !== null && (
-          <>
-            <div
-              className="time-marker finish-marker"
-              style={{ left: `${finishPct}%` }}
-              title={`Fastest finish ${fastestElapsed ?? ''}${
-                timing.fastestPilot ? ` (${timing.fastestPilot})` : ''
-              }${timing.fastestFinish ? ` at ${formatTime(timing.fastestFinish, timezone)}` : ''}`}
-            />
-            <span className="time-marker-label finish-label" style={{ left: `${finishPct}%` }}>
-              Finish
-            </span>
-          </>
-        )}
-
-        <input
-          type="range"
-          min={startMs}
-          max={endMs}
-          value={Math.min(Math.max(currentMs, startMs), endMs)}
-          onChange={(e) => onTimeChange(new Date(Number(e.target.value)))}
-        />
-      </div>
-
-      <div className="time-legend">
-        <span>
-          <span className="time-metric-label">Time</span> {formatTime(timing.trackStart, timezone)}
-        </span>
-        {timing.taskStart && (
-          <span>
-            Task start <span className="time-metric-label">Time</span>{' '}
-            {formatTime(timing.taskStart, timezone)}
-          </span>
-        )}
-        {timing.fastestFinish && fastestElapsed && (
-          <span>
-            Fastest finish <span className="time-metric-label">Elapsed</span> {fastestElapsed}
-            {timing.fastestPilot ? ` (${timing.fastestPilot})` : ''}
-          </span>
-        )}
-        <span>
-          <span className="time-metric-label">Time</span> {formatTime(timing.trackEnd, timezone)}
-        </span>
       </div>
     </div>
   );

@@ -4,7 +4,11 @@ import type { AppPreferences } from './preferences';
 import { createDefaultPreferences } from './preferences';
 import type { FlightTrack, XcTask } from './types';
 
-const STORAGE_KEY = 'xc-task-review-session';
+const DB_NAME = 'xc-task-review';
+const DB_VERSION = 1;
+const STORE_NAME = 'session';
+const SESSION_ID = 'current';
+const LEGACY_STORAGE_KEY = 'xc-task-review-session';
 const STORAGE_VERSION = 1;
 
 interface StoredTrackPoint {
@@ -111,43 +115,141 @@ function isValidStoredSession(value: unknown): value is StoredSessionPayload {
   );
 }
 
-export function loadPersistedSession(): PersistedSession | null {
+function deserializeSession(payload: StoredSessionPayload): PersistedSession {
+  const tracks = payload.tracks.map(deserializeTrack);
+  const trackIds = new Set(tracks.map((track) => track.id));
+  const enabledTrackIds = payload.enabledTrackIds.filter((id) => trackIds.has(id));
+
+  return {
+    task: payload.task,
+    taskFileName: payload.taskFileName,
+    tracks,
+    enabledTrackIds:
+      tracks.length === 0
+        ? []
+        : enabledTrackIds.length > 0
+          ? enabledTrackIds
+          : tracks.map((track) => track.id),
+    trackColors: payload.trackColors,
+    preferences: { ...createDefaultPreferences(), ...payload.preferences },
+  };
+}
+
+function loadLegacyLocalStorageSession(): StoredSessionPayload | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return null;
 
     const parsed: unknown = JSON.parse(raw);
     if (!isValidStoredSession(parsed)) {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
       return null;
     }
 
-    const tracks = parsed.tracks.map(deserializeTrack);
-    const trackIds = new Set(tracks.map((track) => track.id));
-    const enabledTrackIds = parsed.enabledTrackIds.filter((id) => trackIds.has(id));
-
-    return {
-      task: parsed.task,
-      taskFileName: parsed.taskFileName,
-      tracks,
-      enabledTrackIds:
-        tracks.length === 0
-          ? []
-          : enabledTrackIds.length > 0
-            ? enabledTrackIds
-            : tracks.map((track) => track.id),
-      trackColors: parsed.trackColors,
-      preferences: { ...createDefaultPreferences(), ...parsed.preferences },
-    };
+    return parsed;
   } catch {
     return null;
   }
 }
 
-export function savePersistedSession(session: PersistedSession | null): boolean {
+function openDatabase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') {
+      reject(new Error('IndexedDB is unavailable'));
+      return;
+    }
+
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error('Failed to open IndexedDB'));
+  });
+}
+
+function idbGet<T>(key: string): Promise<T | undefined> {
+  return openDatabase().then(
+    (db) =>
+      new Promise<T | undefined>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const request = tx.objectStore(STORE_NAME).get(key);
+
+        request.onsuccess = () => resolve(request.result as T | undefined);
+        request.onerror = () => reject(request.error ?? new Error('Failed to read session'));
+        tx.oncomplete = () => db.close();
+        tx.onerror = () => db.close();
+      }),
+  );
+}
+
+function idbSet(key: string, value: unknown): Promise<void> {
+  return openDatabase().then(
+    (db) =>
+      new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(value, key);
+
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => {
+          db.close();
+          reject(tx.error ?? new Error('Failed to save session'));
+        };
+      }),
+  );
+}
+
+function idbDelete(key: string): Promise<void> {
+  return openDatabase().then(
+    (db) =>
+      new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).delete(key);
+
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => {
+          db.close();
+          reject(tx.error ?? new Error('Failed to clear session'));
+        };
+      }),
+  );
+}
+
+export async function loadPersistedSession(): Promise<PersistedSession | null> {
+  try {
+    const stored = await idbGet<StoredSessionPayload>(SESSION_ID);
+    if (stored && isValidStoredSession(stored)) {
+      return deserializeSession(stored);
+    }
+
+    const legacy = loadLegacyLocalStorageSession();
+    if (!legacy) return null;
+
+    const session = deserializeSession(legacy);
+    await savePersistedSession(session);
+    return session;
+  } catch {
+    const legacy = loadLegacyLocalStorageSession();
+    return legacy ? deserializeSession(legacy) : null;
+  }
+}
+
+export async function savePersistedSession(session: PersistedSession | null): Promise<boolean> {
   try {
     if (!session) {
-      localStorage.removeItem(STORAGE_KEY);
+      await idbDelete(SESSION_ID);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
       return true;
     }
 
@@ -161,13 +263,19 @@ export function savePersistedSession(session: PersistedSession | null): boolean 
       preferences: session.preferences,
     };
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    await idbSet(SESSION_ID, payload);
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
     return true;
   } catch {
     return false;
   }
 }
 
-export function clearPersistedSession(): void {
-  localStorage.removeItem(STORAGE_KEY);
+export async function clearPersistedSession(): Promise<void> {
+  try {
+    await idbDelete(SESSION_ID);
+  } catch {
+    // Ignore storage cleanup failures.
+  }
+  localStorage.removeItem(LEGACY_STORAGE_KEY);
 }
