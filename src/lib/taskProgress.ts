@@ -1,5 +1,6 @@
 import type { LatLon, OptimizedRoute, TrackPoint, XcTask } from './types';
 import { createLocalProjection, getTrackEndTime, haversine, interpolateReasonableAltitude, isLandedAtTime, resolveDisplayAltitudeMeters } from './geo';
+import { attachLegTimingsToTracks, type PilotLegTiming } from './legStatistics';
 
 export interface EnrichedTrackPoint extends TrackPoint {
   legIndex: number;
@@ -18,6 +19,7 @@ export interface EnrichedFlightTrack {
   landingTime?: Date;
   gliderType?: string;
   igcHeader?: string;
+  legTimings?: PilotLegTiming[];
 }
 
 interface TurnpointCylinder {
@@ -452,5 +454,6 @@ export function enrichTracksWithTaskProgress(
   route: OptimizedRoute,
   taskStart?: Date,
 ): EnrichedFlightTrack[] {
-  return tracks.map((track) => enrichTrackWithTaskProgress(track, task, route, taskStart));
+  const enriched = tracks.map((track) => enrichTrackWithTaskProgress(track, task, route, taskStart));
+  return attachLegTimingsToTracks(enriched, route, taskStart);
 }

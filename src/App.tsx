@@ -4,6 +4,7 @@ import { AltitudeChart } from './components/AltitudeChart';
 import { AppFooter } from './components/AppFooter';
 import { AppHomeLink } from './components/AppHomeLink';
 import { Icon, IconButtonContent } from './components/Icon';
+import { LegStatisticsTable } from './components/LegStatisticsTable';
 import { MapView } from './components/MapView';
 import { TimeControls } from './components/TimeControls';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -16,6 +17,7 @@ import {
 } from './lib/preferences';
 import {
   assignUniqueTrackColors,
+  computeGlobalLegStatistics,
   computeTaskTiming,
   advanceLeadPercentages,
   enrichTracksWithTaskProgress,
@@ -153,6 +155,11 @@ export default function App() {
     if (!showReview || !task || !route) return [];
     return enrichTracksWithTaskProgress(visibleTracks, task, route, taskStart);
   }, [showReview, visibleTracks, task, route, taskStart]);
+
+  const legStatistics = useMemo(
+    () => (route && enrichedTracks.length > 0 ? computeGlobalLegStatistics(enrichedTracks, route) : []),
+    [enrichedTracks, route],
+  );
 
   const circles = useMemo(() => (task ? getUniqueTurnpointCircles(task) : []), [task]);
   const bounds = useMemo(() => (task ? getTaskBounds(task) : null), [task]);
@@ -655,6 +662,7 @@ export default function App() {
             preferences={preferences}
             taskProgressMarkerRef={taskProgressMarkerRef}
           />
+          <LegStatisticsTable legs={legStatistics} preferences={preferences} />
         </>
       )}
       </div>

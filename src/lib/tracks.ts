@@ -12,6 +12,12 @@ import {
 } from './taskProgress';
 
 export { enrichTracksWithTaskProgress, computeLeadPercentages, advanceLeadPercentages, getTrackSnapshotAtTime, type EnrichedFlightTrack };
+export {
+  computeGlobalLegStatistics,
+  computePilotLegTimings,
+  type GlobalLegStatistics,
+  type PilotLegTiming,
+} from './legStatistics';
 
 export interface LoadIgcResult {
   tracks: FlightTrack[];

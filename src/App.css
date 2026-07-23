@@ -30,13 +30,21 @@
 
 .welcome-section-title,
 .panel-title,
-.scoreboard-title-text {
+.scoreboard-title-text,
+.leg-statistics-title {
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
 
 .scoreboard-header-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #475569;
+}
+
+.leg-statistics-header-label {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1725,6 +1733,176 @@ body {
 .panel-title {
   margin-bottom: 8px;
   font-weight: 600;
+}
+
+
+
+.leg-statistics {
+  margin: 0;
+  padding: 16px 20px 20px;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.leg-statistics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.leg-statistics-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.leg-statistics-table-scroll {
+  overflow-x: auto;
+  scrollbar-gutter: stable;
+}
+
+.leg-statistics-table {
+  min-width: 960px;
+  width: 100%;
+}
+
+.leg-statistics-header-row,
+.leg-statistics-row {
+  display: grid;
+  grid-template-columns:
+    40px
+    minmax(180px, 1.6fr)
+    72px
+    56px
+    56px
+    56px
+    96px
+    96px
+    minmax(120px, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.leg-statistics-header-row {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.leg-statistics-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.leg-statistics-row {
+  padding: 10px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.leg-statistics-row:last-child {
+  border-bottom: 0;
+}
+
+.leg-statistics-cell {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  min-width: 0;
+}
+
+.leg-statistics-header-row .leg-statistics-cell {
+  align-self: center;
+}
+
+.leg-statistics-header-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.1;
+  white-space: normal;
+}
+
+.leg-statistics-distance .leg-statistics-header-stack,
+.leg-statistics-speed .leg-statistics-header-stack {
+  align-items: center;
+}
+
+.leg-statistics-header-unit {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.leg-statistics-leg {
+  width: 40px;
+  color: #64748b;
+  font-weight: 700;
+  text-align: center;
+}
+
+.leg-statistics-turnpoints {
+  min-width: 0;
+  white-space: normal;
+  text-align: left;
+}
+
+.leg-statistics-distance,
+.leg-statistics-speed,
+.leg-statistics-time {
+  text-align: center;
+}
+
+.leg-statistics-turnpoint-route {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.leg-statistics-turnpoint-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leg-statistics-turnpoint-arrow {
+  flex-shrink: 0;
+  color: #94a3b8;
+}
+
+.leg-statistics-first-finish {
+  min-width: 0;
+  white-space: normal;
+  text-align: left;
+}
+
+.leg-statistics-first-finish-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.leg-statistics-first-finish-pilot {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.leg-statistics-muted {
+  color: #64748b;
+  font-size: 0.75rem;
 }
 
 @media (max-width: 800px) {
