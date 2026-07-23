@@ -295,7 +295,7 @@ export function getTrackSnapshotAtTime(
   };
 }
 
-function findLeaderAtTime(
+export function findLeaderAtTime(
   tracks: EnrichedFlightTrack[],
   timeMs: number,
   route: OptimizedRoute,

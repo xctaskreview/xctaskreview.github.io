@@ -28,6 +28,7 @@ import {
   resolveTaskLocationLabel,
 } from './lib/xctask';
 import { loadPersistedSession, savePersistedSession } from './lib/persistedSession';
+import type { TaskProgressMarker } from './lib/taskProgressMarker';
 import { useThrottledDate } from './lib/useThrottledDate';
 import './App.css';
 
@@ -59,6 +60,7 @@ export default function App() {
   const [taskLocationLoading, setTaskLocationLoading] = useState(false);
   const skipNextPersistRef = useRef(true);
   const currentTimeRef = useRef(currentTime);
+  const taskProgressMarkerRef = useRef<TaskProgressMarker | null>(null);
   const enabledTrackIdsKey = useMemo(() => [...enabledTrackIds].sort().join('|'), [enabledTrackIds]);
 
   useEffect(() => {
@@ -272,6 +274,7 @@ export default function App() {
       updateLeadPercentages(endTime);
     };
 
+    tick();
     const interval = window.setInterval(tick, 5000);
     return () => window.clearInterval(interval);
   }, [showReview, playing, updateLeadPercentages]);
@@ -528,6 +531,9 @@ export default function App() {
           playing={playing}
           pausedTime={currentTime}
           scoreboardCompetitors={scoreboardCompetitors}
+          taskStart={timing.taskStart}
+          trackKey={leadTrackKey}
+          taskProgressMarkerRef={taskProgressMarkerRef}
         />
       )}
 
@@ -555,6 +561,7 @@ export default function App() {
             altitudeMax={altitudeRange.max}
             taskDistanceKm={taskDistanceKm}
             preferences={preferences}
+            taskProgressMarkerRef={taskProgressMarkerRef}
           />
         </>
       )}

@@ -6,6 +6,7 @@ import { MAP_TILES } from '../lib/preferences';
 import { getUniqueTurnpointMarkers } from '../lib/xctask';
 import { LiveCompetitorLayer } from './LiveCompetitorLayer';
 import { Scoreboard } from './Scoreboard';
+import type { TaskProgressMarker } from '../lib/taskProgressMarker';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
 import type { CompetitorSnapshot, OptimizedRoute, RoutePoint } from '../lib/types';
 
@@ -118,6 +119,9 @@ interface MapViewProps {
   playing: boolean;
   pausedTime: Date;
   scoreboardCompetitors: CompetitorSnapshot[];
+  taskStart?: Date;
+  trackKey: string;
+  taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
 }
 
 export function MapView({
@@ -133,6 +137,9 @@ export function MapView({
   playing,
   pausedTime,
   scoreboardCompetitors,
+  taskStart,
+  trackKey,
+  taskProgressMarkerRef,
 }: MapViewProps) {
   const tile = MAP_TILES[preferences.mapType];
 
@@ -150,6 +157,9 @@ export function MapView({
           preferences={preferences}
           playing={playing}
           pausedTime={pausedTime}
+          taskStart={taskStart}
+          trackKey={trackKey}
+          taskProgressMarkerRef={taskProgressMarkerRef}
         />
       </MapContainer>
       <Scoreboard

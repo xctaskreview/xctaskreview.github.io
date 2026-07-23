@@ -45,3 +45,24 @@ export function buildCompetitorSnapshots(
     ];
   });
 }
+
+export function computeCompetitorPositions(
+  tracks: EnrichedFlightTrack[],
+  trackColors: Record<string, string>,
+  route: OptimizedRoute,
+  currentTime: Date,
+): Map<string, number> {
+  const competitors = buildCompetitorSnapshots(tracks, trackColors, route, currentTime, false);
+  const sorted = [...competitors].sort((a, b) => {
+    if (b.taskKm !== a.taskKm) return b.taskKm - a.taskKm;
+    if (b.taskPercent !== a.taskPercent) return b.taskPercent - a.taskPercent;
+    return a.pilotName.localeCompare(b.pilotName);
+  });
+
+  const positions = new Map<string, number>();
+  for (let index = 0; index < sorted.length; index += 1) {
+    positions.set(sorted[index].id, index + 1);
+  }
+
+  return positions;
+}

@@ -523,6 +523,30 @@ body {
     1px 1px 0 rgba(255, 255, 255, 0.95);
 }
 
+.leaflet-tooltip.task-progress-map-label {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.15);
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  padding: 3px 7px;
+  pointer-events: none;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.leaflet-tooltip.task-progress-map-label::before {
+  display: none;
+}
+
+.task-progress-anchor {
+  background: transparent;
+  border: 0;
+}
+
 .competitor-marker-container {
   background: transparent;
   border: 0;
@@ -533,7 +557,6 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  transform: translate(-7px, -7px);
 }
 
 .competitor-marker-row {

@@ -18,6 +18,7 @@ import {
   metersToAltitudeUnit,
 } from '../lib/preferences';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
+import { TASK_PROGRESS_LINE_COLOR, type TaskProgressMarker } from '../lib/taskProgressMarker';
 import type { CompetitorSnapshot, OptimizedRoute, ProgressTurnpoint } from '../lib/types';
 
 interface AltitudeChartProps {
@@ -32,6 +33,46 @@ interface AltitudeChartProps {
   altitudeMax: number;
   taskDistanceKm: number;
   preferences: AppPreferences;
+  taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
+}
+
+function useLiveProgressDistance({
+  taskProgressMarkerRef,
+  playing,
+  pausedTime,
+  distanceUnit,
+}: {
+  taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
+  playing: boolean;
+  pausedTime: Date;
+  distanceUnit: AppPreferences['distanceUnit'];
+}): number | null {
+  const readDistance = () => {
+    const marker = taskProgressMarkerRef.current;
+    return marker !== null ? kmToDistanceUnit(marker.taskKm, distanceUnit) : null;
+  };
+
+  const [progressDistance, setProgressDistance] = useState<number | null>(readDistance);
+
+  useEffect(() => {
+    if (playing) return;
+    setProgressDistance(readDistance());
+  }, [playing, pausedTime, taskProgressMarkerRef, distanceUnit]);
+
+  useEffect(() => {
+    if (!playing) return;
+
+    let rafId = 0;
+    const loop = () => {
+      setProgressDistance(readDistance());
+      rafId = requestAnimationFrame(loop);
+    };
+
+    rafId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafId);
+  }, [playing, taskProgressMarkerRef, distanceUnit]);
+
+  return progressDistance;
 }
 
 function useLiveChartCompetitors({
@@ -84,6 +125,7 @@ export const AltitudeChart = memo(function AltitudeChart({
   altitudeMax,
   taskDistanceKm,
   preferences,
+  taskProgressMarkerRef,
 }: AltitudeChartProps) {
   const competitors = useLiveChartCompetitors({
     enrichedTracks,
@@ -92,6 +134,13 @@ export const AltitudeChart = memo(function AltitudeChart({
     currentTimeRef,
     playing,
     pausedTime,
+  });
+
+  const progressDistanceDisplay = useLiveProgressDistance({
+    taskProgressMarkerRef,
+    playing,
+    pausedTime,
+    distanceUnit: preferences.distanceUnit,
   });
 
   const taskDistanceDisplay = kmToDistanceUnit(taskDistanceKm, preferences.distanceUnit);
@@ -156,6 +205,15 @@ export const AltitudeChart = memo(function AltitudeChart({
               }}
             />
           ))}
+
+          {progressDistanceDisplay !== null && (
+            <ReferenceLine
+              x={progressDistanceDisplay}
+              stroke={TASK_PROGRESS_LINE_COLOR}
+              strokeWidth={2}
+              ifOverflow="extendDomain"
+            />
+          )}
 
           <Scatter
             name="Pilots"
