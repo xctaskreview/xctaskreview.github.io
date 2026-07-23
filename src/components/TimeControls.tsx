@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Clock, Flag, Gauge, Pause, Play, Timer, Trophy } from 'lucide-react';
 import { formatDuration, formatTime } from '../lib/geo';
+import type { TurnpointReachMarker } from '../lib/taskProgressMarker';
 import type { TaskTiming } from '../lib/types';
+import type { AppPreferences } from '../lib/preferences';
+import { formatTurnpointHoverLabel } from '../lib/turnpointTooltip';
 import { Icon, IconLabel } from './Icon';
+import { TurnpointHoverTrigger } from './TurnpointHoverTooltip';
 
 const SPEEDS = [1, 2, 5, 10, 20, 50, 100];
 const DISPLAY_UPDATE_INTERVAL_MS = 1000;
@@ -10,6 +14,10 @@ const DISPLAY_UPDATE_INTERVAL_MS = 1000;
 interface TimeControlsProps {
   currentTime: Date;
   timing: TaskTiming;
+  turnpointReachMarkers: TurnpointReachMarker[];
+  startTurnpointTooltip?: string;
+  finishTurnpointTooltip?: string;
+  distanceUnit: AppPreferences['distanceUnit'];
   playing: boolean;
   speed: number;
   timezone: string;
@@ -24,6 +32,13 @@ function markerPercent(timing: TaskTiming, markerTime?: Date): number | null {
   const end = timing.trackEnd.getTime();
   if (end <= start) return 0;
   return ((markerTime.getTime() - start) / (end - start)) * 100;
+}
+
+const MARKER_OVERLAP_THRESHOLD_PCT = 6;
+
+function markerPositionsOverlap(a: number | null, b: number | null): boolean {
+  if (a === null || b === null) return false;
+  return Math.abs(a - b) < MARKER_OVERLAP_THRESHOLD_PCT;
 }
 
 function fastestFinishElapsed(timing: TaskTiming): string | null {
@@ -79,6 +94,10 @@ function useThrottledTime(currentTime: Date, playing: boolean, intervalMs: numbe
 export function TimeControls({
   currentTime,
   timing,
+  turnpointReachMarkers,
+  startTurnpointTooltip,
+  finishTurnpointTooltip,
+  distanceUnit,
   playing,
   speed,
   timezone,
@@ -124,12 +143,12 @@ export function TimeControls({
 
         <div className="slider-shell">
           <div className="slider-markers">
-            {taskStartPct !== null && timing.taskStart && (
-              <button
+            {taskStartPct !== null && timing.taskStart && startTurnpointTooltip && (
+              <TurnpointHoverTrigger
                 type="button"
                 className="time-marker-column start-marker-column"
                 style={{ left: `${taskStartPct}%` }}
-                title={`Jump to task start ${formatTime(timing.taskStart, timezone)}`}
+                tooltip={startTurnpointTooltip}
                 onClick={() => onTimeChange(timing.taskStart!)}
               >
                 <span className="time-marker-label start-label">
@@ -138,15 +157,46 @@ export function TimeControls({
                   </IconLabel>
                 </span>
                 <span className="time-marker task-start-marker" aria-hidden="true" />
-              </button>
+              </TurnpointHoverTrigger>
             )}
-            {finishPct !== null && (
-              <div
+            {turnpointReachMarkers.map((marker) => {
+              const markerPct = markerPercent(timing, marker.time);
+              if (markerPct === null) return null;
+              const hideLabel =
+                markerPositionsOverlap(markerPct, taskStartPct) ||
+                markerPositionsOverlap(markerPct, finishPct);
+              const reached = currentMs >= marker.time.getTime();
+
+              return (
+                <TurnpointHoverTrigger
+                  key={`tp-${marker.index}-${marker.number}`}
+                  type="button"
+                  className={`time-marker-column tp-reach-marker-column${hideLabel ? ' tp-reach-marker-column-overlap' : ''}${reached ? ' tp-reach-marker-column-reached' : ''}`}
+                  style={{ left: `${markerPct}%` }}
+                  tooltip={formatTurnpointHoverLabel(marker, {
+                    distanceUnit,
+                    taskStart: timing.taskStart,
+                  })}
+                  onClick={() => onTimeChange(marker.time)}
+                >
+                  <span
+                    className={`time-marker-label tp-reach-label${hideLabel ? ' tp-reach-label-overlap' : ''}${reached ? ' tp-reach-label-reached' : ''}`}
+                  >
+                    {marker.number}
+                  </span>
+                  <span
+                    className={`time-marker tp-reach-marker${reached ? ' tp-reach-marker-reached' : ''}`}
+                    aria-hidden="true"
+                  />
+                </TurnpointHoverTrigger>
+              );
+            })}
+            {finishPct !== null && finishTurnpointTooltip && (
+              <TurnpointHoverTrigger
+                as="div"
                 className="time-marker-column finish-marker-column"
                 style={{ left: `${finishPct}%` }}
-                title={`Fastest ${fastestElapsed ?? ''}${
-                  timing.fastestPilot ? `\n${timing.fastestPilot}` : ''
-                }${timing.fastestFinish ? `\n${formatTime(timing.fastestFinish, timezone)}` : ''}`}
+                tooltip={finishTurnpointTooltip}
               >
                 <span className="time-marker-label finish-label">
                   <IconLabel icon={Trophy} iconSize="xs">
@@ -154,7 +204,7 @@ export function TimeControls({
                   </IconLabel>
                 </span>
                 <span className="time-marker finish-marker" aria-hidden="true" />
-              </div>
+              </TurnpointHoverTrigger>
             )}
           </div>
 

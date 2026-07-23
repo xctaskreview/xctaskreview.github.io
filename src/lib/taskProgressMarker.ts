@@ -1,10 +1,23 @@
 import { createLocalProjection, haversine } from './geo';
-import { TASK_PROGRESS_LINE_COLOR } from './taskMapStyle';
+import { extractPilotDisplayName } from './igc';
+import { getTaggedTurnpointProgressIndices, TASK_PROGRESS_LINE_COLOR } from './taskMapStyle';
 import type { EnrichedFlightTrack } from './taskProgress';
 import { getTrackSnapshotAtTime } from './taskProgress';
-import type { LatLon, OptimizedRoute } from './types';
+import type { LatLon, OptimizedRoute, RoutePoint } from './types';
 
 export { TASK_PROGRESS_LINE_COLOR };
+
+export interface TurnpointReachMarker {
+  index: number;
+  number: number;
+  name: string;
+  taskPercent: number;
+  taskKm: number;
+  radiusM: number;
+  time: Date;
+  firstPilot: string;
+  firstTagTime: Date;
+}
 
 export const TASK_PROGRESS_LINE_HALF_WIDTH_M = 350;
 
@@ -209,4 +222,95 @@ export function getTaskCenter(route: OptimizedRoute): LatLon {
 export function getProgressLabelAnchor(line: [LatLon, LatLon], taskCenter: LatLon): LatLon {
   const [a, b] = line;
   return haversine(a, taskCenter) >= haversine(b, taskCenter) ? a : b;
+}
+
+function computeFirstPilotTags(
+  tracks: EnrichedFlightTrack[],
+  route: OptimizedRoute,
+  taskStart: Date,
+): Map<number, { time: Date; pilot: string }> {
+  const firstByIndex = new Map<number, { time: Date; pilot: string }>();
+  const taskStartMs = taskStart.getTime();
+  const goalProgressIndex = route.progressTurnpoints.length - 1;
+
+  const record = (index: number, time: Date, pilot: string) => {
+    if (index <= 0 || index > goalProgressIndex) return;
+    const existing = firstByIndex.get(index);
+    if (!existing || time.getTime() < existing.time.getTime()) {
+      firstByIndex.set(index, { time, pilot });
+    }
+  };
+
+  for (const track of tracks) {
+    const pilot = extractPilotDisplayName(track);
+    let prevLeg = -1;
+    let prevFinished = false;
+
+    for (const point of track.points) {
+      if (point.time.getTime() < taskStartMs || !point.hasStarted) continue;
+
+      if (point.finished && !prevFinished) {
+        record(goalProgressIndex, point.time, pilot);
+      }
+
+      if (point.legIndex > prevLeg && point.legIndex >= 1) {
+        record(point.legIndex, point.time, pilot);
+      }
+
+      prevLeg = point.legIndex;
+      prevFinished = point.finished;
+    }
+  }
+
+  return firstByIndex;
+}
+
+export function computeTurnpointReachTimes(
+  tracks: EnrichedFlightTrack[],
+  route: OptimizedRoute,
+  taskStart: Date,
+  endTime: Date,
+  circles: RoutePoint[],
+): TurnpointReachMarker[] {
+  if (tracks.length === 0 || route.progressTurnpoints.length === 0) {
+    return [];
+  }
+
+  const taskStartMs = taskStart.getTime();
+  const endMs = endTime.getTime();
+  if (endMs < taskStartMs) return [];
+
+  const cacheRef: { current: TaskProgressMarkerCache | null } = { current: null };
+  const trackKey = tracks.map((track) => track.id).join('|');
+  const firstPilotTags = computeFirstPilotTags(tracks, route, taskStart);
+  const reached = new Map<number, TurnpointReachMarker>();
+  const startSecond = Math.floor(taskStartMs / 1000);
+  const endSecond = Math.floor(endMs / 1000);
+
+  for (let second = startSecond; second <= endSecond; second += 1) {
+    const time = new Date(second * 1000);
+    const runningMax = updateRunningMaxProgress(tracks, route, taskStart, time, cacheRef, trackKey);
+    const tagged = getTaggedTurnpointProgressIndices(route, runningMax);
+
+    for (const index of tagged) {
+      if (index === 0 || reached.has(index)) continue;
+      const tp = route.progressTurnpoints[index];
+      if (!tp) continue;
+      const firstTag = firstPilotTags.get(index);
+      const circle = circles.find((entry) => entry.number === tp.number);
+      reached.set(index, {
+        index,
+        number: tp.number,
+        name: tp.name,
+        taskPercent: tp.taskPercent,
+        taskKm: tp.taskKm,
+        radiusM: circle?.radius ?? 0,
+        time,
+        firstPilot: firstTag?.pilot ?? '—',
+        firstTagTime: firstTag?.time ?? time,
+      });
+    }
+  }
+
+  return [...reached.values()];
 }

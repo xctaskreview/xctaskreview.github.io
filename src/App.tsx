@@ -33,6 +33,11 @@ import {
 } from './lib/xctask';
 import { loadPersistedSession, savePersistedSession } from './lib/persistedSession';
 import type { TaskProgressMarker } from './lib/taskProgressMarker';
+import { computeTurnpointReachTimes } from './lib/taskProgressMarker';
+import {
+  buildFinishTurnpointTooltip,
+  buildStartTurnpointTooltip,
+} from './lib/turnpointTooltip';
 import { useThrottledDate } from './lib/useThrottledDate';
 import './App.css';
 
@@ -154,6 +159,39 @@ export default function App() {
   const timing = useMemo<TaskTiming>(
     () => (task ? computeTaskTiming(task, enrichedTracks) : { trackStart: new Date(), trackEnd: new Date() }),
     [task, enrichedTracks],
+  );
+  const turnpointReachMarkers = useMemo(
+    () =>
+      timing.taskStart && enrichedTracks.length > 0 && route
+        ? computeTurnpointReachTimes(
+            enrichedTracks,
+            route,
+            timing.taskStart,
+            timing.trackEnd,
+            circles,
+          )
+        : [],
+    [enrichedTracks, route, timing.taskStart, timing.trackEnd, circles],
+  );
+  const startTurnpointTooltip = useMemo(
+    () =>
+      route && timing.taskStart
+        ? buildStartTurnpointTooltip(route, circles, {
+            distanceUnit: preferences.distanceUnit,
+            taskStart: timing.taskStart,
+          })
+        : undefined,
+    [route, circles, timing.taskStart, preferences.distanceUnit],
+  );
+  const finishTurnpointTooltip = useMemo(
+    () =>
+      route
+        ? buildFinishTurnpointTooltip(route, circles, timing, {
+            distanceUnit: preferences.distanceUnit,
+            taskStart: timing.taskStart,
+          })
+        : undefined,
+    [route, circles, timing, preferences.distanceUnit],
   );
 
   useEffect(() => {
@@ -579,6 +617,7 @@ export default function App() {
           taskStart={timing.taskStart}
           trackKey={leadTrackKey}
           taskProgressMarkerRef={taskProgressMarkerRef}
+          turnpointReachMarkers={turnpointReachMarkers}
         />
       )}
 
@@ -587,6 +626,10 @@ export default function App() {
           <TimeControls
             currentTime={currentTime}
             timing={timing}
+            turnpointReachMarkers={turnpointReachMarkers}
+            startTurnpointTooltip={startTurnpointTooltip}
+            finishTurnpointTooltip={finishTurnpointTooltip}
+            distanceUnit={preferences.distanceUnit}
             playing={playing}
             speed={speed}
             timezone={preferences.timezone}
@@ -602,6 +645,9 @@ export default function App() {
             playing={playing}
             pausedTime={currentTime}
             turnpoints={route.progressTurnpoints}
+            turnpointReachMarkers={turnpointReachMarkers}
+            taskStart={timing.taskStart}
+            onTimeChange={setCurrentTime}
             altitudeMin={altitudeRange.min}
             altitudeMax={altitudeRange.max}
             altitudeStep={altitudeRange.step}

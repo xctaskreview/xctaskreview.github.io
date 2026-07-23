@@ -1148,16 +1148,45 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow: visible;
 }
 
 .slider-shell input[type='range'] {
+  position: relative;
+  z-index: 1;
   width: 100%;
   margin: 0;
 }
 
 .slider-markers {
   position: relative;
-  height: 26px;
+  z-index: 2;
+  height: 28px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.slider-markers .time-marker-column,
+.slider-markers .turnpoint-hover-target {
+  position: absolute;
+  bottom: 0;
+  height: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  transform: translateX(-50%);
+  line-height: 1;
+  pointer-events: auto;
+}
+
+.slider-markers .time-marker-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 14px;
+  line-height: 1;
 }
 
 .slider-times {
@@ -1169,7 +1198,6 @@ body {
 
 .time-marker-column {
   position: absolute;
-  top: 50%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1191,7 +1219,53 @@ body {
 }
 
 .finish-marker-column {
-  pointer-events: none;
+  z-index: 2;
+  padding: 0 8px;
+  background: transparent;
+  cursor: default;
+}
+
+.finish-marker-column:hover .finish-label,
+.finish-marker-column:hover .finish-marker {
+  opacity: 0.8;
+}
+
+.tp-reach-marker-column {
+  z-index: 1;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tp-reach-marker-column-overlap {
+  z-index: 1;
+}
+
+.tp-reach-marker-column:hover .tp-reach-label,
+.tp-reach-marker-column:hover .tp-reach-marker {
+  opacity: 0.8;
+}
+
+.tp-reach-label {
+  color: #64748b;
+  font-weight: 400;
+}
+
+.tp-reach-label-reached {
+  color: #059669;
+}
+
+.tp-reach-label-overlap {
+  visibility: hidden;
+}
+
+.tp-reach-marker {
+  background: #64748b;
+}
+
+.tp-reach-marker-reached {
+  background: #059669;
 }
 
 .time-marker-column .time-marker-label {
@@ -1202,7 +1276,7 @@ body {
 .time-marker-column .time-marker {
   position: static;
   transform: none;
-  margin-top: 2px;
+  flex-shrink: 0;
 }
 
 .time-marker-label {
@@ -1217,10 +1291,16 @@ body {
 
 .start-label {
   color: #2563eb;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 4px;
+  padding: 0 4px;
 }
 
 .finish-label {
   color: #dc2626;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 4px;
+  padding: 0 4px;
 }
 
 .task-start-marker {
@@ -1262,11 +1342,19 @@ body {
 }
 
 .start-marker-time {
+  z-index: 2;
   color: #2563eb;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 4px;
+  padding: 0 4px;
 }
 
 .finish-marker-time {
+  z-index: 2;
   color: #dc2626;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 4px;
+  padding: 0 4px;
 }
 
 .finish-pilot {
@@ -1279,6 +1367,59 @@ body {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: white;
+}
+
+.chart-turnpoint-line-clickable {
+  cursor: pointer;
+}
+
+.chart-turnpoint-label-clickable {
+  cursor: pointer;
+}
+
+.turnpoint-hover-target {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+
+.turnpoint-hover-tooltip-portal {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.96);
+  color: #f8fafc;
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: nowrap;
+  z-index: 10000;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.24);
+}
+
+.turnpoint-hover-tooltip-line {
+  display: block;
+}
+
+.turnpoint-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.turnpoint-popup-line {
+  display: block;
 }
 
 .scoreboard-overlay {

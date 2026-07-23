@@ -19,21 +19,25 @@ import { getUniqueTurnpointMarkers } from '../lib/xctask';
 import { LiveCompetitorLayer } from './LiveCompetitorLayer';
 import { MapLegend } from './MapLegend';
 import { Scoreboard } from './Scoreboard';
-import type { TaskProgressMarker } from '../lib/taskProgressMarker';
+import type { TaskProgressMarker, TurnpointReachMarker } from '../lib/taskProgressMarker';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
+import { buildReachMarkerMap, buildTurnpointTooltipFromCircle } from '../lib/turnpointTooltip';
+import { TurnpointPopupContent } from './TurnpointHoverTooltip';
 import type { CompetitorSnapshot, OptimizedRoute, RoutePoint } from '../lib/types';
+import type { DistanceUnit } from '../lib/preferences';
 
-function formatTurnpointPopup(circle: RoutePoint) {
-  const name = circle.name ?? 'Turnpoint';
-  const title = circle.number !== undefined ? `#${circle.number} ${name}` : name;
-
-  return (
-    <>
-      {title}
-      <br />
-      Radius: {circle.radius} m
-    </>
-  );
+function formatTurnpointPopup(
+  circle: RoutePoint,
+  route: OptimizedRoute,
+  reachMarker: TurnpointReachMarker | undefined,
+  taskStart: Date | undefined,
+  distanceUnit: DistanceUnit,
+) {
+  const tooltip = buildTurnpointTooltipFromCircle(circle, route, reachMarker, {
+    distanceUnit,
+    taskStart,
+  });
+  return <TurnpointPopupContent tooltip={tooltip} />;
 }
 
 function formatRouteLegPopup(legNumber: number, fromLabel: string, toLabel: string) {
@@ -97,10 +101,16 @@ function TurnpointCircle({
   circle,
   route,
   layerRefs,
+  reachMarker,
+  taskStart,
+  distanceUnit,
 }: {
   circle: RoutePoint;
   route: OptimizedRoute;
   layerRefs: RefObject<TaskMapLayerRefs>;
+  reachMarker?: TurnpointReachMarker;
+  taskStart?: Date;
+  distanceUnit: DistanceUnit;
 }) {
   const circleRef = useRef<L.Circle>(null);
   const key = circleKey(circle);
@@ -122,7 +132,7 @@ function TurnpointCircle({
       radius={circle.radius}
       pathOptions={getTurnpointCirclePathOptions(circle, route, false)}
     >
-      <Popup>{formatTurnpointPopup(circle)}</Popup>
+      <Popup>{formatTurnpointPopup(circle, route, reachMarker, taskStart, distanceUnit)}</Popup>
     </Circle>
   );
 }
@@ -131,10 +141,16 @@ function TurnpointMarker({
   circle,
   route,
   layerRefs,
+  reachMarker,
+  taskStart,
+  distanceUnit,
 }: {
   circle: RoutePoint;
   route: OptimizedRoute;
   layerRefs: RefObject<TaskMapLayerRefs>;
+  reachMarker?: TurnpointReachMarker;
+  taskStart?: Date;
+  distanceUnit: DistanceUnit;
 }) {
   const markerRef = useRef<L.Marker>(null);
   const key = `${circleKey(circle)}-marker`;
@@ -157,7 +173,7 @@ function TurnpointMarker({
       zIndexOffset={100}
       icon={turnpointIcon(color, circle.name ?? 'TP')}
     >
-      <Popup>{formatTurnpointPopup(circle)}</Popup>
+      <Popup>{formatTurnpointPopup(circle, route, reachMarker, taskStart, distanceUnit)}</Popup>
     </Marker>
   );
 }
@@ -166,10 +182,16 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
   circles,
   optimizedRoute,
   layerRefs,
+  reachMarkerByNumber,
+  taskStart,
+  distanceUnit,
 }: {
   circles: RoutePoint[];
   optimizedRoute: OptimizedRoute;
   layerRefs: RefObject<TaskMapLayerRefs>;
+  reachMarkerByNumber: Map<number, TurnpointReachMarker>;
+  taskStart?: Date;
+  distanceUnit: DistanceUnit;
 }) {
   const turnpointMarkers = useMemo(() => getUniqueTurnpointMarkers(circles), [circles]);
   const routeLegs = useMemo(() => getProgressRouteLegs(optimizedRoute), [optimizedRoute]);
@@ -185,6 +207,9 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
           circle={circle}
           route={optimizedRoute}
           layerRefs={layerRefs}
+          reachMarker={circle.number !== undefined ? reachMarkerByNumber.get(circle.number) : undefined}
+          taskStart={taskStart}
+          distanceUnit={distanceUnit}
         />
       ))}
 
@@ -230,6 +255,9 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
           circle={circle}
           route={optimizedRoute}
           layerRefs={layerRefs}
+          reachMarker={circle.number !== undefined ? reachMarkerByNumber.get(circle.number) : undefined}
+          taskStart={taskStart}
+          distanceUnit={distanceUnit}
         />
       ))}
     </>
@@ -252,6 +280,7 @@ interface MapViewProps {
   taskStart?: Date;
   trackKey: string;
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
+  turnpointReachMarkers: TurnpointReachMarker[];
 }
 
 export function MapView({
@@ -270,19 +299,31 @@ export function MapView({
   taskStart,
   trackKey,
   taskProgressMarkerRef,
+  turnpointReachMarkers,
 }: MapViewProps) {
   const tile = MAP_TILES[preferences.mapType];
   const layerRefs = useRef<TaskMapLayerRefs>({
     circles: new Map(),
     markers: new Map(),
   });
+  const reachMarkerByNumber = useMemo(
+    () => buildReachMarkerMap(turnpointReachMarkers),
+    [turnpointReachMarkers],
+  );
 
   return (
     <div className="map-panel">
       <MapContainer bounds={bounds} scrollWheelZoom className="task-map" key={`${fitKey}-${preferences.mapType}`}>
         <TileLayer attribution={tile.attribution} url={tile.url} />
         <FitBounds bounds={bounds} fitKey={fitKey} />
-        <MapTaskOverlay circles={circles} optimizedRoute={optimizedRoute} layerRefs={layerRefs} />
+        <MapTaskOverlay
+          circles={circles}
+          optimizedRoute={optimizedRoute}
+          layerRefs={layerRefs}
+          reachMarkerByNumber={reachMarkerByNumber}
+          taskStart={taskStart}
+          distanceUnit={preferences.distanceUnit}
+        />
         <LiveCompetitorLayer
           tracks={enrichedTracks}
           route={optimizedRoute}

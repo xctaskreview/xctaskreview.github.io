@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState, type RefObject } from 'react';
+import { memo, useEffect, useMemo, useState, type MouseEvent, type RefObject } from 'react';
 import { LineChart } from 'lucide-react';
 import {
   CartesianGrid,
@@ -26,9 +26,11 @@ import type { EnrichedFlightTrack } from '../lib/taskProgress';
 import { getTrackSnapshotAtTime } from '../lib/taskProgress';
 import { getTrackColor } from '../lib/tracks';
 import { GOAL_COLOR, START_COLOR, TASK_PROGRESS_LINE_COLOR } from '../lib/taskMapStyle';
-import type { TaskProgressMarker } from '../lib/taskProgressMarker';
+import type { TaskProgressMarker, TurnpointReachMarker } from '../lib/taskProgressMarker';
+import { formatTurnpointHoverLabel } from '../lib/turnpointTooltip';
 import type { CompetitorSnapshot, OptimizedRoute, ProgressTurnpoint } from '../lib/types';
 import { Icon } from './Icon';
+import { TurnpointFloatingTooltip } from './TurnpointHoverTooltip';
 
 interface ChartTrail {
   id: string;
@@ -45,12 +47,66 @@ interface AltitudeChartProps {
   playing: boolean;
   pausedTime: Date;
   turnpoints: ProgressTurnpoint[];
+  turnpointReachMarkers: TurnpointReachMarker[];
+  taskStart?: Date;
+  onTimeChange: (time: Date) => void;
   altitudeMin: number;
   altitudeMax: number;
   altitudeStep: number;
   taskDistanceKm: number;
   preferences: AppPreferences;
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
+}
+
+interface ReferenceLineShapeProps {
+  x1?: number;
+  y1?: number;
+  x2?: number;
+  y2?: number;
+}
+
+interface TurnpointLineHoverHandlers {
+  onMouseEnter?: (event: React.MouseEvent<SVGGElement>) => void;
+  onMouseLeave?: () => void;
+  onMouseMove?: (event: React.MouseEvent<SVGGElement>) => void;
+}
+
+function buildTurnpointLineShape(
+  strokeColor: string,
+  onClick: (() => void) | undefined,
+  hoverHandlers?: TurnpointLineHoverHandlers,
+) {
+  return function TurnpointLineShape({ x1, y1, x2, y2 }: ReferenceLineShapeProps) {
+    if (x1 == null || y1 == null || x2 == null || y2 == null) {
+      return <g />;
+    }
+
+    const top = Math.min(y1, y2);
+    const height = Math.abs(y2 - y1);
+
+    return (
+      <g
+        className={
+          onClick ? 'chart-turnpoint-line chart-turnpoint-line-clickable' : 'chart-turnpoint-line'
+        }
+        onClick={onClick}
+        onMouseEnter={hoverHandlers?.onMouseEnter}
+        onMouseLeave={hoverHandlers?.onMouseLeave}
+        onMouseMove={hoverHandlers?.onMouseMove}
+      >
+        <rect x={x1 - 8} y={top} width={16} height={height} fill="transparent" />
+        <line
+          x1={x1}
+          y1={y1}
+          x2={x2}
+          y2={y2}
+          stroke={strokeColor}
+          strokeWidth={1}
+          strokeDasharray="4 4"
+        />
+      </g>
+    );
+  };
 }
 
 function useLiveProgressState({
@@ -285,6 +341,9 @@ export const AltitudeChart = memo(function AltitudeChart({
   playing,
   pausedTime,
   turnpoints,
+  turnpointReachMarkers,
+  taskStart,
+  onTimeChange,
   altitudeMin,
   altitudeMax,
   altitudeStep,
@@ -292,6 +351,12 @@ export const AltitudeChart = memo(function AltitudeChart({
   preferences,
   taskProgressMarkerRef,
 }: AltitudeChartProps) {
+  const [floatingTooltip, setFloatingTooltip] = useState<{
+    tooltip: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
   const competitors = useLiveChartCompetitors({
     enrichedTracks,
     trackColors,
@@ -323,6 +388,14 @@ export const AltitudeChart = memo(function AltitudeChart({
 
   const taskDistanceDisplay = kmToDistanceUnit(taskDistanceKm, preferences.distanceUnit);
 
+  const reachMarkerByNumber = useMemo(() => {
+    const map = new Map<number, TurnpointReachMarker>();
+    for (const marker of turnpointReachMarkers) {
+      map.set(marker.number, marker);
+    }
+    return map;
+  }, [turnpointReachMarkers]);
+
   const yTicks = useMemo(
     () => buildChartAltitudeTicks(altitudeMin, altitudeMax, altitudeStep),
     [altitudeMin, altitudeMax, altitudeStep],
@@ -351,6 +424,13 @@ export const AltitudeChart = memo(function AltitudeChart({
         <Icon icon={LineChart} size="sm" />
         Altitude vs task distance
       </div>
+      {floatingTooltip && (
+        <TurnpointFloatingTooltip
+          tooltip={floatingTooltip.tooltip}
+          x={floatingTooltip.x}
+          y={floatingTooltip.y}
+        />
+      )}
       <ResponsiveContainer width="100%" height={320}>
         <ComposedChart margin={{ top: 28, right: 24, left: 8, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
@@ -382,6 +462,7 @@ export const AltitudeChart = memo(function AltitudeChart({
           {turnpoints.map((tp) => {
             const isStart = tp.number === route.sssIndex + 1;
             const isGoal = tp.number === route.goalIndex + 1;
+            const reachMarker = reachMarkerByNumber.get(tp.number);
             const tagged =
               !isStart &&
               !isGoal &&
@@ -393,27 +474,54 @@ export const AltitudeChart = memo(function AltitudeChart({
                 ? GOAL_COLOR
                 : tagged
                   ? TASK_PROGRESS_LINE_COLOR
-                  : '#111827';
-            const labelColor = isStart
-              ? START_COLOR
-              : isGoal
-                ? GOAL_COLOR
-                : tagged
-                  ? TASK_PROGRESS_LINE_COLOR
-                  : '#475569';
+                  : '#64748b';
+            const labelColor = strokeColor;
+            const jumpTime = isStart ? taskStart : reachMarker?.time;
+            const handleTurnpointClick =
+              jumpTime !== undefined ? () => onTimeChange(jumpTime) : undefined;
+            const hoverTooltip =
+              reachMarker !== undefined
+                ? formatTurnpointHoverLabel(reachMarker, {
+                    distanceUnit: preferences.distanceUnit,
+                    taskStart,
+                  })
+                : undefined;
+            const hoverHandlers =
+              hoverTooltip !== undefined
+                ? {
+                    onMouseEnter: (event: MouseEvent<SVGGElement>) => {
+                      setFloatingTooltip({
+                        tooltip: hoverTooltip,
+                        x: event.clientX,
+                        y: event.clientY,
+                      });
+                    },
+                    onMouseLeave: () => setFloatingTooltip(null),
+                    onMouseMove: (event: MouseEvent<SVGGElement>) => {
+                      setFloatingTooltip({
+                        tooltip: hoverTooltip,
+                        x: event.clientX,
+                        y: event.clientY,
+                      });
+                    },
+                  }
+                : undefined;
+
             return (
-            <ReferenceLine
-              key={`${tp.number}-${tp.name}`}
-              x={kmToDistanceUnit(tp.taskKm, preferences.distanceUnit)}
-              stroke={strokeColor}
-              strokeDasharray="4 4"
-              label={{
-                value: `${tp.number} ${tp.name}`,
-                position: 'insideTopLeft',
-                fill: labelColor,
-                fontSize: 11,
-              }}
-            />
+              <ReferenceLine
+                key={`${tp.number}-${tp.name}`}
+                x={kmToDistanceUnit(tp.taskKm, preferences.distanceUnit)}
+                stroke="none"
+                shape={buildTurnpointLineShape(strokeColor, handleTurnpointClick, hoverHandlers)}
+                label={{
+                  value: String(tp.number),
+                  position: 'insideTopLeft',
+                  fill: labelColor,
+                  fontSize: 11,
+                  onClick: handleTurnpointClick,
+                  className: handleTurnpointClick ? 'chart-turnpoint-label-clickable' : undefined,
+                }}
+              />
             );
           })}
 

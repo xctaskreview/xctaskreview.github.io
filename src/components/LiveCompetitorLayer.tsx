@@ -143,16 +143,6 @@ export function LiveCompetitorLayer({
   const trackKeyRef = useRef(trackKey);
   const leadPercentagesRef = useRef(leadPercentages);
   const taskCenterRef = useRef(getTaskCenter(route));
-  const hidePilotLabelsRef = useRef(false);
-
-  const setPilotLabelsVisible = (visible: boolean) => {
-    hidePilotLabelsRef.current = !visible;
-    for (const entry of markersRef.current.values()) {
-      if (entry.labelBoxEl) {
-        entry.labelBoxEl.style.display = visible ? 'flex' : 'none';
-      }
-    }
-  };
 
   tracksRef.current = tracks;
   routeRef.current = route;
@@ -268,10 +258,6 @@ export function LiveCompetitorLayer({
       const labelBoxEl = element?.querySelector<HTMLDivElement>('.competitor-label-box') ?? null;
       const labelEl = element?.querySelector<HTMLSpanElement>('.competitor-label') ?? null;
       const altEl = element?.querySelector<HTMLSpanElement>('.competitor-alt') ?? null;
-
-      if (hidePilotLabelsRef.current && labelBoxEl) {
-        labelBoxEl.style.display = 'none';
-      }
 
       markers.set(track.id, {
         marker,
@@ -544,7 +530,6 @@ export function LiveCompetitorLayer({
         if (progressLabel?.labelEl) {
           progressLabel.labelEl.style.display = 'none';
         }
-        setPilotLabelsVisible(true);
         taskProgressMarkerRef.current = null;
         resetTaskProgressVisuals();
       };
@@ -601,8 +586,6 @@ export function LiveCompetitorLayer({
           labelEl.innerHTML = label;
         }
       }
-
-      setPilotLabelsVisible(false);
     };
 
     const syncAll = (time: Date, updateLabels = true) => {
