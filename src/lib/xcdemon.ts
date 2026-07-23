@@ -291,11 +291,10 @@ function findTurnpointTable(doc: Document): HTMLTableElement {
   throw new Error('Could not find turnpoint table on task results page.');
 }
 
-function inferTurnpointType(noLabel: string, index: number, lastIndex: number): Turnpoint['type'] | undefined {
-  const upper = noLabel.toUpperCase();
-  if (upper.includes('SS')) return 'SSS';
-  if (upper.includes('ES')) return 'ESS';
-  if (index === lastIndex) return undefined;
+function inferTurnpointType(noLabel: string): Turnpoint['type'] | undefined {
+  const upper = noLabel.toUpperCase().trim();
+  if (/\bSS\b/.test(upper) || upper.includes('SSS')) return 'SSS';
+  if (/\bES\b/.test(upper) || upper.includes('ESS')) return 'ESS';
   return undefined;
 }
 
@@ -320,7 +319,7 @@ export function parseXcdemonTaskPage(
 
     turnpoints.push({
       radius: parsed.radius,
-      type: inferTurnpointType(parsed.noLabel, index, rows.length - 1),
+      type: inferTurnpointType(parsed.noLabel),
       waypoint: {
         name: parsed.id || `TP${index + 1}`,
         lat: parsed.lat,

@@ -233,6 +233,7 @@ export function getTrackSnapshotAtTime(
   legIndex: number;
   landed: boolean;
   hasStarted: boolean;
+  finished: boolean;
   nextTurnpointName: string;
 } | null {
   if (track.points.length === 0) return null;
@@ -286,6 +287,7 @@ export function getTrackSnapshotAtTime(
     legIndex: state.legIndex,
     landed: isLandedAtTime(track.landingTime ?? getTrackEndTime(track.points), time),
     hasStarted: state.hasStarted,
+    finished: state.finished,
     nextTurnpointName: getNextTurnpointName(
       state.legIndex,
       state.finished,

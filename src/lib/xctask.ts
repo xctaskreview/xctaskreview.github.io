@@ -21,6 +21,12 @@ export function getRoutePoints(task: XcTask): RoutePoint[] {
   }));
 }
 
+export function getGoalIndex(task: XcTask): number {
+  const essIndex = task.turnpoints.findIndex((tp) => tp.type === 'ESS');
+  if (essIndex >= 0) return essIndex;
+  return task.turnpoints.length - 1;
+}
+
 export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
   const routePoints = getRoutePoints(task);
   const centers = routePoints.map((p) => ({ lat: p.lat, lon: p.lon }));
@@ -33,7 +39,7 @@ export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
   }
 
   const sssIndex = task.turnpoints.findIndex((tp) => tp.type === 'SSS');
-  const goalIndex = task.turnpoints.length - 1;
+  const goalIndex = getGoalIndex(task);
   const startIndex = sssIndex >= 0 ? sssIndex : 0;
 
   const progressPoints = fixes.slice(startIndex, goalIndex + 1);

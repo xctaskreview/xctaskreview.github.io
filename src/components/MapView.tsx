@@ -5,7 +5,13 @@ import type { AppPreferences } from '../lib/preferences';
 import { MAP_TILES } from '../lib/preferences';
 import {
   circleKey,
+  formatProgressTurnpointLabel,
   getDefaultTurnpointColor,
+  getPostGoalRouteSegments,
+  getProgressRouteLegs,
+  getTurnpointCirclePathOptions,
+  LANDING_COLOR,
+  ROUTE_DASH_ARRAY,
   turnpointIcon,
   type TaskMapLayerRefs,
 } from '../lib/taskMapStyle';
@@ -29,6 +35,55 @@ function formatTurnpointPopup(circle: RoutePoint) {
   );
 }
 
+function formatRouteLegPopup(legNumber: number, fromLabel: string, toLabel: string) {
+  return (
+    <>
+      Leg {legNumber}
+      <br />
+      From: {fromLabel}
+      <br />
+      To: {toLabel}
+    </>
+  );
+}
+
+function RouteLegPolyline({
+  legNumber,
+  fromLabel,
+  toLabel,
+  positions,
+}: {
+  legNumber: number;
+  fromLabel: string;
+  toLabel: string;
+  positions: [[number, number], [number, number]];
+}) {
+  return (
+    <>
+      <Polyline
+        positions={positions}
+        pathOptions={{
+          color: '#111827',
+          weight: 1.5,
+          dashArray: ROUTE_DASH_ARRAY,
+          interactive: false,
+        }}
+      />
+      <Polyline
+        positions={positions}
+        className="route-leg-hit-area"
+        pathOptions={{
+          color: '#111827',
+          weight: 12,
+          opacity: 0.01,
+        }}
+      >
+        <Popup>{formatRouteLegPopup(legNumber, fromLabel, toLabel)}</Popup>
+      </Polyline>
+    </>
+  );
+}
+
 function FitBounds({ bounds, fitKey }: { bounds: [[number, number], [number, number]]; fitKey: string }) {
   const map = useMap();
   useEffect(() => {
@@ -48,7 +103,6 @@ function TurnpointCircle({
 }) {
   const circleRef = useRef<L.Circle>(null);
   const key = circleKey(circle);
-  const color = getDefaultTurnpointColor(circle, route);
 
   useEffect(() => {
     const layer = circleRef.current;
@@ -65,11 +119,7 @@ function TurnpointCircle({
       ref={circleRef}
       center={[circle.lat, circle.lon]}
       radius={circle.radius}
-      pathOptions={{
-        color,
-        weight: 2,
-        fillOpacity: 0.08,
-      }}
+      pathOptions={getTurnpointCirclePathOptions(circle, route, false)}
     >
       <Popup>{formatTurnpointPopup(circle)}</Popup>
     </Circle>
@@ -121,6 +171,10 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
   layerRefs: RefObject<TaskMapLayerRefs>;
 }) {
   const turnpointMarkers = useMemo(() => getUniqueTurnpointMarkers(circles), [circles]);
+  const routeLegs = useMemo(() => getProgressRouteLegs(optimizedRoute), [optimizedRoute]);
+  const postGoalLegs = useMemo(() => getPostGoalRouteSegments(optimizedRoute), [optimizedRoute]);
+  const preRacePoints =
+    optimizedRoute.sssIndex > 0 ? optimizedRoute.points.slice(0, optimizedRoute.sssIndex + 1) : [];
 
   return (
     <>
@@ -133,12 +187,41 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
         />
       ))}
 
-      {optimizedRoute.points.length > 1 && (
+      {preRacePoints.length > 1 && (
         <Polyline
-          positions={optimizedRoute.points.map((p) => [p.lat, p.lon])}
-          pathOptions={{ color: '#111827', weight: 1.5, dashArray: '6 5' }}
+          positions={preRacePoints.map((p) => [p.lat, p.lon])}
+          pathOptions={{ color: '#111827', weight: 1.5, dashArray: ROUTE_DASH_ARRAY, interactive: false }}
         />
       )}
+
+      {routeLegs.map((leg) => (
+        <RouteLegPolyline
+          key={leg.legNumber}
+          legNumber={leg.legNumber}
+          fromLabel={formatProgressTurnpointLabel(leg.from)}
+          toLabel={formatProgressTurnpointLabel(leg.to)}
+          positions={[
+            [leg.points[0].lat, leg.points[0].lon],
+            [leg.points[1].lat, leg.points[1].lon],
+          ]}
+        />
+      ))}
+
+      {postGoalLegs.map((segment, index) => (
+        <Polyline
+          key={`post-goal-${index}`}
+          positions={[
+            [segment[0].lat, segment[0].lon],
+            [segment[1].lat, segment[1].lon],
+          ]}
+          pathOptions={{
+            color: LANDING_COLOR,
+            weight: 1.5,
+            dashArray: ROUTE_DASH_ARRAY,
+            interactive: false,
+          }}
+        />
+      ))}
 
       {turnpointMarkers.map((circle) => (
         <TurnpointMarker
@@ -212,6 +295,7 @@ export function MapView({
           taskStart={taskStart}
           trackKey={trackKey}
           taskProgressMarkerRef={taskProgressMarkerRef}
+          leadPercentages={leadPercentages}
         />
       </MapContainer>
       <Scoreboard

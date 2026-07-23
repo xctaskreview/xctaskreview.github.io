@@ -22,13 +22,10 @@ import {
 } from '../lib/preferences';
 import type { CompetitorSnapshot } from '../lib/types';
 import { Icon } from './Icon';
+import { sortScoreboardEntries, type ScoreboardEntry } from '../lib/scoreboardDisplay';
 
 const UPDATE_INTERVAL_MS = 1000;
 const ROW_HEIGHT = 56;
-
-interface ScoreboardEntry extends CompetitorSnapshot {
-  position: number;
-}
 
 interface ScoreboardProps {
   competitors: CompetitorSnapshot[];
@@ -78,19 +75,6 @@ function useThrottledCompetitors(
   }, [competitors, playing, intervalMs]);
 
   return displayed;
-}
-
-function sortScoreboardEntries(competitors: CompetitorSnapshot[]): ScoreboardEntry[] {
-  return [...competitors]
-    .sort((a, b) => {
-      if (b.taskKm !== a.taskKm) return b.taskKm - a.taskKm;
-      if (b.taskPercent !== a.taskPercent) return b.taskPercent - a.taskPercent;
-      return a.pilotName.localeCompare(b.pilotName);
-    })
-    .map((entry, index) => ({
-      ...entry,
-      position: index + 1,
-    }));
 }
 
 function buildScoreboardLayout(entries: ScoreboardEntry[]) {

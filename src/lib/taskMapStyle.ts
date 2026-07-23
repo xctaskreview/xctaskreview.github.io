@@ -1,8 +1,9 @@
 import L from 'leaflet';
-import type { LatLon, OptimizedRoute, RoutePoint } from './types';
+import type { LatLon, OptimizedRoute, ProgressTurnpoint, RoutePoint } from './types';
 
 export const TASK_PROGRESS_COLOR = '#059669';
 export const TASK_PROGRESS_LINE_COLOR = TASK_PROGRESS_COLOR;
+export const ROUTE_DASH_ARRAY = '6 5';
 
 export interface TaskMapLayerRefs {
   circles: Map<string, L.Circle>;
@@ -12,8 +13,9 @@ export interface TaskMapLayerRefs {
 const GOAL_COLOR = '#dc2626';
 const START_COLOR = '#2563eb';
 const DEFAULT_TURNPOINT_COLOR = '#64748b';
+const LANDING_COLOR = DEFAULT_TURNPOINT_COLOR;
 
-export { GOAL_COLOR, START_COLOR };
+export { GOAL_COLOR, LANDING_COLOR, START_COLOR };
 
 function escapeHtml(text: string): string {
   return text
@@ -35,10 +37,16 @@ function matchesGoal(circle: RoutePoint, route: OptimizedRoute): boolean {
   );
 }
 
+export function isLandingTurnpoint(circle: RoutePoint, route: OptimizedRoute): boolean {
+  if (circle.number === undefined) return false;
+  return circle.number - 1 > route.goalIndex;
+}
+
 export function getDefaultTurnpointColor(circle: RoutePoint, route: OptimizedRoute): string {
   if (matchesGoal(circle, route)) return GOAL_COLOR;
   if (circle.type === 'SSS') return START_COLOR;
   if (circle.type === 'ESS') return GOAL_COLOR;
+  if (isLandingTurnpoint(circle, route)) return LANDING_COLOR;
   return DEFAULT_TURNPOINT_COLOR;
 }
 
@@ -63,10 +71,27 @@ export function getTurnpointColor(
   route: OptimizedRoute,
   tagged: boolean,
 ): string {
-  if (isStartTurnpoint(circle, route) || isGoalTurnpoint(circle, route)) {
+  if (isStartTurnpoint(circle, route) || isGoalTurnpoint(circle, route) || isLandingTurnpoint(circle, route)) {
     return getDefaultTurnpointColor(circle, route);
   }
   return tagged ? TASK_PROGRESS_COLOR : getDefaultTurnpointColor(circle, route);
+}
+
+export function getTurnpointCirclePathOptions(
+  circle: RoutePoint,
+  route: OptimizedRoute,
+  tagged: boolean,
+  weight = 2,
+): L.PathOptions {
+  const color = getTurnpointColor(circle, route, tagged);
+
+  return {
+    color,
+    weight,
+    fillColor: color,
+    fillOpacity: 0.08,
+    dashArray: isLandingTurnpoint(circle, route) ? ROUTE_DASH_ARRAY : undefined,
+  };
 }
 
 export function turnpointIcon(color: string, name: string): L.DivIcon {
@@ -166,4 +191,62 @@ export function buildCompletedRouteSegments(
   }
 
   return segments;
+}
+
+export interface RouteLegSegment {
+  legNumber: number;
+  from: ProgressTurnpoint;
+  to: ProgressTurnpoint;
+  points: [LatLon, LatLon];
+}
+
+export function getProgressRouteLegs(route: OptimizedRoute): RouteLegSegment[] {
+  const legs: RouteLegSegment[] = [];
+
+  for (let legIndex = 0; legIndex < route.progressLegDistances.length; legIndex += 1) {
+    const from = route.progressTurnpoints[legIndex];
+    const to = route.progressTurnpoints[legIndex + 1];
+    const start = route.progressPoints[legIndex];
+    const end = route.progressPoints[legIndex + 1];
+    if (!from || !to || !start || !end) continue;
+
+    legs.push({
+      legNumber: legIndex + 1,
+      from,
+      to,
+      points: [start, end],
+    });
+  }
+
+  return legs;
+}
+
+export function formatProgressTurnpointLabel(turnpoint: ProgressTurnpoint): string {
+  return `#${turnpoint.number} ${turnpoint.name}`;
+}
+
+export function getPostGoalRouteSegments(route: OptimizedRoute): [LatLon, LatLon][] {
+  const segments: [LatLon, LatLon][] = [];
+
+  for (let index = route.goalIndex; index < route.points.length - 1; index += 1) {
+    segments.push([route.points[index], route.points[index + 1]]);
+  }
+
+  return segments;
+}
+
+export function getLeaderNextLegSegment(
+  route: OptimizedRoute,
+  legIndex: number,
+  hasStarted: boolean,
+  finished: boolean,
+): [LatLon, LatLon] | null {
+  if (!hasStarted || finished) return null;
+  if (legIndex < 0 || legIndex >= route.progressLegDistances.length) return null;
+
+  const start = route.progressPoints[legIndex];
+  const end = route.progressPoints[legIndex + 1];
+  if (!start || !end) return null;
+
+  return [start, end];
 }
