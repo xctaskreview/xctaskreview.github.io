@@ -19,7 +19,7 @@ import {
   turnpointIcon,
   type TaskMapLayerRefs,
 } from '../lib/taskMapStyle';
-import { getTrackColor, getTrackSnapshotAtTime } from '../lib/tracks';
+import { computeTrackAirStats, getTrackColor, getTrackSnapshotAtTime } from '../lib/tracks';
 import { computeCompetitorPositions } from '../lib/competitors';
 import { buildPilotTrailLatLngs } from '../lib/pilotTrail';
 import { formatCompetitorLeaderboardPopupHtml } from '../lib/scoreboardDisplay';
@@ -351,6 +351,10 @@ export function LiveCompetitorLayer({
       const taskKm = (snapshot.taskPercent / 100) * taskDistanceKm;
       const speeds =
         snapshot.landed ? { groundSpeedMps: 0, verticalSpeedMps: 0 } : computeSpeedsAtTime(track.points, time);
+      const airStats =
+        snapshot.landed
+          ? { thermalStrengthMps: 0, windDirectionDeg: 0, windSpeedMps: 0 }
+          : computeTrackAirStats(track.points, time);
       const markerColor = trackColorsRef.current[track.id] ?? entry.color;
 
       if (updateLabels) {
@@ -381,6 +385,9 @@ export function LiveCompetitorLayer({
                 verticalSpeedMps: speeds.verticalSpeedMps,
                 nextTurnpointName: snapshot.nextTurnpointName,
                 leadPercent: leadPercentagesRef.current.get(track.id) ?? 0,
+                thermalStrengthMps: airStats.thermalStrengthMps,
+                windDirectionDeg: airStats.windDirectionDeg,
+                windSpeedMps: airStats.windSpeedMps,
                 position,
               },
               prefs,

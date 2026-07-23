@@ -1,7 +1,7 @@
 import { extractGliderType, pilotFirstName } from './igc';
 import { clampDisplayAltitudeMeters, computeSpeedsAtTime } from './geo';
 import type { EnrichedFlightTrack } from './taskProgress';
-import { getTrackColor, getTrackSnapshotAtTime } from './tracks';
+import { computeTrackAirStats, getTrackColor, getTrackSnapshotAtTime } from './tracks';
 import type { CompetitorSnapshot, OptimizedRoute } from './types';
 
 export function buildCompetitorSnapshots(
@@ -23,6 +23,10 @@ export function buildCompetitorSnapshots(
       includeSpeeds && !snapshot.landed
         ? computeSpeedsAtTime(track.points, currentTime)
         : { groundSpeedMps: 0, verticalSpeedMps: 0 };
+    const airStats =
+      includeSpeeds && !snapshot.landed
+        ? computeTrackAirStats(track.points, currentTime)
+        : { thermalStrengthMps: 0, windDirectionDeg: 0, windSpeedMps: 0 };
 
     return [
       {
@@ -41,6 +45,9 @@ export function buildCompetitorSnapshots(
         verticalSpeedMps: speeds.verticalSpeedMps,
         nextTurnpointName: snapshot.nextTurnpointName,
         leadPercent: 0,
+        thermalStrengthMps: airStats.thermalStrengthMps,
+        windDirectionDeg: airStats.windDirectionDeg,
+        windSpeedMps: airStats.windSpeedMps,
       },
     ];
   });

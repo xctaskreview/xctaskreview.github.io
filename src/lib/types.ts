@@ -135,6 +135,9 @@ export interface CompetitorSnapshot {
   verticalSpeedMps: number;
   nextTurnpointName: string;
   leadPercent: number;
+  thermalStrengthMps: number;
+  windDirectionDeg: number;
+  windSpeedMps: number;
 }
 
 export interface TaskTiming {

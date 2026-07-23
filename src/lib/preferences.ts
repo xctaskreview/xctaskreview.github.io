@@ -12,6 +12,8 @@ export interface AppPreferences {
   timezone: string;
   mapType: MapType;
   pilotTrailLengthM: number;
+  showThermalOverlay: boolean;
+  showWindOverlay: boolean;
 }
 
 export function normalizePilotTrailLengthM(value: number): number {
@@ -36,6 +38,8 @@ export function createDefaultPreferences(): AppPreferences {
     timezone: getDefaultTimezone(),
     mapType: 'topo',
     pilotTrailLengthM: 0,
+    showThermalOverlay: false,
+    showWindOverlay: false,
   };
 }
 
