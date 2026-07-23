@@ -57,7 +57,34 @@ export function getRoutePoints(task: XcTask): RoutePoint[] {
   }));
 }
 
+export function getTurnpointLabel(tp: Turnpoint): string {
+  return tp.waypoint.name.trim();
+}
+
+export function isStartTurnpointLabel(label: string): boolean {
+  const upper = label.toUpperCase();
+  return upper.endsWith('SS') && !upper.endsWith('ES');
+}
+
+export function isEndTurnpointLabel(label: string): boolean {
+  return label.toUpperCase().trim().endsWith('ES');
+}
+
+export function getStartIndex(task: XcTask): number {
+  const ssSuffixIndex = task.turnpoints.findIndex((tp) =>
+    isStartTurnpointLabel(getTurnpointLabel(tp)),
+  );
+  if (ssSuffixIndex >= 0) return ssSuffixIndex;
+  const sssIndex = task.turnpoints.findIndex((tp) => tp.type === 'SSS');
+  if (sssIndex >= 0) return sssIndex;
+  return 0;
+}
+
 export function getGoalIndex(task: XcTask): number {
+  const esSuffixIndex = task.turnpoints.findIndex((tp) =>
+    isEndTurnpointLabel(getTurnpointLabel(tp)),
+  );
+  if (esSuffixIndex >= 0) return esSuffixIndex;
   const essIndex = task.turnpoints.findIndex((tp) => tp.type === 'ESS');
   if (essIndex >= 0) return essIndex;
   return task.turnpoints.length - 1;
@@ -74,9 +101,8 @@ export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
     cumulativeDistances.push(cumulativeDistances[cumulativeDistances.length - 1] + leg);
   }
 
-  const sssIndex = task.turnpoints.findIndex((tp) => tp.type === 'SSS');
+  const startIndex = getStartIndex(task);
   const goalIndex = getGoalIndex(task);
-  const startIndex = sssIndex >= 0 ? sssIndex : 0;
 
   const progressPoints = fixes.slice(startIndex, goalIndex + 1);
   const progressLegDistances = legDistances.slice(startIndex, goalIndex);
