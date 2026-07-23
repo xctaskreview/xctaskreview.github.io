@@ -11,6 +11,12 @@ export interface AppPreferences {
   verticalSpeedUnit: VerticalSpeedUnit;
   timezone: string;
   mapType: MapType;
+  pilotTrailLengthM: number;
+}
+
+export function normalizePilotTrailLengthM(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(20000, Math.round(value)));
 }
 
 export function getDefaultTimezone(): string {
@@ -29,6 +35,7 @@ export function createDefaultPreferences(): AppPreferences {
     verticalSpeedUnit: 'm/s',
     timezone: getDefaultTimezone(),
     mapType: 'topo',
+    pilotTrailLengthM: 0,
   };
 }
 

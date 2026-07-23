@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { Clock, Flag, Gauge, Pause, Play, Timer, Trophy } from 'lucide-react';
 import { formatDuration, formatTime } from '../lib/geo';
 import type { TaskTiming } from '../lib/types';
+import { Icon, IconLabel } from './Icon';
 
 const SPEEDS = [1, 2, 5, 10, 20, 50, 100];
 const DISPLAY_UPDATE_INTERVAL_MS = 1000;
@@ -102,12 +104,11 @@ export function TimeControls({
           aria-label={playing ? 'Pause' : 'Play'}
           onClick={() => onPlayingChange(!playing)}
         >
-          <span className="play-button-icon" aria-hidden="true">
-            {playing ? '⏸' : '▶'}
-          </span>
+          <Icon icon={playing ? Pause : Play} size="sm" />
         </button>
 
         <label className="speed-control">
+          <Icon icon={Gauge} size="xs" />
           <select
             value={speed}
             aria-label="Playback speed"
@@ -131,7 +132,11 @@ export function TimeControls({
                 title={`Jump to task start ${formatTime(timing.taskStart, timezone)}`}
                 onClick={() => onTimeChange(timing.taskStart!)}
               >
-                <span className="time-marker-label start-label">Start</span>
+                <span className="time-marker-label start-label">
+                  <IconLabel icon={Flag} iconSize="xs">
+                    Start
+                  </IconLabel>
+                </span>
                 <span className="time-marker task-start-marker" aria-hidden="true" />
               </button>
             )}
@@ -143,7 +148,11 @@ export function TimeControls({
                   timing.fastestPilot ? `\n${timing.fastestPilot}` : ''
                 }${timing.fastestFinish ? `\n${formatTime(timing.fastestFinish, timezone)}` : ''}`}
               >
-                <span className="time-marker-label finish-label">Fastest</span>
+                <span className="time-marker-label finish-label">
+                  <IconLabel icon={Trophy} iconSize="xs">
+                    Fastest
+                  </IconLabel>
+                </span>
                 <span className="time-marker finish-marker" aria-hidden="true" />
               </div>
             )}
@@ -180,12 +189,20 @@ export function TimeControls({
 
         <div className="current-time-block">
           <div className="current-time-row">
-            <span className="time-metric-label">Time</span>
+            <span className="time-metric-label">
+              <IconLabel icon={Clock} iconSize="xs">
+                Time
+              </IconLabel>
+            </span>
             <span className="current-time">{formatTime(displayedTime, timezone)}</span>
           </div>
           {taskElapsed && (
             <div className="current-time-row">
-              <span className="time-metric-label">Elapsed</span>
+              <span className="time-metric-label">
+                <IconLabel icon={Timer} iconSize="xs">
+                  Elapsed
+                </IconLabel>
+              </span>
               <span className="task-elapsed">{taskElapsed}</span>
             </div>
           )}

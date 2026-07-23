@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PencilLine, X } from 'lucide-react';
 import { AltitudeChart } from './components/AltitudeChart';
+import { AppFooter } from './components/AppFooter';
+import { AppHomeLink } from './components/AppHomeLink';
+import { Icon, IconButtonContent } from './components/Icon';
 import { MapView } from './components/MapView';
 import { TimeControls } from './components/TimeControls';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -57,7 +61,9 @@ export default function App() {
   const [taskFitKey, setTaskFitKey] = useState('');
   const [taskLocationLabel, setTaskLocationLabel] = useState<string | null>(null);
   const [taskLocationLoading, setTaskLocationLoading] = useState(false);
-  const skipNextPersistRef = useRef(true);
+  const [storageReady, setStorageReady] = useState(false);
+  const skipNextPersistRef = useRef(false);
+  const hadTaskRef = useRef(false);
   const currentTimeRef = useRef(currentTime);
   const taskProgressMarkerRef = useRef<TaskProgressMarker | null>(null);
   const enabledTrackIdsKey = useMemo(() => [...enabledTrackIds].sort().join('|'), [enabledTrackIds]);
@@ -65,20 +71,29 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
-    loadPersistedSession().then((persisted) => {
-      if (cancelled || !persisted) return;
+    loadPersistedSession()
+      .then((persisted) => {
+        if (cancelled) return;
 
-      skipNextPersistRef.current = true;
-      setTask(persisted.task);
-      setTaskFileName(persisted.taskFileName ?? '');
-      setTracks(persisted.tracks);
-      setEnabledTrackIds(new Set(persisted.enabledTrackIds));
-      setTrackColors(persisted.trackColors);
-      setPreferences(persisted.preferences);
-      if (persisted.taskFileName) {
-        setTaskFitKey(`${persisted.taskFileName}-restored`);
-      }
-    });
+        if (persisted) {
+          skipNextPersistRef.current = true;
+          hadTaskRef.current = true;
+          setTask(persisted.task);
+          setTaskFileName(persisted.taskFileName ?? '');
+          setTracks(persisted.tracks);
+          setEnabledTrackIds(new Set(persisted.enabledTrackIds));
+          setTrackColors(persisted.trackColors);
+          setPreferences(persisted.preferences);
+          if (persisted.taskFileName) {
+            setTaskFitKey(`${persisted.taskFileName}-restored`);
+          }
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setStorageReady(true);
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -316,15 +331,22 @@ export default function App() {
   }, [task, taskFileName]);
 
   useEffect(() => {
+    if (!storageReady) return;
+
     if (skipNextPersistRef.current) {
       skipNextPersistRef.current = false;
       return;
     }
 
     if (!task) {
-      void savePersistedSession(null);
+      if (hadTaskRef.current) {
+        hadTaskRef.current = false;
+        void savePersistedSession(null);
+      }
       return;
     }
+
+    hadTaskRef.current = true;
 
     void savePersistedSession({
       task,
@@ -336,9 +358,11 @@ export default function App() {
     }).then((result) => {
       if (result === 'failed') {
         setError('Could not save session to browser storage. The tracklogs may be too large.');
+      } else if (result === 'partial') {
+        setError('Task saved locally, but the tracklogs were too large to store in this browser.');
       }
     });
-  }, [task, taskFileName, tracks, enabledTrackIdsKey, trackColors, preferences]);
+  }, [storageReady, task, taskFileName, tracks, enabledTrackIdsKey, trackColors, preferences]);
 
   const onTaskFile = useCallback(async (file: File) => {
     try {
@@ -447,36 +471,44 @@ export default function App() {
 
   if (!showReview) {
     return (
-      <WelcomeScreen
-        task={task}
-        taskFileName={taskFileName}
-        taskLocationLabel={taskLocationLabel}
-        taskLocationLoading={taskLocationLoading}
-        tracks={tracks}
-        enabledTrackIds={enabledTrackIds}
-        trackColors={trackColors}
-        preferences={preferences}
-        error={error}
-        canContinue={Boolean(task && visibleTracks.length > 0)}
-        onTaskFile={(file) => void onTaskFile(file)}
-        onTrackFiles={(files) => void onTrackFiles(files)}
-        onToggleTrack={onToggleTrack}
-        onTrackColorChange={onTrackColorChange}
-        onRemoveTrack={onRemoveTrack}
-        onRemoveAllTracks={onRemoveAllTracks}
-        onPreferencesChange={setPreferences}
-        onContinue={() => setView('review')}
-        onDismissError={() => setError(null)}
-      />
+      <div className="app-shell">
+        <WelcomeScreen
+          task={task}
+          taskFileName={taskFileName}
+          taskLocationLabel={taskLocationLabel}
+          taskLocationLoading={taskLocationLoading}
+          tracks={tracks}
+          enabledTrackIds={enabledTrackIds}
+          trackColors={trackColors}
+          preferences={preferences}
+          error={error}
+          canContinue={Boolean(task && visibleTracks.length > 0)}
+          onTaskFile={(file) => void onTaskFile(file)}
+          onTrackFiles={(files) => void onTrackFiles(files)}
+          onToggleTrack={onToggleTrack}
+          onTrackColorChange={onTrackColorChange}
+          onRemoveTrack={onRemoveTrack}
+          onRemoveAllTracks={onRemoveAllTracks}
+          onPreferencesChange={setPreferences}
+          onContinue={() => setView('review')}
+          onDismissError={() => setError(null)}
+        />
+        <AppFooter />
+      </div>
     );
   }
 
   return (
-    <div className="app review-screen">
+    <div className="app-shell">
+      <div className="app review-screen">
       <header className="review-header">
-        <h1>XC Task Review</h1>
+        <div className="review-header-start">
+          <h1 className="review-header-title">
+            <AppHomeLink iconSize="sm" />
+          </h1>
+        </div>
         <button type="button" className="edit-button" onClick={() => setView('welcome')}>
-          Edit
+          <IconButtonContent icon={PencilLine}>Edit</IconButtonContent>
         </button>
       </header>
 
@@ -489,7 +521,7 @@ export default function App() {
             aria-label="Dismiss error"
             onClick={() => setError(null)}
           >
-            ×
+            <Icon icon={X} size="sm" />
           </button>
         </div>
       )}
@@ -543,6 +575,8 @@ export default function App() {
           />
         </>
       )}
+      </div>
+      <AppFooter />
     </div>
   );
 }

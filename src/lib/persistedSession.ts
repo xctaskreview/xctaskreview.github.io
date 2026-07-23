@@ -517,7 +517,9 @@ export async function loadPersistedSession(): Promise<PersistedSession | null> {
   }
 }
 
-export async function savePersistedSession(session: PersistedSession | null): Promise<SaveSessionResult> {
+let saveQueue: Promise<SaveSessionResult> = Promise.resolve('saved');
+
+async function performSave(session: PersistedSession | null): Promise<SaveSessionResult> {
   try {
     if (!session) {
       await clearPersistedSession();
@@ -543,6 +545,12 @@ export async function savePersistedSession(session: PersistedSession | null): Pr
   } catch {
     return 'failed';
   }
+}
+
+export function savePersistedSession(session: PersistedSession | null): Promise<SaveSessionResult> {
+  const next = saveQueue.then(() => performSave(session));
+  saveQueue = next.catch(() => 'failed' as SaveSessionResult);
+  return next;
 }
 
 export async function clearPersistedSession(): Promise<void> {

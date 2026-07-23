@@ -1,4 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ChevronDown,
+  ChevronUp,
+  Crown,
+  Gauge,
+  Hash,
+  MapPin,
+  Mountain,
+  Route,
+  TrendingUp,
+  Trophy,
+  User,
+} from 'lucide-react';
 import { LANDED_COLOR } from '../lib/geo';
 import type { AppPreferences } from '../lib/preferences';
 import {
@@ -8,6 +21,7 @@ import {
   formatVerticalSpeedValue,
 } from '../lib/preferences';
 import type { CompetitorSnapshot } from '../lib/types';
+import { Icon } from './Icon';
 
 const UPDATE_INTERVAL_MS = 1000;
 const ROW_HEIGHT = 56;
@@ -116,9 +130,12 @@ export function Scoreboard({ competitors, leadPercentages, preferences, playing 
         aria-expanded={expanded}
         onClick={() => setExpanded((open) => !open)}
       >
-        <span>Leaderboard</span>
-        <span className="scoreboard-toggle" aria-hidden="true">
-          {expanded ? '−' : '+'}
+        <span className="scoreboard-title-text">
+          <Icon icon={Trophy} size="sm" />
+          Leaderboard
+        </span>
+        <span className="scoreboard-toggle scoreboard-toggle-icon" aria-hidden="true">
+          <Icon icon={expanded ? ChevronUp : ChevronDown} size="sm" />
         </span>
       </button>
 
@@ -127,44 +144,67 @@ export function Scoreboard({ competitors, leadPercentages, preferences, playing 
           <div className="scoreboard-table" role="table" aria-label="Pilot leaderboard">
             <div className="scoreboard-header-row" role="row">
               <span className="scoreboard-cell scoreboard-pos" role="columnheader">
-                #
+                <Icon icon={Hash} size="xs" />
               </span>
               <span className="scoreboard-cell scoreboard-pilot" role="columnheader">
-                Pilot
+                <span className="scoreboard-header-stack">
+                  <span className="scoreboard-header-label">
+                    <Icon icon={User} size="xs" />
+                    Pilot
+                  </span>
+                </span>
               </span>
               <span className="scoreboard-cell scoreboard-task" role="columnheader">
                 <span className="scoreboard-header-stack">
-                  <span className="scoreboard-header-label">Task</span>
+                  <span className="scoreboard-header-label">
+                    <Icon icon={Route} size="xs" />
+                    Task
+                  </span>
                   <span className="scoreboard-header-unit">{distanceUnitLabel}</span>
                 </span>
               </span>
               <span className="scoreboard-cell scoreboard-lead" role="columnheader">
                 <span className="scoreboard-header-stack">
-                  <span className="scoreboard-header-label">Lead</span>
+                  <span className="scoreboard-header-label">
+                    <Icon icon={Crown} size="xs" />
+                    Lead
+                  </span>
                   <span className="scoreboard-header-unit">%</span>
                 </span>
               </span>
               <span className="scoreboard-cell scoreboard-alt" role="columnheader">
                 <span className="scoreboard-header-stack">
-                  <span className="scoreboard-header-label">Alt</span>
+                  <span className="scoreboard-header-label">
+                    <Icon icon={Mountain} size="xs" />
+                    Alt
+                  </span>
                   <span className="scoreboard-header-unit">{altitudeUnitLabel}</span>
                 </span>
               </span>
               <span className="scoreboard-cell scoreboard-speed" role="columnheader">
                 <span className="scoreboard-header-stack">
-                  <span className="scoreboard-header-label">Speed</span>
+                  <span className="scoreboard-header-label">
+                    <Icon icon={Gauge} size="xs" />
+                    Speed
+                  </span>
                   <span className="scoreboard-header-unit">{speedUnitLabel}</span>
                 </span>
               </span>
               <span className="scoreboard-cell scoreboard-vario" role="columnheader">
                 <span className="scoreboard-header-stack">
-                  <span className="scoreboard-header-label">V/S</span>
+                  <span className="scoreboard-header-label">
+                    <Icon icon={TrendingUp} size="xs" />
+                    V/S
+                  </span>
                   <span className="scoreboard-header-unit">{varioUnitLabel}</span>
                 </span>
               </span>
               <span className="scoreboard-cell scoreboard-next-tp" role="columnheader">
                 <span className="scoreboard-header-stack">
-                  <span className="scoreboard-header-label">Next TP</span>
+                  <span className="scoreboard-header-label">
+                    <Icon icon={MapPin} size="xs" />
+                    Next TP
+                  </span>
                 </span>
               </span>
             </div>

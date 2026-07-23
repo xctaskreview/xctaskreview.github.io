@@ -1,10 +1,12 @@
 import { createLocalProjection, haversine } from './geo';
+import { TASK_PROGRESS_LINE_COLOR } from './taskMapStyle';
 import type { EnrichedFlightTrack } from './taskProgress';
 import { getTrackSnapshotAtTime } from './taskProgress';
 import type { LatLon, OptimizedRoute } from './types';
 
+export { TASK_PROGRESS_LINE_COLOR };
+
 export const TASK_PROGRESS_LINE_HALF_WIDTH_M = 350;
-export const TASK_PROGRESS_LINE_COLOR = '#dc2626';
 
 export interface TaskProgressMarker {
   taskPercent: number;

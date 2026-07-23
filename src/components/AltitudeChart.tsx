@@ -1,7 +1,9 @@
 import { memo, useEffect, useMemo, useState, type RefObject } from 'react';
+import { LineChart } from 'lucide-react';
 import {
   CartesianGrid,
   ComposedChart,
+  Line,
   ReferenceLine,
   ResponsiveContainer,
   Scatter,
@@ -10,6 +12,7 @@ import {
 } from 'recharts';
 import { buildCompetitorSnapshots } from '../lib/competitors';
 import { clampChartAltitudeDisplay, LANDED_COLOR } from '../lib/geo';
+import { buildPilotChartTrailPoints } from '../lib/pilotTrail';
 import type { AppPreferences } from '../lib/preferences';
 import {
   altitudeAxisLabel,
@@ -17,10 +20,22 @@ import {
   distanceAxisLabel,
   kmToDistanceUnit,
   metersToAltitudeUnit,
+  normalizePilotTrailLengthM,
 } from '../lib/preferences';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
-import { TASK_PROGRESS_LINE_COLOR, type TaskProgressMarker } from '../lib/taskProgressMarker';
+import { getTrackSnapshotAtTime } from '../lib/taskProgress';
+import { colorForIndex } from '../lib/tracks';
+import { TASK_PROGRESS_LINE_COLOR } from '../lib/taskMapStyle';
+import type { TaskProgressMarker } from '../lib/taskProgressMarker';
 import type { CompetitorSnapshot, OptimizedRoute, ProgressTurnpoint } from '../lib/types';
+import { Icon } from './Icon';
+
+interface ChartTrail {
+  id: string;
+  color: string;
+  landed: boolean;
+  points: { taskDistance: number; altitude: number }[];
+}
 
 interface AltitudeChartProps {
   enrichedTracks: EnrichedFlightTrack[];
@@ -38,7 +53,7 @@ interface AltitudeChartProps {
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
 }
 
-function useLiveProgressDistance({
+function useLiveProgressState({
   taskProgressMarkerRef,
   playing,
   pausedTime,
@@ -48,17 +63,20 @@ function useLiveProgressDistance({
   playing: boolean;
   pausedTime: Date;
   distanceUnit: AppPreferences['distanceUnit'];
-}): number | null {
-  const readDistance = () => {
+}): { distance: number | null; percent: number } {
+  const readState = () => {
     const marker = taskProgressMarkerRef.current;
-    return marker !== null ? kmToDistanceUnit(marker.taskKm, distanceUnit) : null;
+    return {
+      distance: marker !== null ? kmToDistanceUnit(marker.taskKm, distanceUnit) : null,
+      percent: marker?.taskPercent ?? 0,
+    };
   };
 
-  const [progressDistance, setProgressDistance] = useState<number | null>(readDistance);
+  const [progressState, setProgressState] = useState(readState);
 
   useEffect(() => {
     if (playing) return;
-    setProgressDistance(readDistance());
+    setProgressState(readState());
   }, [playing, pausedTime, taskProgressMarkerRef, distanceUnit]);
 
   useEffect(() => {
@@ -66,7 +84,7 @@ function useLiveProgressDistance({
 
     let rafId = 0;
     const loop = () => {
-      setProgressDistance(readDistance());
+      setProgressState(readState());
       rafId = requestAnimationFrame(loop);
     };
 
@@ -74,7 +92,7 @@ function useLiveProgressDistance({
     return () => cancelAnimationFrame(rafId);
   }, [playing, taskProgressMarkerRef, distanceUnit]);
 
-  return progressDistance;
+  return progressState;
 }
 
 function useLiveChartCompetitors({
@@ -115,6 +133,150 @@ function useLiveChartCompetitors({
   return competitors;
 }
 
+function buildChartTrails(
+  enrichedTracks: EnrichedFlightTrack[],
+  trackColors: Record<string, string>,
+  route: OptimizedRoute,
+  time: Date,
+  taskDistanceKm: number,
+  preferences: AppPreferences,
+  altitudeMin: number,
+  altitudeMax: number,
+): ChartTrail[] {
+  const trailLengthM = normalizePilotTrailLengthM(preferences.pilotTrailLengthM);
+  if (trailLengthM <= 0) {
+    return [];
+  }
+
+  return enrichedTracks.flatMap((track) => {
+    const snapshot = getTrackSnapshotAtTime(track, time, route);
+    if (!snapshot) return [];
+
+    const points = buildPilotChartTrailPoints(
+      track,
+      time,
+      trailLengthM,
+      route,
+      taskDistanceKm,
+      preferences.distanceUnit,
+      preferences.altitudeUnit,
+      altitudeMin,
+      altitudeMax,
+    );
+
+    if (points.length < 2) return [];
+
+    return [
+      {
+        id: track.id,
+        color: trackColors[track.id] ?? colorForIndex(0),
+        landed: snapshot.landed,
+        points,
+      },
+    ];
+  });
+}
+
+function useLiveChartTrails({
+  enrichedTracks,
+  trackColors,
+  route,
+  currentTimeRef,
+  playing,
+  pausedTime,
+  taskDistanceKm,
+  preferences,
+  altitudeMin,
+  altitudeMax,
+}: Pick<
+  AltitudeChartProps,
+  | 'enrichedTracks'
+  | 'trackColors'
+  | 'route'
+  | 'currentTimeRef'
+  | 'playing'
+  | 'pausedTime'
+  | 'taskDistanceKm'
+  | 'preferences'
+  | 'altitudeMin'
+  | 'altitudeMax'
+>): ChartTrail[] {
+  const [trails, setTrails] = useState<ChartTrail[]>(() =>
+    buildChartTrails(
+      enrichedTracks,
+      trackColors,
+      route,
+      pausedTime,
+      taskDistanceKm,
+      preferences,
+      altitudeMin,
+      altitudeMax,
+    ),
+  );
+
+  useEffect(() => {
+    if (playing) return;
+    setTrails(
+      buildChartTrails(
+        enrichedTracks,
+        trackColors,
+        route,
+        pausedTime,
+        taskDistanceKm,
+        preferences,
+        altitudeMin,
+        altitudeMax,
+      ),
+    );
+  }, [
+    enrichedTracks,
+    trackColors,
+    route,
+    playing,
+    pausedTime,
+    taskDistanceKm,
+    preferences,
+    altitudeMin,
+    altitudeMax,
+  ]);
+
+  useEffect(() => {
+    if (!playing) return;
+
+    let rafId = 0;
+    const loop = () => {
+      setTrails(
+        buildChartTrails(
+          enrichedTracks,
+          trackColors,
+          route,
+          currentTimeRef.current,
+          taskDistanceKm,
+          preferences,
+          altitudeMin,
+          altitudeMax,
+        ),
+      );
+      rafId = requestAnimationFrame(loop);
+    };
+
+    rafId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafId);
+  }, [
+    playing,
+    enrichedTracks,
+    trackColors,
+    route,
+    currentTimeRef,
+    taskDistanceKm,
+    preferences,
+    altitudeMin,
+    altitudeMax,
+  ]);
+
+  return trails;
+}
+
 export const AltitudeChart = memo(function AltitudeChart({
   enrichedTracks,
   trackColors,
@@ -139,7 +301,20 @@ export const AltitudeChart = memo(function AltitudeChart({
     pausedTime,
   });
 
-  const progressDistanceDisplay = useLiveProgressDistance({
+  const trails = useLiveChartTrails({
+    enrichedTracks,
+    trackColors,
+    route,
+    currentTimeRef,
+    playing,
+    pausedTime,
+    taskDistanceKm,
+    preferences,
+    altitudeMin,
+    altitudeMax,
+  });
+
+  const { distance: progressDistanceDisplay, percent: progressPercent } = useLiveProgressState({
     taskProgressMarkerRef,
     playing,
     pausedTime,
@@ -172,7 +347,10 @@ export const AltitudeChart = memo(function AltitudeChart({
 
   return (
     <div className="chart-panel">
-      <div className="panel-title">Altitude vs task distance</div>
+      <div className="panel-title">
+        <Icon icon={LineChart} size="sm" />
+        Altitude vs task distance
+      </div>
       <ResponsiveContainer width="100%" height={320}>
         <ComposedChart margin={{ top: 28, right: 24, left: 8, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
@@ -201,18 +379,40 @@ export const AltitudeChart = memo(function AltitudeChart({
             }}
           />
 
-          {turnpoints.map((tp) => (
+          {turnpoints.map((tp) => {
+            const isStart = tp.number === route.sssIndex + 1;
+            const tagged =
+              !isStart && progressPercent > 0 && progressPercent >= tp.taskPercent - 0.001;
+            const strokeColor = tagged ? TASK_PROGRESS_LINE_COLOR : isStart ? '#2563eb' : '#111827';
+            const labelColor = tagged ? TASK_PROGRESS_LINE_COLOR : isStart ? '#2563eb' : '#475569';
+            return (
             <ReferenceLine
               key={`${tp.number}-${tp.name}`}
               x={kmToDistanceUnit(tp.taskKm, preferences.distanceUnit)}
-              stroke="#111827"
+              stroke={strokeColor}
               strokeDasharray="4 4"
               label={{
                 value: `${tp.number} ${tp.name}`,
                 position: 'insideTopLeft',
-                fill: '#475569',
+                fill: labelColor,
                 fontSize: 11,
               }}
+            />
+            );
+          })}
+
+          {trails.map((trail) => (
+            <Line
+              key={`trail-${trail.id}`}
+              data={trail.points}
+              type="linear"
+              dataKey="altitude"
+              stroke={trail.landed ? LANDED_COLOR : trail.color}
+              strokeWidth={2.5}
+              strokeOpacity={trail.landed ? 0.55 : 0.8}
+              dot={false}
+              isAnimationActive={false}
+              connectNulls
             />
           ))}
 

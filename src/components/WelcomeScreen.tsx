@@ -1,8 +1,27 @@
 import type { FlightTrack, XcTask } from '../lib/types';
+import {
+  ArrowRight,
+  Clock,
+  FileUp,
+  FolderUp,
+  Gauge,
+  Map,
+  MapPinned,
+  Mountain,
+  Route,
+  Ruler,
+  Settings2,
+  Trash2,
+  TrendingUp,
+  Users,
+  X,
+} from 'lucide-react';
 import { extractGliderType, extractPilotDisplayName, extractPilotFileName } from '../lib/igc';
 import { getTaskDisplayInfo } from '../lib/xctask';
 import type { AppPreferences } from '../lib/preferences';
-import { getMapTypeOptions, getSpeedUnitOptions, getTimezoneOptions, getVerticalSpeedUnitOptions } from '../lib/preferences';
+import { getMapTypeOptions, getSpeedUnitOptions, getTimezoneOptions, getVerticalSpeedUnitOptions, normalizePilotTrailLengthM } from '../lib/preferences';
+import { AppHomeLink } from './AppHomeLink';
+import { Icon, IconButtonContent, IconLabel } from './Icon';
 
 function getDistanceUnitOptions() {
   return [
@@ -70,16 +89,21 @@ export function WelcomeScreen({
   return (
     <div className="welcome-screen">
       <div className="welcome-card">
-        <h1>XC Task Review</h1>
+        <h1 className="welcome-title">
+          <AppHomeLink iconSize="md" />
+        </h1>
         <p className="welcome-lead">
           Load a competition task and competitor tracklogs to replay the race on a shared timeline.
         </p>
 
         <section className="welcome-section">
           <div className="welcome-section-header">
-            <h2 className="welcome-section-title">Task</h2>
+            <h2 className="welcome-section-title">
+              <Icon icon={MapPinned} size="sm" />
+              Task
+            </h2>
             <label className="welcome-inline-button">
-              Load task
+              <IconButtonContent icon={FileUp}>Load task</IconButtonContent>
               <input
                 type="file"
                 accept=".xctsk,.json"
@@ -113,10 +137,13 @@ export function WelcomeScreen({
 
         <section className="welcome-section">
           <div className="welcome-section-header">
-            <h2 className="welcome-section-title">Tracks</h2>
+            <h2 className="welcome-section-title">
+              <Icon icon={Users} size="sm" />
+              Tracks
+            </h2>
             <div className="welcome-section-actions">
               <label className={`welcome-inline-button${task ? '' : ' disabled'}`}>
-                Add tracks
+                <IconButtonContent icon={FolderUp}>Add tracks</IconButtonContent>
                 <input
                   type="file"
                   accept=".igc,.zip"
@@ -130,7 +157,7 @@ export function WelcomeScreen({
               </label>
               {tracks.length > 0 && (
                 <button type="button" className="welcome-text-button danger" onClick={onRemoveAllTracks}>
-                  Remove all
+                  <IconButtonContent icon={Trash2}>Remove all</IconButtonContent>
                 </button>
               )}
             </div>
@@ -175,7 +202,7 @@ export function WelcomeScreen({
                       aria-label={`Remove ${pilotName}`}
                       onClick={() => onRemoveTrack(track.id)}
                     >
-                      ×
+                      <Icon icon={X} size="sm" />
                     </button>
                   </li>
                   );
@@ -188,10 +215,13 @@ export function WelcomeScreen({
         </section>
 
         <div className="welcome-preferences">
-          <h2 className="welcome-section-title">Preferences</h2>
+          <h2 className="welcome-section-title">
+            <Icon icon={Settings2} size="sm" />
+            Preferences
+          </h2>
           <div className="welcome-pref-grid">
             <label className="welcome-pref-field">
-              Distance units
+              <IconLabel icon={Ruler}>Distance units</IconLabel>
               <select
                 value={preferences.distanceUnit}
                 onChange={(e) => updatePreference('distanceUnit', e.target.value as AppPreferences['distanceUnit'])}
@@ -205,7 +235,7 @@ export function WelcomeScreen({
             </label>
 
             <label className="welcome-pref-field">
-              Altitude units
+              <IconLabel icon={Mountain}>Altitude units</IconLabel>
               <select
                 value={preferences.altitudeUnit}
                 onChange={(e) => updatePreference('altitudeUnit', e.target.value as AppPreferences['altitudeUnit'])}
@@ -219,7 +249,7 @@ export function WelcomeScreen({
             </label>
 
             <label className="welcome-pref-field">
-              Speed units
+              <IconLabel icon={Gauge}>Speed units</IconLabel>
               <select
                 value={preferences.speedUnit}
                 onChange={(e) => updatePreference('speedUnit', e.target.value as AppPreferences['speedUnit'])}
@@ -233,7 +263,7 @@ export function WelcomeScreen({
             </label>
 
             <label className="welcome-pref-field">
-              Vertical speed units
+              <IconLabel icon={TrendingUp}>Vertical speed units</IconLabel>
               <select
                 value={preferences.verticalSpeedUnit}
                 onChange={(e) =>
@@ -249,7 +279,7 @@ export function WelcomeScreen({
             </label>
 
             <label className="welcome-pref-field">
-              Timezone
+              <IconLabel icon={Clock}>Timezone</IconLabel>
               <select
                 value={preferences.timezone}
                 onChange={(e) => updatePreference('timezone', e.target.value)}
@@ -263,7 +293,7 @@ export function WelcomeScreen({
             </label>
 
             <label className="welcome-pref-field">
-              Map type
+              <IconLabel icon={Map}>Map type</IconLabel>
               <select
                 value={preferences.mapType}
                 onChange={(e) => updatePreference('mapType', e.target.value as AppPreferences['mapType'])}
@@ -275,12 +305,26 @@ export function WelcomeScreen({
                 ))}
               </select>
             </label>
+
+            <label className="welcome-pref-field">
+              <IconLabel icon={Route}>Pilot trail length (m)</IconLabel>
+              <input
+                type="number"
+                min={0}
+                max={20000}
+                step={100}
+                value={preferences.pilotTrailLengthM}
+                onChange={(e) =>
+                  updatePreference('pilotTrailLengthM', normalizePilotTrailLengthM(Number(e.target.value)))
+                }
+              />
+            </label>
           </div>
         </div>
 
         {canContinue && (
           <button type="button" className="welcome-continue" onClick={onContinue}>
-            Continue to review
+            <IconButtonContent icon={ArrowRight}>Continue to review</IconButtonContent>
           </button>
         )}
 
@@ -293,7 +337,7 @@ export function WelcomeScreen({
               aria-label="Dismiss error"
               onClick={onDismissError}
             >
-              ×
+              <Icon icon={X} size="sm" />
             </button>
           </div>
         )}

@@ -1,40 +1,65 @@
 # XC Task Review
 
-A static web app for reviewing paragliding competition tasks and competitor tracklogs. Deployable to GitHub Pages.
+A static web app for reviewing paragliding competition tasks and competitor tracklogs on a shared timeline.
+
+**Live site:** [xctaskreview.github.io](https://xctaskreview.github.io)
 
 ## Features
 
-- Load `.xctsk` task files and `.igc` tracklogs (individual files or zip archives)
-- Map view with turnpoint cylinders and optimized task route
-- Timeline scrubber from first to last tracklog time, with task start and fastest finish markers
-- Play/pause replay with speed controls (x1, x2, x4, x8, x16)
-- Altitude vs task progress chart showing each competitor's current position
+- Load `.xctsk` or `.json` task files and `.igc` tracklogs (individual files or zip archives)
+- **Map**
+  - Turnpoint cylinders with optimized task route (FAI shortest-path through cylinders)
+  - Live pilot positions with rank labels (`#1 Name`, etc.)
+  - Optional pilot trails (configurable length in meters)
+  - Task progress frontier marker showing the leading field’s max progress
+  - Completed route legs and tagged turnpoints highlighted in green (start/SSS stays blue)
+- **Leaderboard** overlay with task distance, lead %, altitude, speed, vario, and next turnpoint
+- **Timeline** scrubber from first to last tracklog time, with task start and fastest-finish markers
+- **Playback** at x1, x2, x5, x10, x20, x50, or x100 speed
+- **Altitude vs task distance** chart with turnpoint lines, pilot positions, optional trails, and progress marker
+- **Preferences** for distance, altitude, speed, and vertical-speed units; timezone; map type (topo, OSM, satellite); pilot trail length
+- **Local session storage** — your loaded task, tracks, colors, and preferences are saved in the browser (IndexedDB) and restored on reload
+
+## Usage
+
+1. Open the app and load a task file (`.xctsk` or `.json`).
+2. Add one or more IGC files, or a zip of IGC files.
+3. Adjust preferences if needed (units, map type, pilot trails, etc.).
+4. Click **Continue to review**.
+5. Scrub the timeline or press Play to replay the race. Expand the **Leaderboard** on the map for live standings.
+
+Your session is saved locally in the browser. Reloading the page restores the task and tracklogs without re-uploading.
 
 ## Development
+
+Requires Node.js 22+ (matches the GitHub Actions workflow).
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Build
+Other scripts:
 
 ```bash
-npm run build
+npm run build    # production build to dist/
+npm run preview  # serve the production build locally
 ```
 
-The production build is written to `dist/`. For GitHub Pages on `xctaskreview.github.io`, publish the contents of `dist/` to the repository root or configure Pages to serve from `/docs` or the `gh-pages` branch.
+## Deployment
 
-## Usage
+The site is deployed automatically to GitHub Pages when changes are pushed to the `main` branch (see `.github/workflows/deploy.yml`). The workflow builds with Vite and publishes the `dist/` output.
 
-1. Load a task file (`.xctsk`)
-2. Load one or more IGC files, or a zip of IGC files
-3. Scrub the timeline or press Play to animate competitor positions
-4. Review altitude and task progress in the chart below the map
+For a fork or local Pages setup, enable GitHub Pages from the repository’s **Settings → Pages** and use the **GitHub Actions** source.
 
 ## Data formats
 
-- **XCTask**: JSON task definition used by XCTrack
+- **XCTask** (`.xctsk`): JSON task definition used by XCTrack
 - **IGC**: Standard GPS tracklog format with `B` records for fixes
 
-The optimized route uses the FAI iterative shortest-path algorithm through turnpoint cylinders.
+Task progress is measured along the optimized route between turnpoint fixes, not center-to-center between turnpoints.
+
+## Links
+
+- **Repository:** [github.com/xctaskreview/xctaskreview.github.io](https://github.com/xctaskreview/xctaskreview.github.io)
+- **Report an issue:** [github.com/xctaskreview/xctaskreview.github.io/issues/new](https://github.com/xctaskreview/xctaskreview.github.io/issues/new)
