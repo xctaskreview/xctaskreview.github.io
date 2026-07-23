@@ -13,6 +13,7 @@ import {
 import {
   colorForIndex,
   computeTaskTiming,
+  advanceLeadPercentages,
   enrichTracksWithTaskProgress,
   getTrackSnapshotAtTime,
   loadIgcFiles,
@@ -35,6 +36,7 @@ function buildCompetitorSnapshots(
   trackColors: Record<string, string>,
   route: NonNullable<ReturnType<typeof buildOptimizedRoute>>,
   currentTime: Date,
+  leadPercentages: Map<string, number>,
 ): CompetitorSnapshot[] {
   const taskDistanceKm = route.progressTotalDistance / 1000;
 
@@ -64,6 +66,7 @@ function buildCompetitorSnapshots(
         groundSpeedMps: speeds.groundSpeedMps,
         verticalSpeedMps: speeds.verticalSpeedMps,
         nextTurnpointName: snapshot.nextTurnpointName,
+        leadPercent: leadPercentages.get(track.id) ?? 0,
       },
     ];
   });
@@ -150,9 +153,9 @@ export default function App() {
   }, [task, visibleTracks]);
 
   const enrichedTracks = useMemo(() => {
-    if (!task || !route) return [];
+    if (!showReview || !task || !route) return [];
     return enrichTracksWithTaskProgress(visibleTracks, task, route, taskStart);
-  }, [visibleTracks, task, route, taskStart]);
+  }, [showReview, visibleTracks, task, route, taskStart]);
 
   const circles = useMemo(() => (task ? getUniqueTurnpointCircles(task) : []), [task]);
   const bounds = useMemo(() => (task ? getTaskBounds(task) : null), [task]);
@@ -207,10 +210,88 @@ export default function App() {
     return () => cancelAnimationFrame(rafId);
   }, [playing, speed, timing.trackEnd, enrichedTracks.length]);
 
+  const leadSecond = Math.floor(currentTime.getTime() / 1000);
+  const leadTrackKey = useMemo(
+    () => enrichedTracks.map((track) => track.id).join('|'),
+    [enrichedTracks],
+  );
+
+  const leadCacheRef = useRef<{
+    trackKey: string;
+    taskStartMs: number;
+    endSecond: number;
+    leadSeconds: Map<string, number>;
+  } | null>(null);
+
+  const [leadPercentages, setLeadPercentages] = useState<Map<string, number>>(() => new Map());
+
+  useEffect(() => {
+    if (!showReview || !route || !timing.taskStart || enrichedTracks.length === 0) {
+      leadCacheRef.current = null;
+      setLeadPercentages(new Map());
+      return;
+    }
+
+    const taskStartMs = timing.taskStart.getTime();
+    const cache = leadCacheRef.current;
+    const needsReset =
+      !cache || cache.trackKey !== leadTrackKey || cache.taskStartMs !== taskStartMs;
+
+    const endTime = new Date(leadSecond * 1000);
+
+    if (needsReset) {
+      const startSecond = Math.floor(taskStartMs / 1000);
+      const { leadSeconds, endSecond, leadPercentages: leadPercentagesResult } =
+        advanceLeadPercentages(
+          enrichedTracks,
+          route,
+          timing.taskStart,
+          endTime,
+          new Map(enrichedTracks.map((track) => [track.id, 0])),
+          startSecond - 1,
+        );
+      leadCacheRef.current = {
+        trackKey: leadTrackKey,
+        taskStartMs,
+        endSecond,
+        leadSeconds,
+      };
+      setLeadPercentages(leadPercentagesResult);
+      return;
+    }
+
+    const advanced = advanceLeadPercentages(
+      enrichedTracks,
+      route,
+      timing.taskStart,
+      endTime,
+      cache.leadSeconds,
+      cache.endSecond,
+    );
+
+    if (advanced.endSecond === cache.endSecond) {
+      return;
+    }
+
+    leadCacheRef.current = {
+      trackKey: leadTrackKey,
+      taskStartMs,
+      endSecond: advanced.endSecond,
+      leadSeconds: advanced.leadSeconds,
+    };
+    setLeadPercentages(advanced.leadPercentages);
+  }, [showReview, enrichedTracks, route, timing.taskStart, leadSecond, leadTrackKey]);
+
   const competitors = useMemo(() => {
     if (!route) return [];
-    return buildCompetitorSnapshots(enrichedTracks, trackColors, route, currentTime);
-  }, [enrichedTracks, trackColors, route, currentTime]);
+    return buildCompetitorSnapshots(
+      enrichedTracks,
+      trackColors,
+      route,
+      currentTime,
+      leadPercentages,
+    );
+  }, [enrichedTracks, trackColors, route, currentTime, leadPercentages]);
 
   const altitudeRange = useMemo(() => {
     let min = Infinity;

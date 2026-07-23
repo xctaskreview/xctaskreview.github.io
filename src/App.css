@@ -848,7 +848,7 @@ body {
 
 .scoreboard-table {
   width: 100%;
-  min-width: 640px;
+  min-width: 700px;
   padding: 0 6px 8px;
 }
 
@@ -856,7 +856,7 @@ body {
 .scoreboard-row {
   display: grid;
   grid-template-columns:
-    28px minmax(108px, 1.35fr) minmax(58px, 0.85fr) 52px 52px 48px minmax(88px, 1fr);
+    28px minmax(108px, 1.35fr) minmax(58px, 0.85fr) 44px 52px 52px 48px minmax(88px, 1fr);
   align-items: center;
   gap: 6px;
   padding: 0 4px;
@@ -994,6 +994,10 @@ body {
 
 .scoreboard-task {
   min-width: 58px;
+}
+
+.scoreboard-lead {
+  min-width: 44px;
 }
 
 .scoreboard-muted {

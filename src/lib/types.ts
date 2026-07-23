@@ -108,6 +108,7 @@ export interface CompetitorSnapshot {
   groundSpeedMps: number;
   verticalSpeedMps: number;
   nextTurnpointName: string;
+  leadPercent: number;
 }
 
 export interface TaskTiming {

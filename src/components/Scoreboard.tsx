@@ -131,6 +131,12 @@ export function Scoreboard({ competitors, preferences, playing }: ScoreboardProp
                   <span className="scoreboard-header-unit">{distanceUnitLabel}</span>
                 </span>
               </span>
+              <span className="scoreboard-cell scoreboard-lead" role="columnheader">
+                <span className="scoreboard-header-stack">
+                  <span className="scoreboard-header-label">Lead</span>
+                  <span className="scoreboard-header-unit">%</span>
+                </span>
+              </span>
               <span className="scoreboard-cell scoreboard-alt" role="columnheader">
                 <span className="scoreboard-header-stack">
                   <span className="scoreboard-header-label">Alt</span>
@@ -194,6 +200,9 @@ export function Scoreboard({ competitors, preferences, playing }: ScoreboardProp
                       <span>{formatDistanceValue(entry.taskKm, preferences.distanceUnit)}</span>
                       <span className="scoreboard-muted">{entry.taskPercent.toFixed(1)}%</span>
                     </span>
+                  </span>
+                  <span className="scoreboard-cell scoreboard-lead" role="cell">
+                    {entry.leadPercent.toFixed(1)}%
                   </span>
                   <span className="scoreboard-cell scoreboard-alt" role="cell">
                     {formatAltitudeValue(entry.alt, preferences.altitudeUnit)}
