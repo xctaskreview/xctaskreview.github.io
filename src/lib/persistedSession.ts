@@ -13,6 +13,8 @@ const LEGACY_STORAGE_KEY = 'xc-task-review-session';
 const STORAGE_VERSION_V1 = 1;
 const STORAGE_VERSION_V2 = 2;
 
+export type PersistedView = 'welcome' | 'review';
+
 interface StoredTrackPointV1 {
   time: string;
   lat: number;
@@ -53,6 +55,7 @@ interface StoredSessionPayloadV1 {
   enabledTrackIds: string[];
   trackColors: Record<string, string>;
   preferences: AppPreferences;
+  view?: PersistedView;
 }
 
 interface StoredSessionPayloadV2Monolithic {
@@ -64,6 +67,7 @@ interface StoredSessionPayloadV2Monolithic {
   enabledTrackIds: string[];
   trackColors: Record<string, string>;
   preferences: AppPreferences;
+  view?: PersistedView;
 }
 
 interface StoredSessionPayloadV2Split {
@@ -75,6 +79,7 @@ interface StoredSessionPayloadV2Split {
   enabledTrackIds: string[];
   trackColors: Record<string, string>;
   preferences: AppPreferences;
+  view?: PersistedView;
 }
 
 type StoredSessionRecord =
@@ -89,6 +94,7 @@ export interface PersistedSession {
   enabledTrackIds: string[];
   trackColors: Record<string, string>;
   preferences: AppPreferences;
+  view?: PersistedView;
 }
 
 export type SaveSessionResult = 'saved' | 'partial' | 'failed';
@@ -174,6 +180,10 @@ function deserializeTrackV1(track: StoredFlightTrackV1): FlightTrack {
   };
 }
 
+function isValidView(view: unknown): view is PersistedView {
+  return view === 'welcome' || view === 'review';
+}
+
 function isValidTask(task: unknown): task is XcTask {
   if (!task || typeof task !== 'object') return false;
   const candidate = task as XcTask;
@@ -251,6 +261,7 @@ function finalizeSession(
   enabledTrackIds: string[],
   trackColors: Record<string, string>,
   preferences: AppPreferences,
+  view?: PersistedView,
 ): PersistedSession {
   const trackIds = new Set(tracks.map((track) => track.id));
   const enabled = enabledTrackIds.filter((id) => trackIds.has(id));
@@ -263,6 +274,7 @@ function finalizeSession(
       tracks.length === 0 ? [] : enabled.length > 0 ? enabled : tracks.map((track) => track.id),
     trackColors,
     preferences: { ...createDefaultPreferences(), ...preferences },
+    ...(view ? { view } : {}),
   };
 }
 
@@ -281,6 +293,7 @@ function deserializeMonolithicSession(
     payload.enabledTrackIds,
     payload.trackColors,
     payload.preferences,
+    isValidView(payload.view) ? payload.view : undefined,
   );
 }
 
@@ -413,6 +426,7 @@ async function loadSplitSession(meta: StoredSessionPayloadV2Split): Promise<Pers
     meta.enabledTrackIds,
     meta.trackColors,
     meta.preferences,
+    isValidView(meta.view) ? meta.view : undefined,
   );
 }
 
@@ -438,6 +452,7 @@ function buildMonolithicPayload(session: PersistedSession): StoredSessionPayload
     enabledTrackIds: session.enabledTrackIds,
     trackColors: session.trackColors,
     preferences: session.preferences,
+    view: session.view,
   };
 }
 
@@ -451,6 +466,7 @@ function buildSplitMeta(session: PersistedSession, trackIds: string[]): StoredSe
     enabledTrackIds: session.enabledTrackIds,
     trackColors: session.trackColors,
     preferences: session.preferences,
+    view: session.view,
   };
 }
 

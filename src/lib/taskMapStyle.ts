@@ -15,7 +15,17 @@ const START_COLOR = '#2563eb';
 const DEFAULT_TURNPOINT_COLOR = '#64748b';
 const LANDING_COLOR = DEFAULT_TURNPOINT_COLOR;
 
-export { GOAL_COLOR, LANDING_COLOR, START_COLOR };
+export { DEFAULT_TURNPOINT_COLOR, GOAL_COLOR, LANDING_COLOR, START_COLOR };
+
+export const ROUTE_LEG_COLOR = '#111827';
+export const TURNPOINT_CIRCLE_WEIGHT = 2;
+export const NEXT_TURNPOINT_CIRCLE_WEIGHT = 4.5;
+export const TURNPOINT_FILL_OPACITY = 0.08;
+export const ROUTE_LEG_WEIGHT = 1.5;
+export const COMPLETED_LEG_WEIGHT = 3;
+export const COMPLETED_LEG_OPACITY = 0.95;
+export const PROGRESS_INDICATOR_WEIGHT = 2.5;
+export const PROGRESS_INDICATOR_OPACITY = 0.95;
 
 function escapeHtml(text: string): string {
   return text

@@ -17,6 +17,7 @@ import {
 } from '../lib/taskMapStyle';
 import { getUniqueTurnpointMarkers } from '../lib/xctask';
 import { LiveCompetitorLayer } from './LiveCompetitorLayer';
+import { MapLegend } from './MapLegend';
 import { Scoreboard } from './Scoreboard';
 import type { TaskProgressMarker } from '../lib/taskProgressMarker';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
@@ -298,6 +299,7 @@ export function MapView({
           leadPercentages={leadPercentages}
         />
       </MapContainer>
+      <MapLegend />
       <Scoreboard
         competitors={scoreboardCompetitors}
         leadPercentages={leadPercentages}

@@ -85,6 +85,9 @@ export default function App() {
           setEnabledTrackIds(new Set(persisted.enabledTrackIds));
           setTrackColors(assignUniqueTrackColors(persisted.tracks, persisted.trackColors));
           setPreferences(persisted.preferences);
+          if (persisted.view === 'review') {
+            setView('review');
+          }
           if (persisted.taskFileName) {
             setTaskFitKey(`${persisted.taskFileName}-restored`);
           }
@@ -369,6 +372,7 @@ export default function App() {
       enabledTrackIds: [...enabledTrackIds],
       trackColors,
       preferences,
+      view,
     }).then((result) => {
       if (result === 'failed') {
         setError('Could not save session to browser storage. The tracklogs may be too large.');
@@ -376,7 +380,7 @@ export default function App() {
         setError('Task saved locally, but the tracklogs were too large to store in this browser.');
       }
     });
-  }, [storageReady, task, taskFileName, tracks, enabledTrackIdsKey, trackColors, preferences]);
+  }, [storageReady, task, taskFileName, tracks, enabledTrackIdsKey, trackColors, preferences, view]);
 
   const onTaskFile = useCallback(async (file: File) => {
     try {
