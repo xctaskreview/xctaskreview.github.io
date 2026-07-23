@@ -18,6 +18,12 @@ export default defineConfig({
         secure: true,
         rewrite: (path) => path.replace(/^\/xcdemon-www-proxy/, ''),
       },
+      '/civl-proxy': {
+        target: 'https://civlcomps.org',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/civl-proxy/, ''),
+      },
     },
   },
 });
