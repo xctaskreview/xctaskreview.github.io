@@ -66,7 +66,8 @@
 }
 
 .error-dismiss .ui-icon,
-.scoreboard-toggle-icon {
+.scoreboard-toggle-icon,
+.leg-statistics-toggle-icon {
   display: block;
 }
 
@@ -1739,27 +1740,43 @@ body {
 
 .leg-statistics {
   margin: 0;
-  padding: 16px 20px 20px;
+  padding: 0;
   border-top: 1px solid #e2e8f0;
   background: #fff;
 }
 
-.leg-statistics-header {
+.leg-statistics-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 20px;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.leg-statistics-toggle:hover {
+  background: rgba(248, 250, 252, 0.9);
 }
 
 .leg-statistics-title {
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 600;
   color: #0f172a;
+}
+
+.leg-statistics-toggle-icon {
+  color: #64748b;
 }
 
 .leg-statistics-table-scroll {
   overflow-x: auto;
   scrollbar-gutter: stable;
+  padding: 0 20px 20px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .leg-statistics-table {
@@ -1859,6 +1876,26 @@ body {
 .leg-statistics-speed,
 .leg-statistics-time {
   text-align: center;
+}
+
+.leg-statistics-fastest {
+  white-space: normal;
+}
+
+.leg-statistics-fastest-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+}
+
+.leg-statistics-fastest-pilot {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
 }
 
 .leg-statistics-turnpoint-route {

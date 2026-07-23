@@ -18,6 +18,7 @@ export interface GlobalLegStatistics {
   minSpeedMps?: number;
   avgSpeedMps?: number;
   maxSpeedMps?: number;
+  fastestPilot?: string;
   earliestStartTime?: Date;
   latestStartTime?: Date;
   firstFinishPilot?: string;
@@ -120,10 +121,13 @@ export function computeGlobalLegStatistics(
     let earliestStartTime: Date | undefined;
     let latestStartTime: Date | undefined;
     let firstFinish: { time: Date; pilot: string } | undefined;
+    let fastest: { speedMps: number; pilot: string } | undefined;
 
     for (const track of tracks) {
       const timing = track.legTimings?.[legIndex];
       if (!timing) continue;
+
+      const pilot = extractPilotDisplayName(track);
 
       if (timing.startTime) {
         if (!earliestStartTime || timing.startTime.getTime() < earliestStartTime.getTime()) {
@@ -135,7 +139,6 @@ export function computeGlobalLegStatistics(
       }
 
       if (timing.finishTime) {
-        const pilot = extractPilotDisplayName(track);
         if (!firstFinish || timing.finishTime.getTime() < firstFinish.time.getTime()) {
           firstFinish = { time: timing.finishTime, pilot };
         }
@@ -143,6 +146,9 @@ export function computeGlobalLegStatistics(
 
       if (timing.speedMps !== undefined && Number.isFinite(timing.speedMps)) {
         speeds.push(timing.speedMps);
+        if (!fastest || timing.speedMps > fastest.speedMps) {
+          fastest = { speedMps: timing.speedMps, pilot };
+        }
       }
     }
 
@@ -156,6 +162,7 @@ export function computeGlobalLegStatistics(
       avgSpeedMps:
         speeds.length > 0 ? speeds.reduce((sum, speed) => sum + speed, 0) / speeds.length : undefined,
       maxSpeedMps: speeds.length > 0 ? Math.max(...speeds) : undefined,
+      fastestPilot: fastest?.pilot,
       earliestStartTime,
       latestStartTime,
       firstFinishPilot: firstFinish?.pilot,
