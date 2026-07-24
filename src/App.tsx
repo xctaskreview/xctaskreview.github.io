@@ -22,6 +22,7 @@ import {
   enrichTracksWithTaskProgress,
   loadIgcFiles,
 } from './lib/tracks';
+import type { CivlImportResult } from './lib/civl';
 import type { XcdemonImportResult } from './lib/xcdemon';
 import type { FlightTrack, TaskTiming, XcTask } from './lib/types';
 import {
@@ -631,6 +632,26 @@ const onSessionBundleExport = useCallback(async () => {
     }
   }, []);
 
+  const onCivlImport = useCallback((result: CivlImportResult) => {
+    setError(null);
+    setTask(result.task);
+    setTaskFileName(result.taskFileName);
+    setTaskFitKey(`${result.taskFileName}-${Date.now()}`);
+    setTracks(result.tracks);
+    setEnabledTrackIds(new Set(result.tracks.map((track) => track.id)));
+    setTrackColors(assignUniqueTrackColors(result.tracks));
+
+    if (result.tracks.length === 0 && result.trackErrors.length > 0) {
+      setError(result.trackErrors[0] ?? 'Imported task, but no tracklogs could be loaded.');
+    } else if (result.tracks.length === 0) {
+      setError('Imported task. No IGC zip was available for this event.');
+    } else if (result.trackErrors.length > 0) {
+      setError(
+        `Imported task and ${result.tracks.length} tracklog(s). Skipped ${result.trackErrors.length} file(s): ${result.trackErrors.join('; ')}`,
+      );
+    }
+  }, []);
+
   if (!showReview) {
     return (
       <div className="app-shell">
@@ -656,6 +677,7 @@ const onSessionBundleExport = useCallback(async () => {
           onContinue={() => setView('review')}
           onDismissError={() => setError(null)}
           onXcdemonImport={onXcdemonImport}
+          onCivlImport={onCivlImport}
           onSessionBundleImport={(file) => void onSessionBundleImport(file)}
           onSessionBundleExport={() => void onSessionBundleExport()}
           onError={setError}

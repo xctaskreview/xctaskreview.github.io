@@ -20,13 +20,15 @@ import {
   X,
 } from 'lucide-react';
 import { extractGliderType, extractPilotDisplayName, extractPilotFileName } from '../lib/igc';
+import type { CivlImportResult } from '../lib/civl';
 import type { XcdemonImportResult } from '../lib/xcdemon';
 import { getTaskDisplayInfo } from '../lib/xctask';
 import type { AppPreferences } from '../lib/preferences';
 import { getMapTypeOptions, getSpeedUnitOptions, getTimezoneOptions, getVerticalSpeedUnitOptions, normalizePilotTrailLengthM } from '../lib/preferences';
 import { AppHomeLink } from './AppHomeLink';
+import { CivlImportDialog } from './CivlImportDialog';
 import { FileDropZone } from './FileDropZone';
-import { Icon, IconButtonContent, IconLabel, XcdemonButtonContent } from './Icon';
+import { CivlButtonContent, Icon, IconButtonContent, IconLabel, XcdemonButtonContent } from './Icon';
 import { TaskEditForm } from './TaskEditForm';
 import { XcdemonImportDialog } from './XcdemonImportDialog';
 
@@ -66,6 +68,7 @@ interface WelcomeScreenProps {
   onPreferencesChange: (preferences: AppPreferences) => void;
   onContinue: () => void;
   onXcdemonImport: (result: XcdemonImportResult) => void;
+  onCivlImport: (result: CivlImportResult) => void;
   onSessionBundleImport: (file: File) => void;
   onSessionBundleExport: () => void;
   onError: (message: string) => void;
@@ -95,6 +98,7 @@ export function WelcomeScreen({
   onPreferencesChange,
   onContinue,
   onXcdemonImport,
+  onCivlImport,
   onSessionBundleImport,
   onSessionBundleExport,
   onError,
@@ -102,6 +106,7 @@ export function WelcomeScreen({
   onClearTask,
 }: WelcomeScreenProps) {
   const [xcdemonOpen, setXcdemonOpen] = useState(false);
+  const [civlOpen, setCivlOpen] = useState(false);
   const [pilotSearch, setPilotSearch] = useState('');
   const selectAllRef = useRef<HTMLInputElement>(null);
 
@@ -166,6 +171,13 @@ export function WelcomeScreen({
               onClick={() => setXcdemonOpen(true)}
             >
               <XcdemonButtonContent>XCDemon</XcdemonButtonContent>
+            </button>
+            <button
+              type="button"
+              className="welcome-inline-button civl-import-button"
+              onClick={() => setCivlOpen(true)}
+            >
+              <CivlButtonContent>CIVL Comps</CivlButtonContent>
             </button>
           </div>
         </div>
@@ -483,6 +495,12 @@ export function WelcomeScreen({
         open={xcdemonOpen}
         onClose={() => setXcdemonOpen(false)}
         onImported={onXcdemonImport}
+        onError={onError}
+      />
+      <CivlImportDialog
+        open={civlOpen}
+        onClose={() => setCivlOpen(false)}
+        onImported={onCivlImport}
         onError={onError}
       />
     </div>
