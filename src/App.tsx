@@ -427,7 +427,32 @@ export default function App() {
     });
   }, [storageReady, task, taskFileName, tracks, enabledTrackIdsKey, trackColors, preferences, view]);
 
-  const onTaskUpdate = useCallback((updatedTask: XcTask) => { setError(null); setTask(updatedTask); setTaskFitKey(`${taskFileName || 'task'}-${Date.now()}`); }, [taskFileName]);
+  const onTaskUpdate = useCallback((updatedTask: XcTask) => {
+    setError(null);
+    setTask(updatedTask);
+    setTaskFitKey(`${taskFileName || 'task'}-${Date.now()}`);
+  }, [taskFileName]);
+
+  const onClearTask = useCallback(() => {
+    setError(null);
+    setTask(null);
+    setTaskFileName('');
+    setTaskFitKey('');
+    setTaskLocationLabel(null);
+    setTaskLocationLoading(false);
+    setView('welcome');
+  }, []);
+
+  const onSetTracksEnabled = useCallback((trackIds: string[], enabled: boolean) => {
+    setEnabledTrackIds((prev) => {
+      const next = new Set(prev);
+      for (const trackId of trackIds) {
+        if (enabled) next.add(trackId);
+        else next.delete(trackId);
+      }
+      return next;
+    });
+  }, []);
 
   const onTaskFile = useCallback(async (file: File) => {
     try {
@@ -626,6 +651,7 @@ const onSessionBundleExport = useCallback(async () => {
           onTrackColorChange={onTrackColorChange}
           onRemoveTrack={onRemoveTrack}
           onRemoveAllTracks={onRemoveAllTracks}
+          onSetTracksEnabled={onSetTracksEnabled}
           onPreferencesChange={setPreferences}
           onContinue={() => setView('review')}
           onDismissError={() => setError(null)}
@@ -634,6 +660,7 @@ const onSessionBundleExport = useCallback(async () => {
           onSessionBundleExport={() => void onSessionBundleExport()}
           onError={setError}
           onTaskUpdate={onTaskUpdate}
+          onClearTask={onClearTask}
         />
         <AppFooter />
       </div>
