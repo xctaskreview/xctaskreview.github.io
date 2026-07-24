@@ -67,6 +67,8 @@ interface WelcomeScreenProps {
   onTaskFile: (file: File) => void;
   onTrackFiles: (files: FileList | File[]) => void;
   onToggleTrack: (trackId: string, enabled: boolean) => void;
+  onProgressFocusTrack: (trackId: string) => void;
+  progressFocusTrackId: string | null;
   onTrackColorChange: (trackId: string, color: string) => void;
   onRemoveTrack: (trackId: string) => void;
   onRemoveAllTracks: () => void;
@@ -99,6 +101,8 @@ export function WelcomeScreen({
   onTaskFile,
   onTrackFiles,
   onToggleTrack,
+  onProgressFocusTrack,
+  progressFocusTrackId,
   onTrackColorChange,
   onRemoveTrack,
   onRemoveAllTracks,
@@ -413,7 +417,16 @@ export function WelcomeScreen({
                       const gliderType = extractGliderType(track);
 
                       return (
-                        <li key={track.id} className={enabledTrackIds.has(track.id) ? undefined : 'pilot-hidden'}>
+                        <li
+                          key={track.id}
+                          className={
+                            enabledTrackIds.has(track.id)
+                              ? progressFocusTrackId === track.id
+                                ? 'pilot-progress-focus'
+                                : undefined
+                              : 'pilot-hidden'
+                          }
+                        >
                           <div className="welcome-pilot-item">
                             <button
                               type="button"
@@ -439,11 +452,23 @@ export function WelcomeScreen({
                               onChange={(e) => onTrackColorChange(track.id, e.target.value)}
                             />
                             <span className="welcome-pilot-name">
-                              <span className="welcome-pilot-line">
-                                {pilotName}
-                                <span className="welcome-pilot-file"> ({extractPilotFileName(track)})</span>
-                              </span>
-                              {gliderType && <span className="welcome-pilot-glider">{gliderType}</span>}
+                              <button
+                                type="button"
+                                className={`welcome-pilot-name-toggle${progressFocusTrackId === track.id ? ' is-progress-focus' : ''}`}
+                                aria-pressed={progressFocusTrackId === track.id}
+                                aria-label={
+                                  progressFocusTrackId === track.id
+                                    ? `Show overall task progress on map for ${pilotName}`
+                                    : `Show ${pilotName} task progress on map`
+                                }
+                                onClick={() => onProgressFocusTrack(track.id)}
+                              >
+                                <span className="welcome-pilot-line">
+                                  {pilotName}
+                                  <span className="welcome-pilot-file"> ({extractPilotFileName(track)})</span>
+                                </span>
+                                {gliderType && <span className="welcome-pilot-glider">{gliderType}</span>}
+                              </button>
                             </span>
                           </div>
                           <button

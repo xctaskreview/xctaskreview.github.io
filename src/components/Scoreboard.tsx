@@ -32,6 +32,10 @@ interface ScoreboardProps {
   leadPercentages: Map<string, number>;
   enabledTrackIds: Set<string>;
   onToggleTrack: (trackId: string, enabled: boolean) => void;
+  progressFocusTrackId: string | null;
+  onProgressFocusTrack: (trackId: string) => void;
+  selectedPilotTrackId: string | null;
+  onSelectPilot: (trackId: string) => void;
   preferences: AppPreferences;
   playing: boolean;
   expanded: boolean;
@@ -129,6 +133,10 @@ export function Scoreboard({
   leadPercentages,
   enabledTrackIds,
   onToggleTrack,
+  progressFocusTrackId,
+  onProgressFocusTrack,
+  selectedPilotTrackId,
+  onSelectPilot,
   preferences,
   playing,
   expanded,
@@ -233,16 +241,26 @@ export function Scoreboard({
             const markerColor = entry.landed ? LANDED_COLOR : entry.color;
             const rank = rankById.get(entry.id) ?? 0;
             const visible = enabledTrackIds.has(entry.id);
+            const isSelected = selectedPilotTrackId === entry.id;
 
             return (
               <div
                 key={entry.id}
-                className={`scoreboard-row${entry.landed ? ' landed' : ''}${visible ? '' : ' pilot-hidden'}`}
+                className={`scoreboard-row scoreboard-row-selectable${entry.landed ? ' landed' : ''}${visible ? '' : ' pilot-hidden'}${progressFocusTrackId === entry.id ? ' pilot-progress-focus' : ''}${isSelected ? ' pilot-selected' : ''}`}
                 style={{
                   transform: `translateY(${rank * ROW_HEIGHT}px)`,
                   zIndex: entries.length - rank,
                 }}
                 role="row"
+                tabIndex={0}
+                aria-selected={isSelected}
+                onClick={() => onSelectPilot(entry.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onSelectPilot(entry.id);
+                  }
+                }}
               >
                 <span
                   className="scoreboard-cell scoreboard-pos"
@@ -270,15 +288,31 @@ export function Scoreboard({
                           : `Show ${entry.pilotName} on map`
                       }
                       aria-pressed={visible}
-                      onClick={() => onToggleTrack(entry.id, !visible)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onToggleTrack(entry.id, !visible);
+                      }}
                     >
                       <Icon icon={visible ? Eye : EyeOff} size="sm" />
                     </button>
                     <span className="scoreboard-color" style={{ background: markerColor }} />
                     <span className="scoreboard-pilot-text">
-                      <span className="scoreboard-name">
+                      <button
+                        type="button"
+                        className={`scoreboard-pilot-name-toggle${progressFocusTrackId === entry.id ? ' is-progress-focus' : ''}`}
+                        aria-pressed={progressFocusTrackId === entry.id}
+                        aria-label={
+                          progressFocusTrackId === entry.id
+                            ? `Show overall task progress on map`
+                            : `Show ${entry.pilotName} task progress on map`
+                        }
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onProgressFocusTrack(entry.id);
+                        }}
+                      >
                         <ScoreboardPilotName pilotName={entry.pilotName} firstName={entry.firstName} />
-                      </span>
+                      </button>
                       {entry.gliderType && (
                         <span className="scoreboard-glider">{entry.gliderType}</span>
                       )}

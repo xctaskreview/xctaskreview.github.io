@@ -89,6 +89,7 @@ export function getTurnpointColor(
   circle: RoutePoint,
   route: OptimizedRoute,
   tagged: boolean,
+  progressColor: string = TASK_PROGRESS_COLOR,
 ): string {
   if (
     isStartTurnpoint(circle, route) ||
@@ -97,7 +98,7 @@ export function getTurnpointColor(
   ) {
     return getDefaultTurnpointColor(circle, route);
   }
-  return tagged ? TASK_PROGRESS_COLOR : getDefaultTurnpointColor(circle, route);
+  return tagged ? progressColor : getDefaultTurnpointColor(circle, route);
 }
 
 export function getTurnpointCirclePathOptions(
@@ -105,13 +106,14 @@ export function getTurnpointCirclePathOptions(
   route: OptimizedRoute,
   tagged: boolean,
   fillHighlight = false,
+  progressColor: string = TASK_PROGRESS_COLOR,
 ): L.PathOptions {
-  const color = getTurnpointColor(circle, route, tagged);
+  const color = getTurnpointColor(circle, route, tagged, progressColor);
 
   return {
     color,
     weight: TURNPOINT_CIRCLE_WEIGHT,
-    fillColor: fillHighlight ? TASK_PROGRESS_COLOR : color,
+    fillColor: fillHighlight ? progressColor : color,
     fillOpacity: fillHighlight ? NEXT_TURNPOINT_FILL_OPACITY : TURNPOINT_FILL_OPACITY,
     dashArray: isNonTaskTurnpoint(circle, route) ? ROUTE_DASH_ARRAY : undefined,
   };

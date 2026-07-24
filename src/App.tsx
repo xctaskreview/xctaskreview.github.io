@@ -22,6 +22,7 @@ import {
   computeTaskTiming,
   advanceLeadPercentages,
   enrichTracksWithTaskProgress,
+  getTrackColor,
   loadIgcFiles,
 } from './lib/tracks';
 import type { CivlImportResult } from './lib/civl';
@@ -106,6 +107,7 @@ export default function App() {
   const [taskLocationLoading, setTaskLocationLoading] = useState(false);
   const [mobileChartOpen, setMobileChartOpen] = useState(false);
   const [taskProgressMinimized, setTaskProgressMinimized] = useState(false);
+  const [progressFocusTrackId, setProgressFocusTrackId] = useState<string | null>(null);
   const reviewStageRef = useRef<HTMLDivElement>(null);
   const [storageReady, setStorageReady] = useState(false);
   const currentTimeRef = useRef(currentTime);
@@ -438,6 +440,12 @@ export default function App() {
 
   const taskDistanceKm = route ? route.progressTotalDistance / 1000 : 0;
 
+  const progressFocusColor = useMemo(() => {
+    if (!progressFocusTrackId) return null;
+    const index = tracks.findIndex((track) => track.id === progressFocusTrackId);
+    return getTrackColor(progressFocusTrackId, trackColors, index >= 0 ? index : 0);
+  }, [progressFocusTrackId, tracks, trackColors]);
+
   useEffect(() => {
     if (!task) {
       setTaskLocationLabel(null);
@@ -629,12 +637,14 @@ export default function App() {
       delete next[trackId];
       return next;
     });
+    setProgressFocusTrackId((current) => (current === trackId ? null : current));
   }, []);
 
   const onRemoveAllTracks = useCallback(() => {
     setTracks([]);
     setEnabledTrackIds(new Set());
     setTrackColors({});
+    setProgressFocusTrackId(null);
   }, []);
 
   const onTrackColorChange = useCallback((trackId: string, color: string) => {
@@ -651,6 +661,14 @@ export default function App() {
       }
       return next;
     });
+  }, []);
+
+  const onProgressFocusTrack = useCallback((trackId: string) => {
+    setProgressFocusTrackId((current) => (current === trackId ? null : trackId));
+  }, []);
+
+  const onSetProgressFocusTrack = useCallback((trackId: string) => {
+    setProgressFocusTrackId(trackId);
   }, []);
 
 
@@ -787,6 +805,8 @@ const onSessionBundleExport = useCallback(async () => {
           onTaskFile={(file) => void onTaskFile(file)}
           onTrackFiles={(files) => void onTrackFiles(files)}
           onToggleTrack={onToggleTrack}
+          onProgressFocusTrack={onProgressFocusTrack}
+          progressFocusTrackId={progressFocusTrackId}
           onTrackColorChange={onTrackColorChange}
           onRemoveTrack={onRemoveTrack}
           onRemoveAllTracks={onRemoveAllTracks}
@@ -864,6 +884,7 @@ const onSessionBundleExport = useCallback(async () => {
               circles={circles}
               optimizedRoute={route}
               enrichedTracks={enrichedTracks}
+              allEnrichedTracks={allEnrichedTracks}
               trackColors={trackColors}
               currentTimeRef={currentTimeRef}
               leadPercentages={leadPercentages}
@@ -874,6 +895,10 @@ const onSessionBundleExport = useCallback(async () => {
               scoreboardCompetitors={scoreboardCompetitors}
               enabledTrackIds={enabledTrackIds}
               onToggleTrack={onToggleTrack}
+              progressFocusTrackId={progressFocusTrackId}
+              progressFocusColor={progressFocusColor}
+              onProgressFocusTrack={onProgressFocusTrack}
+              onSetProgressFocusTrack={onSetProgressFocusTrack}
               legStatistics={legStatistics}
               taskStart={timing.taskStart}
               trackKey={leadTrackKey}

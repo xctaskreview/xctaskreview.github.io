@@ -1600,6 +1600,42 @@ html.turnpoint-drag-active .welcome-scroll {
   min-width: 0;
 }
 
+.welcome-pilot-name-toggle,
+.scoreboard-pilot-name-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.welcome-pilot-name-toggle.is-progress-focus .welcome-pilot-line,
+.scoreboard-pilot-name-toggle.is-progress-focus .scoreboard-name-text {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+
+.welcome-pilot-list li.pilot-progress-focus,
+.scoreboard-row.pilot-progress-focus {
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.scoreboard-row.pilot-selected {
+  background: rgba(219, 234, 254, 0.9);
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+
+.scoreboard-row.pilot-selected.pilot-progress-focus {
+  background: rgba(219, 234, 254, 0.95);
+}
+
 .welcome-pilot-line {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2592,6 +2628,44 @@ html.turnpoint-drag-active .welcome-scroll {
   width: min(880px, calc(100% - 24px));
 }
 
+.map-data-panels.expanded-pilot-detail {
+  width: min(320px, calc(100% - 24px));
+}
+
+.map-data-panel-toggle-pilot {
+  max-width: 180px;
+}
+
+.map-data-panel-pilot-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.pilot-detail-panel {
+  border-top: 1px solid #e2e8f0;
+  padding: 12px;
+}
+
+.pilot-detail-card {
+  margin: 0;
+}
+
+.pilot-detail-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.scoreboard-row-selectable {
+  cursor: pointer;
+}
+
+.scoreboard-row-selectable:hover {
+  background: rgba(248, 250, 252, 0.95);
+}
+
 .map-data-panels-toggles {
   display: flex;
   align-items: stretch;
@@ -2802,6 +2876,11 @@ html.turnpoint-drag-active .welcome-scroll {
   align-items: center;
   gap: 4px;
   min-width: 0;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.scoreboard-pilot-name-toggle {
   font-weight: 600;
   font-size: 0.8rem;
 }
@@ -3425,7 +3504,8 @@ html.turnpoint-drag-active .welcome-scroll {
   }
 
   .map-data-panels.expanded-leaderboard,
-  .map-data-panels.expanded-leg-statistics {
+  .map-data-panels.expanded-leg-statistics,
+  .map-data-panels.expanded-pilot-detail {
     width: min(calc(100% - 16px), 620px);
   }
 

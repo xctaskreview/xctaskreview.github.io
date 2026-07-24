@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, type RefObject } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { MapContainer, TileLayer, Circle, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { AppPreferences } from '../lib/preferences';
@@ -18,11 +18,13 @@ import {
 import { getUniqueTurnpointMarkers } from '../lib/xctask';
 import { LiveCompetitorLayer } from './LiveCompetitorLayer';
 import { LegStatisticsPopupContent } from './LegStatisticsPopupContent';
-import { MapDataPanels } from './MapDataPanels';
+import { MapDataPanels, type MapDataActivePanel } from './MapDataPanels';
 import { MapLegend } from './MapLegend';
 import type { GlobalLegStatistics } from '../lib/legStatistics';
 import type { TaskProgressMarker, TurnpointReachMarker } from '../lib/taskProgressMarker';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
+import { buildCompetitorSnapshots } from '../lib/competitors';
+import { getScoreboardEntryForTrack } from '../lib/scoreboardDisplay';
 import { buildReachMarkerMap, buildTurnpointTooltipFromCircle } from '../lib/turnpointTooltip';
 import { TurnpointPopupContent } from './TurnpointHoverTooltip';
 import type { CompetitorSnapshot, OptimizedRoute, RoutePoint } from '../lib/types';
@@ -296,6 +298,7 @@ interface MapViewProps {
   circles: RoutePoint[];
   optimizedRoute: OptimizedRoute;
   enrichedTracks: EnrichedFlightTrack[];
+  allEnrichedTracks: EnrichedFlightTrack[];
   trackColors: Record<string, string>;
   currentTimeRef: RefObject<Date>;
   leadPercentages: Map<string, number>;
@@ -306,6 +309,10 @@ interface MapViewProps {
   scoreboardCompetitors: CompetitorSnapshot[];
   enabledTrackIds: Set<string>;
   onToggleTrack: (trackId: string, enabled: boolean) => void;
+  progressFocusTrackId: string | null;
+  progressFocusColor: string | null;
+  onProgressFocusTrack: (trackId: string) => void;
+  onSetProgressFocusTrack: (trackId: string) => void;
   legStatistics: GlobalLegStatistics[];
   taskStart?: Date;
   trackKey: string;
@@ -318,6 +325,7 @@ export function MapView({
   circles,
   optimizedRoute,
   enrichedTracks,
+  allEnrichedTracks,
   trackColors,
   currentTimeRef,
   leadPercentages,
@@ -328,6 +336,10 @@ export function MapView({
   scoreboardCompetitors,
   enabledTrackIds,
   onToggleTrack,
+  progressFocusTrackId,
+  progressFocusColor,
+  onProgressFocusTrack,
+  onSetProgressFocusTrack,
   legStatistics,
   taskStart,
   trackKey,
@@ -335,6 +347,16 @@ export function MapView({
   turnpointReachMarkers,
 }: MapViewProps) {
   const tile = MAP_TILES[preferences.mapType];
+  const [mapDataPanel, setMapDataPanel] = useState<MapDataActivePanel | null>(null);
+  const [selectedPilotTrackId, setSelectedPilotTrackId] = useState<string | null>(null);
+  const handleSelectPilot = useCallback(
+    (trackId: string) => {
+      setSelectedPilotTrackId(trackId);
+      setMapDataPanel('pilot-detail');
+      onSetProgressFocusTrack(trackId);
+    },
+    [onSetProgressFocusTrack],
+  );
   const layerRefs = useRef<TaskMapLayerRefs>({
     circles: new Map(),
     markers: new Map(),
@@ -343,6 +365,31 @@ export function MapView({
     () => buildReachMarkerMap(turnpointReachMarkers),
     [turnpointReachMarkers],
   );
+
+  const selectedPilotEntry = useMemo(() => {
+    if (!selectedPilotTrackId) return null;
+    const liveCompetitors = buildCompetitorSnapshots(
+      allEnrichedTracks,
+      trackColors,
+      optimizedRoute,
+      pausedTime,
+      true,
+    );
+    return getScoreboardEntryForTrack(
+      selectedPilotTrackId,
+      liveCompetitors,
+      leadPercentages,
+      enabledTrackIds,
+    );
+  }, [
+    selectedPilotTrackId,
+    allEnrichedTracks,
+    trackColors,
+    optimizedRoute,
+    pausedTime,
+    leadPercentages,
+    enabledTrackIds,
+  ]);
 
   return (
     <div className="map-panel">
@@ -361,6 +408,7 @@ export function MapView({
         />
         <LiveCompetitorLayer
           tracks={enrichedTracks}
+          allEnrichedTracks={allEnrichedTracks}
           route={optimizedRoute}
           circles={circles}
           layerRefs={layerRefs}
@@ -373,6 +421,9 @@ export function MapView({
           trackKey={trackKey}
           taskProgressMarkerRef={taskProgressMarkerRef}
           leadPercentages={leadPercentages}
+          progressFocusTrackId={progressFocusTrackId}
+          progressFocusColor={progressFocusColor}
+          onPilotMarkerClick={handleSelectPilot}
         />
       </MapContainer>
       <MapLegend />
@@ -381,6 +432,13 @@ export function MapView({
         leadPercentages={leadPercentages}
         enabledTrackIds={enabledTrackIds}
         onToggleTrack={onToggleTrack}
+        progressFocusTrackId={progressFocusTrackId}
+        onProgressFocusTrack={onProgressFocusTrack}
+        selectedPilotTrackId={selectedPilotTrackId}
+        onSelectPilot={handleSelectPilot}
+        selectedPilotEntry={selectedPilotEntry}
+        activePanel={mapDataPanel}
+        onActivePanelChange={setMapDataPanel}
         legs={legStatistics}
         preferences={preferences}
         playing={playing}

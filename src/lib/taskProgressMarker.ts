@@ -2,7 +2,7 @@ import { createLocalProjection, haversine } from './geo';
 import { extractPilotDisplayName } from './igc';
 import { getTaggedTurnpointProgressIndices, TASK_PROGRESS_LINE_COLOR } from './taskMapStyle';
 import type { EnrichedFlightTrack } from './taskProgress';
-import { getTrackSnapshotAtTime } from './taskProgress';
+import { getPilotMaxProgressAtTime, getTrackSnapshotAtTime } from './taskProgress';
 import type { LatLon, OptimizedRoute, RoutePoint } from './types';
 
 export { TASK_PROGRESS_LINE_COLOR };
@@ -186,13 +186,36 @@ export function computeTaskProgressMarker(
   time: Date,
   cacheRef: { current: TaskProgressMarkerCache | null },
   trackKey: string,
+  options?: { focusTrackId?: string | null },
 ): TaskProgressMarker | null {
   if (tracks.length === 0 || route.progressTotalDistance <= 0) {
     cacheRef.current = null;
     return null;
   }
 
-  const runningMaxProgress = Math.min(100, updateRunningMaxProgress(tracks, route, taskStart, time, cacheRef, trackKey));
+  let runningMaxProgress: number;
+
+  if (options?.focusTrackId) {
+    const track = tracks.find((entry) => entry.id === options.focusTrackId);
+    if (!track) {
+      cacheRef.current = null;
+      return null;
+    }
+    const snapshot = getTrackSnapshotAtTime(track, time, route);
+    if (!snapshot?.hasStarted) {
+      cacheRef.current = null;
+      return null;
+    }
+    const maxProgress = getPilotMaxProgressAtTime(track, time);
+    runningMaxProgress = Math.max(maxProgress?.taskPercent ?? 0, snapshot.taskPercent);
+    cacheRef.current = null;
+  } else {
+    runningMaxProgress = Math.min(
+      100,
+      updateRunningMaxProgress(tracks, route, taskStart, time, cacheRef, trackKey),
+    );
+  }
+
   if (runningMaxProgress <= 0) return null;
 
   const routePoint = pointOnRouteAtProgress(route, runningMaxProgress);

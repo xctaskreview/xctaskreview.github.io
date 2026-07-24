@@ -53,6 +53,31 @@ export function sortScoreboardEntriesForDisplay(
   return [...visibleEntries, ...hiddenEntries];
 }
 
+/** Task distance gap to the current leader (max task km among competitors). */
+export function getTaskDistanceBehindLeaderKm(
+  entry: Pick<ScoreboardEntry, 'taskKm'>,
+  competitors: CompetitorSnapshot[],
+): number | null {
+  if (competitors.length === 0) return null;
+  const leaderKm = Math.max(...competitors.map((candidate) => candidate.taskKm));
+  const behindKm = leaderKm - entry.taskKm;
+  if (behindKm <= 0.001) return null;
+  return behindKm;
+}
+
+export function getScoreboardEntryForTrack(
+  trackId: string,
+  competitors: CompetitorSnapshot[],
+  leadPercentages: Map<string, number>,
+  visibleTrackIds: Set<string>,
+): ScoreboardEntry | null {
+  const withLead = competitors.map((entry) => ({
+    ...entry,
+    leadPercent: leadPercentages.get(entry.id) ?? 0,
+  }));
+  return sortScoreboardEntriesForDisplay(withLead, visibleTrackIds).find((entry) => entry.id === trackId) ?? null;
+}
+
 export function formatCompetitorLeaderboardPopupHtml(
   entry: ScoreboardEntry,
   preferences: AppPreferences,
