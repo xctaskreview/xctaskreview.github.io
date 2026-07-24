@@ -1,4 +1,4 @@
-import type { EditableTurnpointRow, LatLon, OptimizedRoute, RoutePoint, TaskEditDraft, Turnpoint, XcTask } from './types';
+import type { EditableTurnpointRow, LatLon, OptimizedRoute, RoutePoint, TaskEditDraft, Turnpoint, TurnpointTypeOption, XcTask } from './types';
 import { computeOptimizedRoute } from './route';
 import { haversine, parseIsoDate, parseLocalTimeOnDate, parseUtcTimeOnDate } from './geo';
 
@@ -28,13 +28,20 @@ function nextTurnpointRowKey(): string {
 }
 
 function editableRowFromTurnpoint(tp: Turnpoint): EditableTurnpointRow {
+  let type: TurnpointTypeOption = tp.type ?? '';
+  if (!type) {
+    const label = tp.waypoint.name.trim();
+    if (isStartTurnpointLabel(label)) type = 'SSS';
+    else if (isEndTurnpointLabel(label)) type = 'ESS';
+  }
+
   return {
     key: nextTurnpointRowKey(),
     name: tp.waypoint.name,
     lat: String(tp.waypoint.lat),
     lon: String(tp.waypoint.lon),
     radius: String(tp.radius),
-    type: tp.type ?? '',
+    type,
     altSmoothed: tp.waypoint.altSmoothed,
     description: tp.waypoint.description,
   };

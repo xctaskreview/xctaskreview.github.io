@@ -16,6 +16,8 @@ interface TaskEditFormProps {
 
 type EditableTurnpointField = 'name' | 'lat' | 'lon' | 'radius' | 'type';
 
+const TURNPOINT_DRAG_MIME = 'application/x-xctask-turnpoint-index';
+
 function updateTurnpointRow(
   draft: TaskEditDraft,
   index: number,
@@ -40,10 +42,17 @@ function reorderTurnpoints(draft: TaskEditDraft, fromIndex: number, toIndex: num
   return { ...draft, turnpoints };
 }
 
+function readDragIndex(event: DragEvent): number | null {
+  const raw =
+    event.dataTransfer.getData(TURNPOINT_DRAG_MIME) || event.dataTransfer.getData('text/plain');
+  const index = Number(raw);
+  return Number.isInteger(index) && index >= 0 ? index : null;
+}
+
 export function TaskEditForm({ task, onChange }: TaskEditFormProps) {
   const [draft, setDraft] = useState(() => createTaskEditDraft(task));
   const skipSyncRef = useRef(false);
-  const dragIndexRef = useRef<number | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   useEffect(() => {
@@ -54,68 +63,89 @@ export function TaskEditForm({ task, onChange }: TaskEditFormProps) {
     setDraft(createTaskEditDraft(task));
   }, [task]);
 
-  const commitDraft = (next: TaskEditDraft) => {
-    setDraft(next);
-    const applied = tryApplyTaskEditDraft(task, next);
-    if (!applied || taskEffectivelyEquals(task, applied)) return;
-    skipSyncRef.current = true;
-    onChange(applied);
+  const commitDraft = (next: TaskEditDraft | ((prev: TaskEditDraft) => TaskEditDraft)) => {
+    setDraft((prev) => {
+      const resolved = typeof next === 'function' ? next(prev) : next;
+      const applied = tryApplyTaskEditDraft(task, resolved);
+      if (applied && !taskEffectivelyEquals(task, applied)) {
+        skipSyncRef.current = true;
+        onChange(applied);
+      }
+      return resolved;
+    });
   };
 
   const handleAddTurnpoint = () => {
-    const template = draft.turnpoints[draft.turnpoints.length - 1];
-    commitDraft({
-      ...draft,
-      turnpoints: [...draft.turnpoints, createEmptyTurnpointRow(template)],
+    commitDraft((prev) => {
+      const template = prev.turnpoints[prev.turnpoints.length - 1];
+      return {
+        ...prev,
+        turnpoints: [...prev.turnpoints, createEmptyTurnpointRow(template)],
+      };
     });
   };
 
   const handleRemoveTurnpoint = (index: number) => {
-    if (draft.turnpoints.length <= 1) return;
-    commitDraft({
-      ...draft,
-      turnpoints: draft.turnpoints.filter((_, rowIndex) => rowIndex !== index),
+    commitDraft((prev) => {
+      if (prev.turnpoints.length <= 1) return prev;
+      return {
+        ...prev,
+        turnpoints: prev.turnpoints.filter((_, rowIndex) => rowIndex !== index),
+      };
     });
   };
 
-  const handleDragStart = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
-    const fromHandle = (event.target as HTMLElement).closest('.welcome-task-edit-drag-handle');
-    if (!fromHandle) {
-      event.preventDefault();
-      return;
-    }
-    dragIndexRef.current = index;
+  const handleDragStart = (index: number) => (event: DragEvent<HTMLSpanElement>) => {
+    event.stopPropagation();
+    setDraggingIndex(index);
     event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData(TURNPOINT_DRAG_MIME, String(index));
     event.dataTransfer.setData('text/plain', String(index));
-    event.currentTarget.classList.add('is-dragging');
   };
 
-  const handleDragEnd = (event: DragEvent<HTMLTableRowElement>) => {
-    event.currentTarget.classList.remove('is-dragging');
-    dragIndexRef.current = null;
+  const handleDragEnd = (event: DragEvent<HTMLSpanElement>) => {
+    event.stopPropagation();
+    setDraggingIndex(null);
     setDragOverIndex(null);
   };
 
-  const handleDragOver = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
+  const handleRowDragOver = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
+    if (draggingIndex === null) return;
     event.preventDefault();
     event.stopPropagation();
     event.dataTransfer.dropEffect = 'move';
     if (dragOverIndex !== index) setDragOverIndex(index);
   };
 
-  const handleDrop = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
+  const handleRowDragLeave = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
+    if (dragOverIndex !== index) return;
+    const nextTarget = event.relatedTarget as Node | null;
+    if (nextTarget && event.currentTarget.contains(nextTarget)) return;
+    setDragOverIndex(null);
+  };
+
+  const handleRowDrop = (index: number) => (event: DragEvent<HTMLTableRowElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    const fromIndex = dragIndexRef.current;
-    dragIndexRef.current = null;
+    const fromIndex = draggingIndex ?? readDragIndex(event);
+    setDraggingIndex(null);
     setDragOverIndex(null);
     if (fromIndex === null || fromIndex === index) return;
-    commitDraft(reorderTurnpoints(draft, fromIndex, index));
+    commitDraft((prev) => reorderTurnpoints(prev, fromIndex, index));
+  };
+
+  const stopDragBubble = (event: DragEvent<HTMLDivElement>) => {
+    event.stopPropagation();
   };
 
   return (
     <div className="welcome-task-edit">
-      <div className="welcome-task-edit-table-wrap">
+      <div
+        className="welcome-task-edit-table-wrap"
+        onDragEnter={stopDragBubble}
+        onDragOver={stopDragBubble}
+        onDrop={stopDragBubble}
+      >
         <table className="welcome-task-edit-table">
           <thead>
             <tr>
@@ -125,7 +155,7 @@ export function TaskEditForm({ task, onChange }: TaskEditFormProps) {
               <th>Lat</th>
               <th>Lon</th>
               <th>Radius (m)</th>
-              <th>Type</th>
+              <th className="welcome-task-edit-type-col">Type</th>
               <th className="welcome-task-edit-actions-col" aria-label="Remove" />
             </tr>
           </thead>
@@ -133,15 +163,25 @@ export function TaskEditForm({ task, onChange }: TaskEditFormProps) {
             {draft.turnpoints.map((row, index) => (
               <tr
                 key={row.key}
-                draggable
-                onDragStart={handleDragStart(index)}
-                onDragEnd={handleDragEnd}
-                onDragOver={handleDragOver(index)}
-                onDrop={handleDrop(index)}
-                className={dragOverIndex === index ? 'drag-over' : undefined}
+                onDragOver={handleRowDragOver(index)}
+                onDragLeave={handleRowDragLeave(index)}
+                onDrop={handleRowDrop(index)}
+                className={[
+                  dragOverIndex === index ? 'drag-over' : '',
+                  draggingIndex === index ? 'is-dragging' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ') || undefined}
               >
                 <td className="welcome-task-edit-drag-col">
-                  <span className="welcome-task-edit-drag-handle" title="Drag to reorder" aria-hidden="true">
+                  <span
+                    className="welcome-task-edit-drag-handle"
+                    title="Drag to reorder"
+                    aria-label={`Reorder turnpoint ${index + 1}`}
+                    draggable
+                    onDragStart={handleDragStart(index)}
+                    onDragEnd={handleDragEnd}
+                  >
                     <Icon icon={GripVertical} size="sm" />
                   </span>
                 </td>
@@ -151,7 +191,9 @@ export function TaskEditForm({ task, onChange }: TaskEditFormProps) {
                     type="text"
                     value={row.name}
                     aria-label={`Turnpoint ${index + 1} name`}
-                    onChange={(e) => commitDraft(updateTurnpointRow(draft, index, 'name', e.target.value))}
+                    onChange={(e) =>
+                      commitDraft((prev) => updateTurnpointRow(prev, index, 'name', e.target.value))
+                    }
                   />
                 </td>
                 <td>
@@ -160,7 +202,9 @@ export function TaskEditForm({ task, onChange }: TaskEditFormProps) {
                     inputMode="decimal"
                     value={row.lat}
                     aria-label={`Turnpoint ${index + 1} latitude`}
-                    onChange={(e) => commitDraft(updateTurnpointRow(draft, index, 'lat', e.target.value))}
+                    onChange={(e) =>
+                      commitDraft((prev) => updateTurnpointRow(prev, index, 'lat', e.target.value))
+                    }
                   />
                 </td>
                 <td>
@@ -169,7 +213,9 @@ export function TaskEditForm({ task, onChange }: TaskEditFormProps) {
                     inputMode="decimal"
                     value={row.lon}
                     aria-label={`Turnpoint ${index + 1} longitude`}
-                    onChange={(e) => commitDraft(updateTurnpointRow(draft, index, 'lon', e.target.value))}
+                    onChange={(e) =>
+                      commitDraft((prev) => updateTurnpointRow(prev, index, 'lon', e.target.value))
+                    }
                   />
                 </td>
                 <td>
@@ -178,16 +224,18 @@ export function TaskEditForm({ task, onChange }: TaskEditFormProps) {
                     inputMode="numeric"
                     value={row.radius}
                     aria-label={`Turnpoint ${index + 1} radius`}
-                    onChange={(e) => commitDraft(updateTurnpointRow(draft, index, 'radius', e.target.value))}
+                    onChange={(e) =>
+                      commitDraft((prev) => updateTurnpointRow(prev, index, 'radius', e.target.value))
+                    }
                   />
                 </td>
-                <td>
+                <td className="welcome-task-edit-type-col">
                   <select
                     value={row.type}
                     aria-label={`Turnpoint ${index + 1} type`}
                     onChange={(e) =>
-                      commitDraft(
-                        updateTurnpointRow(draft, index, 'type', e.target.value as TurnpointTypeOption),
+                      commitDraft((prev) =>
+                        updateTurnpointRow(prev, index, 'type', e.target.value as TurnpointTypeOption),
                       )
                     }
                   >
@@ -199,7 +247,7 @@ export function TaskEditForm({ task, onChange }: TaskEditFormProps) {
                 <td className="welcome-task-edit-actions-col">
                   <button
                     type="button"
-                    className="welcome-icon-button"
+                    className="welcome-icon-button danger"
                     aria-label={`Remove turnpoint ${index + 1}`}
                     disabled={draft.turnpoints.length <= 1}
                     onClick={() => handleRemoveTurnpoint(index)}
@@ -224,7 +272,7 @@ export function TaskEditForm({ task, onChange }: TaskEditFormProps) {
             value={draft.startTime}
             placeholder="HH:MM or HH:MM:SS"
             aria-label="Task start time"
-            onChange={(e) => commitDraft({ ...draft, startTime: e.target.value })}
+            onChange={(e) => commitDraft((prev) => ({ ...prev, startTime: e.target.value }))}
           />
         </label>
       </div>
