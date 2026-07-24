@@ -1,4 +1,4 @@
-import type { EditableTurnpointRow, LatLon, OptimizedRoute, RoutePoint, TaskEditDraft, Turnpoint, XcTask } from './types';
+import type { EditableTurnpointRow, LatLon, OptimizedRoute, RoutePoint, TaskEditDraft, Turnpoint, TurnpointTypeOption, XcTask } from './types';
 import { computeOptimizedRoute } from './route';
 import { haversine, parseIsoDate, parseLocalTimeOnDate, parseUtcTimeOnDate } from './geo';
 
@@ -10,40 +10,167 @@ export function parseXcTask(text: string): XcTask {
   return task;
 }
 
-export function getTaskStartGate(task: XcTask): string { return task.sss?.timeGates?.[0] ?? ''; }
+export function getTaskStartGate(task: XcTask): string {
+  return task.sss?.timeGates?.[0] ?? '';
+}
+
 function normalizeTimeGate(timeGate: string): string {
   const match = timeGate.trim().match(/^(\d{2}):(\d{2})(?::(\d{2}))?(Z)?$/i);
   if (!match) throw new Error('Start time must be HH:MM or HH:MM:SS');
   return `${match[1]}:${match[2]}:${match[3] ?? '00'}${match[4] ?? ''}`;
 }
+
+let turnpointRowKeyCounter = 0;
+
+function nextTurnpointRowKey(): string {
+  turnpointRowKeyCounter += 1;
+  return `tp-row-${turnpointRowKeyCounter}`;
+}
+
 function editableRowFromTurnpoint(tp: Turnpoint): EditableTurnpointRow {
-  return { name: tp.waypoint.name, lat: String(tp.waypoint.lat), lon: String(tp.waypoint.lon), radius: String(tp.radius), type: tp.type ?? '' };
+  let type: TurnpointTypeOption = tp.type ?? '';
+  if (!type) {
+    const label = tp.waypoint.name.trim();
+    if (isStartTurnpointLabel(label)) type = 'SSS';
+    else if (isEndTurnpointLabel(label)) type = 'ESS';
+  }
+
+  return {
+    key: nextTurnpointRowKey(),
+    name: tp.waypoint.name,
+    lat: String(tp.waypoint.lat),
+    lon: String(tp.waypoint.lon),
+    radius: String(tp.radius),
+    type,
+    altSmoothed: tp.waypoint.altSmoothed,
+    description: tp.waypoint.description,
+  };
 }
+
+export function createEmptyTurnpointRow(template?: EditableTurnpointRow): EditableTurnpointRow {
+  return {
+    key: nextTurnpointRowKey(),
+    name: template ? `${template.name || 'TP'} copy` : 'TP',
+    lat: template?.lat ?? '0',
+    lon: template?.lon ?? '0',
+    radius: template?.radius ?? '400',
+    type: '',
+    altSmoothed: template?.altSmoothed,
+    description: template?.description,
+  };
+}
+
 export function createTaskEditDraft(task: XcTask): TaskEditDraft {
-  return { turnpoints: task.turnpoints.map(editableRowFromTurnpoint), startTime: getTaskStartGate(task) };
+  return {
+    turnpoints: task.turnpoints.map(editableRowFromTurnpoint),
+    startTime: getTaskStartGate(task),
+  };
 }
+
 export function taskEditDraftEquals(task: XcTask, draft: TaskEditDraft): boolean {
   const current = createTaskEditDraft(task);
-  if (current.startTime !== draft.startTime.trim() || current.turnpoints.length !== draft.turnpoints.length) return false;
+  if (current.startTime !== draft.startTime.trim() || current.turnpoints.length !== draft.turnpoints.length) {
+    return false;
+  }
   return current.turnpoints.every((row, i) => {
-    const e = draft.turnpoints[i];
-    return row.name === e.name.trim() && row.lat === e.lat.trim() && row.lon === e.lon.trim() && row.radius === e.radius.trim() && row.type === e.type;
+    const edited = draft.turnpoints[i];
+    return (
+      row.name === edited.name.trim() &&
+      row.lat === edited.lat.trim() &&
+      row.lon === edited.lon.trim() &&
+      row.radius === edited.radius.trim() &&
+      row.type === edited.type
+    );
   });
 }
+
+function turnpointsEffectivelyEqual(a: Turnpoint[], b: Turnpoint[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((tp, index) => {
+    const other = b[index];
+    return (
+      tp.radius === other.radius &&
+      (tp.type ?? '') === (other.type ?? '') &&
+      tp.waypoint.name === other.waypoint.name &&
+      tp.waypoint.lat === other.waypoint.lat &&
+      tp.waypoint.lon === other.waypoint.lon
+    );
+  });
+}
+
+export function taskEffectivelyEquals(a: XcTask, b: XcTask): boolean {
+  const aGate = a.sss?.timeGates?.[0] ?? '';
+  const bGate = b.sss?.timeGates?.[0] ?? '';
+  let aNormalized = aGate;
+  let bNormalized = bGate;
+  try {
+    if (aGate) aNormalized = normalizeTimeGate(aGate);
+    if (bGate) bNormalized = normalizeTimeGate(bGate);
+  } catch {
+    return false;
+  }
+  return aNormalized === bNormalized && turnpointsEffectivelyEqual(a.turnpoints, b.turnpoints);
+}
+
 export function applyTaskEditDraft(baseTask: XcTask, draft: TaskEditDraft): XcTask {
   if (!draft.turnpoints.length) throw new Error('Task must have at least one turnpoint');
+
   const turnpoints: Turnpoint[] = draft.turnpoints.map((row, index) => {
-    const name = row.name.trim(); if (!name) throw new Error(`Turnpoint ${index + 1}: name is required`);
-    const lat = Number(row.lat); if (!Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error(`Turnpoint ${index + 1}: latitude must be between -90 and 90`);
-    const lon = Number(row.lon); if (!Number.isFinite(lon) || lon < -180 || lon > 180) throw new Error(`Turnpoint ${index + 1}: longitude must be between -180 and 180`);
-    const radius = Number(row.radius); if (!Number.isFinite(radius) || radius <= 0) throw new Error(`Turnpoint ${index + 1}: radius must be a positive number`);
-    const existing = baseTask.turnpoints[index];
-    return { radius, type: row.type || undefined, waypoint: { ...existing?.waypoint, name, lat, lon } };
+    const name = row.name.trim();
+    if (!name) throw new Error(`Turnpoint ${index + 1}: name is required`);
+
+    const lat = Number(row.lat);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+      throw new Error(`Turnpoint ${index + 1}: latitude must be between -90 and 90`);
+    }
+
+    const lon = Number(row.lon);
+    if (!Number.isFinite(lon) || lon < -180 || lon > 180) {
+      throw new Error(`Turnpoint ${index + 1}: longitude must be between -180 and 180`);
+    }
+
+    const radius = Number(row.radius);
+    if (!Number.isFinite(radius) || radius <= 0) {
+      throw new Error(`Turnpoint ${index + 1}: radius must be a positive number`);
+    }
+
+    const waypoint = {
+      name,
+      lat,
+      lon,
+      ...(row.altSmoothed !== undefined ? { altSmoothed: row.altSmoothed } : {}),
+      ...(row.description !== undefined ? { description: row.description } : {}),
+    };
+
+    return {
+      radius,
+      type: row.type || undefined,
+      waypoint,
+    };
   });
-  const startTime = draft.startTime.trim(); let sss = baseTask.sss;
-  if (startTime) sss = { ...baseTask.sss, type: baseTask.sss?.type ?? 'RACE', direction: baseTask.sss?.direction ?? 'EXIT', timeGates: [normalizeTimeGate(startTime)] };
-  else if (sss?.timeGates?.length) sss = { ...sss, timeGates: [] };
+
+  const startTime = draft.startTime.trim();
+  let sss = baseTask.sss;
+  if (startTime) {
+    sss = {
+      ...baseTask.sss,
+      type: baseTask.sss?.type ?? 'RACE',
+      direction: baseTask.sss?.direction ?? 'EXIT',
+      timeGates: [normalizeTimeGate(startTime)],
+    };
+  } else if (sss?.timeGates?.length) {
+    sss = { ...sss, timeGates: [] };
+  }
+
   return { ...baseTask, turnpoints, sss };
+}
+
+export function tryApplyTaskEditDraft(baseTask: XcTask, draft: TaskEditDraft): XcTask | null {
+  try {
+    return applyTaskEditDraft(baseTask, draft);
+  } catch {
+    return null;
+  }
 }
 
 export function getRoutePoints(task: XcTask): RoutePoint[] {

@@ -1,6 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+export { trophyIconHtml } from '../lib/trophyIcon';
+
 type IconSize = 'xs' | 'sm' | 'md' | 'lg';
 
 const SIZE_PX: Record<IconSize, number> = {

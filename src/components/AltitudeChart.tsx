@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState, type MouseEvent, type RefObject } from 'react';
-import { LineChart } from 'lucide-react';
+import { LineChart, Trophy } from 'lucide-react';
 import {
   CartesianGrid,
   ComposedChart,
@@ -587,6 +587,26 @@ export const AltitudeChart = memo(function AltitudeChart({
     [altitudeMin, altitudeMax, altitudeStep],
   );
 
+  const leaderId = useMemo(() => {
+    if (competitors.length === 0) return null;
+    let leader = competitors[0];
+    for (let index = 1; index < competitors.length; index += 1) {
+      const candidate = competitors[index];
+      if (candidate.taskKm !== leader.taskKm) {
+        if (candidate.taskKm > leader.taskKm) leader = candidate;
+        continue;
+      }
+      if (candidate.taskPercent !== leader.taskPercent) {
+        if (candidate.taskPercent > leader.taskPercent) leader = candidate;
+        continue;
+      }
+      if (candidate.pilotName.localeCompare(leader.pilotName) < 0) {
+        leader = candidate;
+      }
+    }
+    return leader.id;
+  }, [competitors]);
+
   const points = useMemo(
     () =>
       competitors.map((c) => ({
@@ -600,8 +620,9 @@ export const AltitudeChart = memo(function AltitudeChart({
         firstName: c.firstName,
         color: c.color,
         landed: c.landed,
+        isLeader: c.id === leaderId,
       })),
-    [competitors, preferences.distanceUnit, preferences.altitudeUnit, altitudeMin, altitudeMax],
+    [competitors, leaderId, preferences.distanceUnit, preferences.altitudeUnit, altitudeMin, altitudeMax],
   );
 
   const maxProgressPoints = useMemo(
@@ -826,16 +847,24 @@ export const AltitudeChart = memo(function AltitudeChart({
             shape={(props: {
               cx?: number;
               cy?: number;
-              payload?: { color?: string; firstName?: string; landed?: boolean };
+              payload?: { color?: string; firstName?: string; landed?: boolean; isLeader?: boolean };
             }) => {
               const { cx, cy, payload } = props;
               if (cx == null || cy == null) return <g />;
               const landed = payload?.landed ?? false;
               const fill = landed ? LANDED_COLOR : (payload?.color ?? '#111827');
+              const isLeader = payload?.isLeader ?? false;
+              const trophySize = 12;
+              const labelX = cx + 10 + (isLeader ? trophySize + 2 : 0);
               return (
                 <g opacity={landed ? 0.7 : 1}>
                   <circle cx={cx} cy={cy} r={7} fill={fill} stroke="#ffffff" strokeWidth={2} />
-                  <text x={cx + 10} y={cy + 4} fill={fill} fontSize={11} fontWeight={600}>
+                  {isLeader && (
+                    <g transform={`translate(${cx + 10}, ${cy - trophySize / 2})`}>
+                      <Trophy size={trophySize} color={fill} strokeWidth={2} aria-hidden="true" />
+                    </g>
+                  )}
+                  <text x={labelX} y={cy + 4} fill={fill} fontSize={11} fontWeight={600}>
                     {payload?.firstName ?? ''}
                   </text>
                 </g>

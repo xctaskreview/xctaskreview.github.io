@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FlightTrack, XcTask } from '../lib/types';
 import {
   ArrowRight,
   Clock,
+  Download,
   FileUp,
   FolderUp,
   Gauge,
@@ -11,6 +12,7 @@ import {
   Mountain,
   Route,
   Ruler,
+  Search,
   Settings2,
   Trash2,
   TrendingUp,
@@ -60,11 +62,15 @@ interface WelcomeScreenProps {
   onTrackColorChange: (trackId: string, color: string) => void;
   onRemoveTrack: (trackId: string) => void;
   onRemoveAllTracks: () => void;
+  onSetTracksEnabled: (trackIds: string[], enabled: boolean) => void;
   onPreferencesChange: (preferences: AppPreferences) => void;
   onContinue: () => void;
   onXcdemonImport: (result: XcdemonImportResult) => void;
+  onSessionBundleImport: (file: File) => void;
+  onSessionBundleExport: () => void;
   onError: (message: string) => void;
   onTaskUpdate: (task: XcTask) => void;
+  onClearTask: () => void;
 }
 
 export function WelcomeScreen({
@@ -85,13 +91,19 @@ export function WelcomeScreen({
   onTrackColorChange,
   onRemoveTrack,
   onRemoveAllTracks,
+  onSetTracksEnabled,
   onPreferencesChange,
   onContinue,
   onXcdemonImport,
+  onSessionBundleImport,
+  onSessionBundleExport,
   onError,
   onTaskUpdate,
+  onClearTask,
 }: WelcomeScreenProps) {
   const [xcdemonOpen, setXcdemonOpen] = useState(false);
+  const [pilotSearch, setPilotSearch] = useState('');
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   const updatePreference = <K extends keyof AppPreferences>(key: K, value: AppPreferences[K]) => {
     onPreferencesChange({ ...preferences, [key]: value });
@@ -99,9 +111,33 @@ export function WelcomeScreen({
 
   const taskDisplay = task ? getTaskDisplayInfo(task, taskFileName) : null;
 
+  const filteredTracks = useMemo(() => {
+    const query = pilotSearch.trim().toLowerCase();
+    if (!query) return tracks;
+    return tracks.filter((track) => {
+      const pilotName = extractPilotDisplayName(track).toLowerCase();
+      const fileName = extractPilotFileName(track).toLowerCase();
+      return pilotName.includes(query) || fileName.includes(query);
+    });
+  }, [tracks, pilotSearch]);
+
+  const filteredTrackIds = useMemo(() => filteredTracks.map((track) => track.id), [filteredTracks]);
+  const allFilteredSelected =
+    filteredTrackIds.length > 0 && filteredTrackIds.every((id) => enabledTrackIds.has(id));
+  const noneFilteredSelected =
+    filteredTrackIds.length > 0 && filteredTrackIds.every((id) => !enabledTrackIds.has(id));
+  const someFilteredSelected = !allFilteredSelected && !noneFilteredSelected;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someFilteredSelected;
+    }
+  }, [someFilteredSelected]);
+
   return (
     <div className="welcome-screen">
-      <div className="welcome-card">
+      <div className="welcome-scroll">
+        <div className="welcome-card">
         <h1 className="welcome-title">
           <AppHomeLink iconSize="md" />
         </h1>
@@ -111,13 +147,27 @@ export function WelcomeScreen({
 
         <div className="welcome-xcdemon-import">
           <div className="welcome-xcdemon-import-label">Import from</div>
-          <button
-            type="button"
-            className="welcome-inline-button xcdemon-import-button"
-            onClick={() => setXcdemonOpen(true)}
-          >
-            <XcdemonButtonContent>XCDemon</XcdemonButtonContent>
-          </button>
+          <div className="welcome-import-buttons">
+            <label className="welcome-inline-button welcome-file-import-button">
+              <IconButtonContent icon={FileUp}>File</IconButtonContent>
+              <input
+                type="file"
+                accept=".zip,application/zip"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) onSessionBundleImport(file);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              className="welcome-inline-button xcdemon-import-button"
+              onClick={() => setXcdemonOpen(true)}
+            >
+              <XcdemonButtonContent>XCDemon</XcdemonButtonContent>
+            </button>
+          </div>
         </div>
 
         <section className="welcome-section">
@@ -149,7 +199,12 @@ export function WelcomeScreen({
           >
             {task && taskDisplay ? (
               <>
-                <div className="welcome-task-name">{taskDisplay.name}</div>
+                <div className="welcome-task-header">
+                  <div className="welcome-task-name">{taskDisplay.name}</div>
+                  <button type="button" className="welcome-text-button danger" onClick={onClearTask}>
+                    <IconButtonContent icon={Trash2}>Clear task</IconButtonContent>
+                  </button>
+                </div>
                 {taskLocationLoading ? (
                   <div className="welcome-task-meta">Looking up location…</div>
                 ) : taskLocationLabel ? (
@@ -158,7 +213,7 @@ export function WelcomeScreen({
                 {taskFileName && taskDisplay.name !== taskFileName.replace(/\.(xctsk|json)$/i, '') && (
                   <div className="welcome-task-file">{taskFileName}</div>
                 )}
-                <TaskEditForm task={task} onApply={onTaskUpdate} onError={onError} />
+                <TaskEditForm task={task} onChange={onTaskUpdate} />
               </>
             ) : (
               <div className="welcome-task-empty">No task loaded yet — drop a .xctsk or .json file here</div>
@@ -186,11 +241,6 @@ export function WelcomeScreen({
                   }}
                 />
               </label>
-              {tracks.length > 0 && (
-                <button type="button" className="welcome-text-button danger" onClick={onRemoveAllTracks}>
-                  <IconButtonContent icon={Trash2}>Remove all</IconButtonContent>
-                </button>
-              )}
             </div>
           </div>
 
@@ -204,49 +254,81 @@ export function WelcomeScreen({
             onFiles={onTrackFiles}
           >
             {tracks.length > 0 ? (
-              <>
-                <p className="welcome-section-hint">Uncheck pilots to hide them in the review.</p>
-                <ul className="welcome-pilot-list">
-                  {tracks.map((track) => {
-                    const pilotName = extractPilotDisplayName(track);
-                    const gliderType = extractGliderType(track);
+              <div className="welcome-pilot-list-wrapper">
+                <div className="welcome-pilot-list-toolbar">
+                  <div className="welcome-pilot-list-toolbar-main">
+                    <label className="welcome-pilot-select-all">
+                      <input
+                        ref={selectAllRef}
+                        type="checkbox"
+                        checked={allFilteredSelected}
+                        disabled={filteredTrackIds.length === 0}
+                        aria-label="Select all visible pilots"
+                        onChange={(e) => onSetTracksEnabled(filteredTrackIds, e.target.checked)}
+                      />
+                    </label>
+                    <label className="welcome-pilot-search">
+                      <Icon icon={Search} size="sm" />
+                      <input
+                        type="search"
+                        value={pilotSearch}
+                        placeholder="Search pilots"
+                        aria-label="Search pilots by name"
+                        onChange={(e) => setPilotSearch(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <button type="button" className="welcome-text-button danger" onClick={onRemoveAllTracks}>
+                    <IconButtonContent icon={Trash2}>Remove all</IconButtonContent>
+                  </button>
+                </div>
+                {filteredTracks.length > 0 ? (
+                  <ul className="welcome-pilot-list">
+                    {filteredTracks.map((track) => {
+                      const pilotName = extractPilotDisplayName(track);
+                      const gliderType = extractGliderType(track);
 
-                    return (
-                    <li key={track.id}>
-                      <label className="welcome-pilot-item">
-                        <input
-                          type="checkbox"
-                          checked={enabledTrackIds.has(track.id)}
-                          onChange={(e) => onToggleTrack(track.id, e.target.checked)}
-                        />
-                        <input
-                          type="color"
-                          className="welcome-pilot-color"
-                          value={trackColors[track.id] ?? '#4363d8'}
-                          aria-label={`Color for ${pilotName}`}
-                          onChange={(e) => onTrackColorChange(track.id, e.target.value)}
-                        />
-                        <span className="welcome-pilot-name">
-                          <span className="welcome-pilot-line">
-                            {pilotName}
-                            <span className="welcome-pilot-file"> ({extractPilotFileName(track)})</span>
-                          </span>
-                          {gliderType && <span className="welcome-pilot-glider">{gliderType}</span>}
-                        </span>
-                      </label>
-                      <button
-                        type="button"
-                        className="welcome-icon-button"
-                        aria-label={`Remove ${pilotName}`}
-                        onClick={() => onRemoveTrack(track.id)}
-                      >
-                        <Icon icon={X} size="sm" />
-                      </button>
-                    </li>
-                    );
-                  })}
-                </ul>
-              </>
+                      return (
+                        <li key={track.id}>
+                          <label className="welcome-pilot-item">
+                            <input
+                              type="checkbox"
+                              checked={enabledTrackIds.has(track.id)}
+                              onChange={(e) => onToggleTrack(track.id, e.target.checked)}
+                            />
+                            <input
+                              type="color"
+                              className="welcome-pilot-color"
+                              value={trackColors[track.id] ?? '#4363d8'}
+                              aria-label={`Color for ${pilotName}`}
+                              onChange={(e) => onTrackColorChange(track.id, e.target.value)}
+                            />
+                            <span className="welcome-pilot-name">
+                              <span className="welcome-pilot-line">
+                                {pilotName}
+                                <span className="welcome-pilot-file"> ({extractPilotFileName(track)})</span>
+                              </span>
+                              {gliderType && <span className="welcome-pilot-glider">{gliderType}</span>}
+                            </span>
+                          </label>
+                          <button
+                            type="button"
+                            className="welcome-icon-button danger"
+                            aria-label={`Remove ${pilotName}`}
+                            onClick={() => onRemoveTrack(track.id)}
+                          >
+                            <Icon icon={Trash2} size="sm" />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className="welcome-tracks-empty welcome-pilot-list-empty">
+                    No pilots match “{pilotSearch.trim()}”.
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="welcome-tracks-empty">
                 {task
@@ -365,12 +447,6 @@ export function WelcomeScreen({
           </div>
         </div>
 
-        {canContinue && (
-          <button type="button" className="welcome-continue" onClick={onContinue}>
-            <IconButtonContent icon={ArrowRight}>Continue to review</IconButtonContent>
-          </button>
-        )}
-
         {error && (
           <div className="welcome-error">
             <span className="error-message-text">{error}</span>
@@ -384,6 +460,23 @@ export function WelcomeScreen({
             </button>
           </div>
         )}
+        </div>
+      </div>
+
+      <div className="welcome-action-panel">
+        {task && (
+          <button type="button" className="welcome-export-button" onClick={onSessionBundleExport}>
+            <IconButtonContent icon={Download}>Export task and tracks</IconButtonContent>
+          </button>
+        )}
+        <button
+          type="button"
+          className="welcome-continue"
+          disabled={!canContinue}
+          onClick={onContinue}
+        >
+          <IconButtonContent icon={ArrowRight}>Continue to review</IconButtonContent>
+        </button>
       </div>
 
       <XcdemonImportDialog

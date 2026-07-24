@@ -1,4 +1,5 @@
 import { LANDED_COLOR } from './geo';
+import { trophyIconHtml } from './trophyIcon';
 import type { AppPreferences } from './preferences';
 import {
   formatAltitudeValue,
@@ -59,7 +60,11 @@ export function formatCompetitorLeaderboardPopupHtml(
     `<div class="competitor-popup-header">` +
     `<span class="competitor-popup-color" style="background:${markerColor}"></span>` +
     `<div>` +
-    `<strong>#${entry.position} ${escapeHtml(entry.pilotName)}</strong>` +
+    `<strong>${
+      entry.position === 1
+        ? `${trophyIconHtml(12)} ${escapeHtml(entry.pilotName)}`
+        : `#${entry.position} ${escapeHtml(entry.pilotName)}`
+    }</strong>` +
     gliderHtml +
     `</div>` +
     `</div>` +
