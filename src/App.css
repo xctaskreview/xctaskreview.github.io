@@ -1191,10 +1191,18 @@ body,
 }
 
 .competitor-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   color: #0f172a;
   font-size: 9px;
   font-weight: 700;
   line-height: 1.15;
+}
+
+.competitor-label .trophy-icon {
+  flex-shrink: 0;
+  display: block;
 }
 
 .competitor-alt {
@@ -1767,10 +1775,24 @@ body,
 }
 
 .scoreboard-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
   font-weight: 600;
   font-size: 0.8rem;
+}
+
+.scoreboard-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scoreboard-leader-trophy {
+  flex-shrink: 0;
+  color: #0f172a;
+  display: block;
+  margin: 0 auto;
 }
 
 .scoreboard-glider {
@@ -1818,6 +1840,16 @@ body,
   align-items: flex-start;
   gap: 8px;
   margin-bottom: 10px;
+}
+
+.competitor-popup-header strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.competitor-popup-header .trophy-icon {
+  flex-shrink: 0;
 }
 
 .competitor-popup-color {

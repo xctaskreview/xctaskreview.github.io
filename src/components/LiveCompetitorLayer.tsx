@@ -29,6 +29,7 @@ import {
 } from '../lib/taskProgressMarker';
 import { findLeaderAtTime, type EnrichedFlightTrack } from '../lib/taskProgress';
 import type { OptimizedRoute, RoutePoint } from '../lib/types';
+import { trophyIconHtml } from '../lib/trophyIcon';
 
 function escapeHtml(text: string): string {
   return text
@@ -36,6 +37,14 @@ function escapeHtml(text: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function formatCompetitorMapLabelHtml(position: number, firstName: string): string {
+  const name = escapeHtml(firstName);
+  if (position === 1) {
+    return `${trophyIconHtml(10)}<span>${name}</span>`;
+  }
+  return `#${position} ${name}`;
 }
 
 function getOutwardTooltipDirection(dx: number, dy: number): L.Direction {
@@ -340,7 +349,7 @@ export function LiveCompetitorLayer({
 
       if (updateLabels) {
         if (entry.labelEl && position !== undefined) {
-          entry.labelEl.textContent = `#${position} ${entry.firstName}`;
+          entry.labelEl.innerHTML = formatCompetitorMapLabelHtml(position, entry.firstName);
         }
 
         if (entry.altEl) {
