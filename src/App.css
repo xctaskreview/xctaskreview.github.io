@@ -646,12 +646,12 @@ body {
 .welcome-inline-button.civl-import-button {
   background: #ffffff;
   color: #0f766e;
-  border: 1px solid #5eead4;
+  border: 1px solid #cbd5e1;
 }
 
 .welcome-inline-button.civl-import-button:hover:not(:disabled) {
   background: #f0fdfa;
-  border-color: #2dd4bf;
+  border-color: #94a3b8;
 }
 
 .welcome-inline-button.civl-import-button:disabled {
