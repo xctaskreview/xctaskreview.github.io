@@ -245,6 +245,68 @@ export function extractPilotFileName(track: FlightTrack): string {
   return track.fileName.replace(/^.*[/\\]/, '');
 }
 
+
+function formatIgcLatitude(lat: number): string {
+  const abs = Math.abs(lat);
+  const degrees = Math.floor(abs);
+  const minutesTotal = (abs - degrees) * 60;
+  const minutes = Math.floor(minutesTotal);
+  const thousandths = Math.round((minutesTotal - minutes) * 1000);
+  const raw = `${degrees.toString().padStart(2, '0')}${minutes.toString().padStart(2, '0')}${thousandths.toString().padStart(3, '0')}`;
+  return `${raw}${lat >= 0 ? 'N' : 'S'}`;
+}
+
+function formatIgcLongitude(lon: number): string {
+  const abs = Math.abs(lon);
+  const degrees = Math.floor(abs);
+  const minutesTotal = (abs - degrees) * 60;
+  const minutes = Math.floor(minutesTotal);
+  const thousandths = Math.round((minutesTotal - minutes) * 1000);
+  const raw = `${degrees.toString().padStart(3, '0')}${minutes.toString().padStart(2, '0')}${thousandths.toString().padStart(3, '0')}`;
+  return `${raw}${lon >= 0 ? 'E' : 'W'}`;
+}
+
+function formatBRecord(point: TrackPoint): string {
+  const time = point.time;
+  const timeStr = [
+    time.getUTCHours(),
+    time.getUTCMinutes(),
+    time.getUTCSeconds(),
+  ]
+    .map((value) => value.toString().padStart(2, '0'))
+    .join('');
+  const alt = Math.max(0, Math.round(point.alt)).toString().padStart(5, '0');
+  return `B${timeStr}${formatIgcLatitude(point.lat)}${formatIgcLongitude(point.lon)}A${alt}`;
+}
+
+function buildDefaultIgcHeader(track: FlightTrack): string[] {
+  const lines: string[] = ['AIGCTrackExport'];
+
+  if (track.date) {
+    const day = track.date.getUTCDate().toString().padStart(2, '0');
+    const month = (track.date.getUTCMonth() + 1).toString().padStart(2, '0');
+    const year = (track.date.getUTCFullYear() % 100).toString().padStart(2, '0');
+    lines.push(`HFDTE${day}${month}${year}`);
+  }
+
+  lines.push(`HFPLTPILOTINCHARGE:${track.pilotName}`);
+
+  const gliderType = extractGliderType(track);
+  if (gliderType) {
+    lines.push(`HFGTYGLIDERTYPE:${gliderType}`);
+  }
+
+  return lines;
+}
+
+export function serializeIgc(track: FlightTrack): string {
+  const headerLines = track.igcHeader?.trim()
+    ? track.igcHeader.split(/\r?\n/)
+    : buildDefaultIgcHeader(track);
+
+  return [...headerLines, ...track.points.map(formatBRecord)].join('\n');
+}
+
 export function formatPilotNameWithFileName(track: FlightTrack): string {
   return `${extractPilotDisplayName(track)} (${extractPilotFileName(track)})`;
 }

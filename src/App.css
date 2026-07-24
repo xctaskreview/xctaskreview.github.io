@@ -73,14 +73,23 @@ body {
   margin: 0;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 .app {
   min-height: 100vh;
 }
 
 .app-shell {
+  height: 100%;
+  height: 100dvh;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .app-shell > .welcome-screen,
@@ -99,8 +108,6 @@ body {
   color: #64748b;
   font-size: 0.85rem;
   flex-shrink: 0;
-  position: sticky;
-  bottom: 0;
   z-index: 1200;
 }
 
@@ -171,11 +178,21 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 24px;
+  overflow: hidden;
   background:
     radial-gradient(circle at top, rgba(37, 99, 235, 0.12), transparent 42%),
     linear-gradient(180deg, #eff6ff 0%, #f8fafc 55%);
+}
+
+.welcome-scroll {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 24px 16px;
 }
 
 .welcome-card {
@@ -240,6 +257,65 @@ body {
   font-weight: 600;
 }
 
+.welcome-import-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.welcome-import-buttons .welcome-inline-button {
+  min-height: 36px;
+}
+
+.welcome-inline-button.welcome-file-import-button {
+  background: white;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
+.welcome-inline-button.welcome-file-import-button:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.welcome-action-panel {
+  z-index: 1100;
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+  max-width: 688px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  border: 1px solid #e2e8f0;
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.welcome-export-button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: white;
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.welcome-export-button:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
 .welcome-section {
   margin-top: 24px;
   padding-top: 20px;
@@ -268,11 +344,14 @@ body {
   align-items: center;
   justify-content: center;
   padding: 8px 14px;
+  border: 1px solid transparent;
   border-radius: 8px;
   background: #2563eb;
   color: white;
+  font: inherit;
   font-size: 0.9rem;
   font-weight: 600;
+  line-height: 1.25;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -768,11 +847,11 @@ body {
 }
 
 .welcome-continue {
+  flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  margin-top: 20px;
+  margin-top: 0;
   padding: 14px 18px;
   border: 0;
   border-radius: 10px;
@@ -782,8 +861,13 @@ body {
   cursor: pointer;
 }
 
-.welcome-continue:hover {
+.welcome-continue:hover:not(:disabled) {
   background: #166534;
+}
+
+.welcome-continue:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
 }
 
 .error-banner {
