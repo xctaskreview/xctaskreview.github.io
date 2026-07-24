@@ -305,6 +305,25 @@ body {
   background: #f8fafc;
 }
 
+.file-drop-zone {
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.file-drop-zone.drag-over {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+}
+
+.file-drop-zone.disabled.drag-over {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  box-shadow: none;
+}
+
 .welcome-task-panel {
   padding: 16px;
   border: 1px dashed #cbd5e1;
@@ -352,6 +371,25 @@ body {
 .welcome-tracks-empty {
   color: #94a3b8;
   font-size: 0.95rem;
+}
+
+.welcome-tracks-drop-zone {
+  padding: 16px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.welcome-tracks-drop-zone.has-tracks {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.welcome-tracks-drop-zone.has-tracks.drag-over {
+  padding: 12px;
+  border: 1px dashed #2563eb;
+  background: rgba(37, 99, 235, 0.08);
 }
 
 .welcome-actions {
