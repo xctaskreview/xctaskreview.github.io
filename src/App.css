@@ -106,6 +106,12 @@ body,
   overflow: hidden;
 }
 
+.app-shell.review-mode > .app.review-screen {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
 .app-shell > .welcome-screen,
 .app-shell > .review-screen {
   flex: 1;
@@ -119,16 +125,32 @@ body,
   overflow: hidden;
 }
 
+.app.review-screen {
+  min-height: 0;
+}
+
 .review-stage {
   position: relative;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
+}
+
+.review-chart-slot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1050;
+  width: 100%;
+  min-height: 0;
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
 }
 
-.review-chart-slot {
-  flex-shrink: 0;
+.review-chart-slot.minimized {
+  height: auto;
 }
 
 .review-chart-toggle {
@@ -1212,9 +1234,11 @@ body,
 }
 
 .review-screen .map-panel {
-  flex: 1;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   min-height: 0;
-  height: auto;
   border-bottom: 0;
 }
 
@@ -1528,8 +1552,11 @@ body,
 }
 
 .review-screen .time-controls {
-  margin: 8px 12px 0;
-  border-radius: 10px;
+  margin: 0;
+  padding: 8px 16px 6px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .time-controls-row {
@@ -1830,9 +1857,134 @@ body,
 }
 
 .review-screen .chart-panel {
-  margin: 8px 12px 12px;
-  padding: 12px 14px;
-  height: min(280px, 32vh);
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.review-screen .chart-panel.minimized {
+  height: auto;
+  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.1);
+}
+
+.chart-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.review-screen .chart-panel.minimized .chart-panel-header {
+  border-bottom: 0;
+}
+
+.chart-panel-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.chart-panel-title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.chart-panel-icon-button,
+.chart-panel-resize-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.chart-panel-icon-button:hover,
+.chart-panel-resize-handle:hover:not(:disabled) {
+  background: rgba(248, 250, 252, 0.9);
+  color: #0f172a;
+}
+
+.chart-panel-resize-handle {
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.chart-panel-resize-handle:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.chart-panel-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 12px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(8px);
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.review-screen .chart-panel-body {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  padding: 4px 8px 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  overflow: hidden;
+}
+
+.chart-plot-host {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.review-screen .chart-panel-body .recharts-wrapper,
+.review-screen .chart-panel-body .recharts-surface {
+  overflow: visible;
 }
 
 .chart-panel-body {
@@ -2411,8 +2563,8 @@ body,
   }
 
   .review-screen .time-controls {
-    margin: 6px 8px 0;
-    padding: 8px 10px;
+    margin: 0;
+    padding: 6px 10px 4px;
   }
 
   .time-controls-row {
@@ -2458,17 +2610,14 @@ body,
   }
 
   .review-stage.chart-open .review-chart-toggle {
-    bottom: calc(min(42vh, 320px) + 10px);
+    bottom: calc(var(--task-progress-height, 320px) + 12px);
   }
 
   .review-chart-slot {
-    position: absolute;
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 1050;
-    max-height: min(42vh, 320px);
-    height: min(42vh, 320px);
+    width: 100%;
     pointer-events: none;
     visibility: hidden;
     transform: translateY(8px);
@@ -2486,15 +2635,8 @@ body,
     opacity: 1;
   }
 
-  .review-screen .chart-panel {
-    margin: 0;
-    height: 100%;
-    max-height: none;
-    border-radius: 12px 12px 0 0;
-    border-left: 0;
-    border-right: 0;
-    border-bottom: 0;
-    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.12);
+  .review-screen .chart-panel-body {
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.16);
   }
 
   .map-data-panels.expanded-leaderboard,

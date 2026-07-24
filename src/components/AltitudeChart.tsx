@@ -1,11 +1,10 @@
-import { memo, useEffect, useMemo, useState, type MouseEvent, type RefObject } from 'react';
-import { LineChart, Trophy } from 'lucide-react';
+import { memo, useEffect, useMemo, useRef, useState, type MouseEvent, type RefObject } from 'react';
+import { Trophy } from 'lucide-react';
 import {
   CartesianGrid,
   ComposedChart,
   Line,
   ReferenceLine,
-  ResponsiveContainer,
   Scatter,
   XAxis,
   YAxis,
@@ -15,9 +14,7 @@ import { clampChartAltitudeDisplay, LANDED_COLOR } from '../lib/geo';
 import { buildPilotChartTrailPoints } from '../lib/pilotTrail';
 import type { AppPreferences } from '../lib/preferences';
 import {
-  altitudeAxisLabel,
   buildChartAltitudeTicks,
-  distanceAxisLabel,
   kmToDistanceUnit,
   metersToAltitudeUnit,
   normalizePilotTrailLengthM,
@@ -29,8 +26,8 @@ import { GOAL_COLOR, START_COLOR, TASK_PROGRESS_LINE_COLOR } from '../lib/taskMa
 import type { TaskProgressMarker, TurnpointReachMarker } from '../lib/taskProgressMarker';
 import { formatTurnpointHoverLabel } from '../lib/turnpointTooltip';
 import type { CompetitorSnapshot, OptimizedRoute, ProgressTurnpoint } from '../lib/types';
-import { Icon } from './Icon';
 import { TurnpointFloatingTooltip } from './TurnpointHoverTooltip';
+import { useFixedElementSize } from '../lib/useFixedElementSize';
 
 interface ChartTrail {
   id: string;
@@ -52,7 +49,64 @@ interface ChartMaxProgressMarker {
 const MAX_PROGRESS_MARKER_OPACITY = 0.4;
 const MAX_PROGRESS_LINK_OPACITY = 0.45;
 
-interface AltitudeChartProps {
+/** Fixed layout so vertical resize does not shift the plot area horizontally. */
+const CHART_Y_AXIS_WIDTH = 56;
+const CHART_MARGIN = { top: 12, right: 12, bottom: 6, left: 8 } as const;
+
+const CHART_TICK_FONT =
+  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+
+function renderFixedYAxisTick(props: {
+  x?: number;
+  y?: number;
+  payload?: { value?: number };
+}) {
+  const { x, y, payload } = props;
+  if (x == null || y == null || payload?.value == null) {
+    return <g />;
+  }
+  return (
+    <text
+      x={x}
+      y={y}
+      dy={4}
+      textAnchor="end"
+      fill="#64748b"
+      fontSize={10}
+      fontFamily={CHART_TICK_FONT}
+      style={{ fontVariantNumeric: 'tabular-nums' }}
+    >
+      {payload.value}
+    </text>
+  );
+}
+
+function renderFixedXAxisTick(props: {
+  x?: number;
+  y?: number;
+  payload?: { value?: number };
+}) {
+  const { x, y, payload } = props;
+  if (x == null || y == null || payload?.value == null) {
+    return <g />;
+  }
+  return (
+    <text
+      x={x}
+      y={y}
+      dy={12}
+      textAnchor="middle"
+      fill="#64748b"
+      fontSize={10}
+      fontFamily={CHART_TICK_FONT}
+      style={{ fontVariantNumeric: 'tabular-nums' }}
+    >
+      {payload.value.toFixed(0)}
+    </text>
+  );
+}
+
+export interface AltitudeChartProps {
   enrichedTracks: EnrichedFlightTrack[];
   trackColors: Record<string, string>;
   route: OptimizedRoute;
@@ -69,6 +123,7 @@ interface AltitudeChartProps {
   taskDistanceKm: number;
   preferences: AppPreferences;
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
+  suspendLiveUpdates?: boolean;
 }
 
 interface ReferenceLineShapeProps {
@@ -127,11 +182,13 @@ function useLiveProgressState({
   playing,
   pausedTime,
   distanceUnit,
+  suspendLiveUpdates,
 }: {
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
   playing: boolean;
   pausedTime: Date;
   distanceUnit: AppPreferences['distanceUnit'];
+  suspendLiveUpdates: boolean;
 }): { distance: number | null; percent: number } {
   const readState = () => {
     const marker = taskProgressMarkerRef.current;
@@ -149,7 +206,7 @@ function useLiveProgressState({
   }, [playing, pausedTime, taskProgressMarkerRef, distanceUnit]);
 
   useEffect(() => {
-    if (!playing) return;
+    if (suspendLiveUpdates || !playing) return;
 
     let rafId = 0;
     const loop = () => {
@@ -159,7 +216,7 @@ function useLiveProgressState({
 
     rafId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafId);
-  }, [playing, taskProgressMarkerRef, distanceUnit]);
+  }, [playing, suspendLiveUpdates, taskProgressMarkerRef, distanceUnit]);
 
   return progressState;
 }
@@ -171,9 +228,16 @@ function useLiveChartCompetitors({
   currentTimeRef,
   playing,
   pausedTime,
+  suspendLiveUpdates,
 }: Pick<
   AltitudeChartProps,
-  'enrichedTracks' | 'trackColors' | 'route' | 'currentTimeRef' | 'playing' | 'pausedTime'
+  | 'enrichedTracks'
+  | 'trackColors'
+  | 'route'
+  | 'currentTimeRef'
+  | 'playing'
+  | 'pausedTime'
+  | 'suspendLiveUpdates'
 >): CompetitorSnapshot[] {
   const [competitors, setCompetitors] = useState<CompetitorSnapshot[]>(() =>
     buildCompetitorSnapshots(enrichedTracks, trackColors, route, pausedTime, false),
@@ -185,7 +249,7 @@ function useLiveChartCompetitors({
   }, [enrichedTracks, trackColors, route, playing, pausedTime]);
 
   useEffect(() => {
-    if (!playing) return;
+    if (suspendLiveUpdates || !playing) return;
 
     let rafId = 0;
     const loop = () => {
@@ -197,7 +261,7 @@ function useLiveChartCompetitors({
 
     rafId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafId);
-  }, [playing, enrichedTracks, trackColors, route, currentTimeRef]);
+  }, [playing, suspendLiveUpdates, enrichedTracks, trackColors, route, currentTimeRef]);
 
   return competitors;
 }
@@ -314,6 +378,7 @@ function useLiveChartTrails({
   preferences,
   altitudeMin,
   altitudeMax,
+  suspendLiveUpdates,
 }: Pick<
   AltitudeChartProps,
   | 'enrichedTracks'
@@ -326,6 +391,7 @@ function useLiveChartTrails({
   | 'preferences'
   | 'altitudeMin'
   | 'altitudeMax'
+  | 'suspendLiveUpdates'
 >): ChartTrail[] {
   const [trails, setTrails] = useState<ChartTrail[]>(() =>
     buildChartTrails(
@@ -367,7 +433,7 @@ function useLiveChartTrails({
   ]);
 
   useEffect(() => {
-    if (!playing) return;
+    if (suspendLiveUpdates || !playing) return;
 
     let rafId = 0;
     const loop = () => {
@@ -390,6 +456,7 @@ function useLiveChartTrails({
     return () => cancelAnimationFrame(rafId);
   }, [
     playing,
+    suspendLiveUpdates,
     enrichedTracks,
     trackColors,
     route,
@@ -414,6 +481,7 @@ function useLiveMaxProgressMarkers({
   preferences,
   altitudeMin,
   altitudeMax,
+  suspendLiveUpdates,
 }: Pick<
   AltitudeChartProps,
   | 'enrichedTracks'
@@ -426,6 +494,7 @@ function useLiveMaxProgressMarkers({
   | 'preferences'
   | 'altitudeMin'
   | 'altitudeMax'
+  | 'suspendLiveUpdates'
 >): ChartMaxProgressMarker[] {
   const [markers, setMarkers] = useState<ChartMaxProgressMarker[]>(() =>
     buildMaxProgressMarkers(
@@ -467,7 +536,7 @@ function useLiveMaxProgressMarkers({
   ]);
 
   useEffect(() => {
-    if (!playing) return;
+    if (suspendLiveUpdates || !playing) return;
 
     let rafId = 0;
     const loop = () => {
@@ -490,6 +559,7 @@ function useLiveMaxProgressMarkers({
     return () => cancelAnimationFrame(rafId);
   }, [
     playing,
+    suspendLiveUpdates,
     enrichedTracks,
     trackColors,
     route,
@@ -520,7 +590,11 @@ export const AltitudeChart = memo(function AltitudeChart({
   taskDistanceKm,
   preferences,
   taskProgressMarkerRef,
+  suspendLiveUpdates = false,
 }: AltitudeChartProps) {
+  const plotHostRef = useRef<HTMLDivElement>(null);
+  const plotSize = useFixedElementSize(plotHostRef, true);
+
   const [floatingTooltip, setFloatingTooltip] = useState<{
     tooltip: string;
     x: number;
@@ -534,6 +608,7 @@ export const AltitudeChart = memo(function AltitudeChart({
     currentTimeRef,
     playing,
     pausedTime,
+    suspendLiveUpdates,
   });
 
   const trails = useLiveChartTrails({
@@ -547,6 +622,7 @@ export const AltitudeChart = memo(function AltitudeChart({
     preferences,
     altitudeMin,
     altitudeMax,
+    suspendLiveUpdates,
   });
 
   const maxProgressMarkers = useLiveMaxProgressMarkers({
@@ -560,6 +636,7 @@ export const AltitudeChart = memo(function AltitudeChart({
     preferences,
     altitudeMin,
     altitudeMax,
+    suspendLiveUpdates,
   });
 
   const { distance: progressDistanceDisplay, percent: progressPercent } = useLiveProgressState({
@@ -567,6 +644,7 @@ export const AltitudeChart = memo(function AltitudeChart({
     playing,
     pausedTime,
     distanceUnit: preferences.distanceUnit,
+    suspendLiveUpdates,
   });
 
   const taskDistanceDisplay = kmToDistanceUnit(taskDistanceKm, preferences.distanceUnit);
@@ -583,6 +661,15 @@ export const AltitudeChart = memo(function AltitudeChart({
     () => buildChartAltitudeTicks(altitudeMin, altitudeMax, altitudeStep),
     [altitudeMin, altitudeMax, altitudeStep],
   );
+
+  const xTicks = useMemo(() => {
+    if (taskDistanceDisplay <= 0) return [0];
+    const tickCount = 5;
+    const step = taskDistanceDisplay / tickCount;
+    return Array.from({ length: tickCount + 1 }, (_, index) =>
+      index === tickCount ? taskDistanceDisplay : Math.round(index * step),
+    );
+  }, [taskDistanceDisplay]);
 
   const leaderId = useMemo(() => {
     if (competitors.length === 0) return null;
@@ -659,11 +746,7 @@ export const AltitudeChart = memo(function AltitudeChart({
   );
 
   return (
-    <div className="chart-panel">
-      <div className="panel-title">
-        <Icon icon={LineChart} size="sm" />
-        Altitude vs task distance
-      </div>
+    <>
       {floatingTooltip && (
         <TurnpointFloatingTooltip
           tooltip={floatingTooltip.tooltip}
@@ -671,33 +754,35 @@ export const AltitudeChart = memo(function AltitudeChart({
           y={floatingTooltip.y}
         />
       )}
-      <div className="chart-panel-body">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart margin={{ top: 28, right: 24, left: 8, bottom: 20 }}>
+      <div ref={plotHostRef} className="chart-plot-host">
+        {plotSize.width > 0 && plotSize.height > 0 && (
+          <ComposedChart
+            width={plotSize.width}
+            height={plotSize.height}
+            margin={CHART_MARGIN}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
             <XAxis
               type="number"
               dataKey="taskDistance"
               domain={[0, taskDistanceDisplay]}
-              tickFormatter={(value) => `${value.toFixed(0)}`}
-              label={{
-                value: distanceAxisLabel(preferences.distanceUnit),
-                position: 'insideBottom',
-                offset: -8,
-              }}
+              ticks={xTicks}
+              padding={{ left: 0, right: 0 }}
+              axisLine={false}
+              tickLine={false}
+              tick={renderFixedXAxisTick}
             />
             <YAxis
               type="number"
               dataKey="altitude"
+              width={CHART_Y_AXIS_WIDTH}
               domain={[altitudeMin, altitudeMax]}
               ticks={yTicks}
               allowDataOverflow={false}
-              tickFormatter={(value) => `${value}`}
-              label={{
-                value: altitudeAxisLabel(preferences.altitudeUnit),
-                angle: -90,
-                position: 'insideLeft',
-              }}
+              axisLine={false}
+              tickLine={false}
+              tick={renderFixedYAxisTick}
+              interval={0}
             />
 
             {turnpoints.map((tp) => {
@@ -866,8 +951,8 @@ export const AltitudeChart = memo(function AltitudeChart({
               }}
             />
           </ComposedChart>
-        </ResponsiveContainer>
+        )}
       </div>
-    </div>
+    </>
   );
 });

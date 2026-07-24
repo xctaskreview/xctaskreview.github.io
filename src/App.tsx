@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, LineChart, PencilLine, X } from 'lucide-react';
-import { AltitudeChart } from './components/AltitudeChart';
 import { AppFooter } from './components/AppFooter';
 import { AppHomeLink } from './components/AppHomeLink';
 import { Icon, IconButtonContent } from './components/Icon';
 import { MapView } from './components/MapView';
 import { TimeControls } from './components/TimeControls';
+import { defaultTaskProgressHeight, TaskProgressPanel } from './components/TaskProgressPanel';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { extractGliderType, mergeTrackMetadata } from './lib/igc';
 import { buildCompetitorSnapshots } from './lib/competitors';
@@ -71,6 +71,8 @@ export default function App() {
   const [taskLocationLabel, setTaskLocationLabel] = useState<string | null>(null);
   const [taskLocationLoading, setTaskLocationLoading] = useState(false);
   const [mobileChartOpen, setMobileChartOpen] = useState(false);
+  const [taskProgressMinimized, setTaskProgressMinimized] = useState(false);
+  const reviewStageRef = useRef<HTMLDivElement>(null);
   const [storageReady, setStorageReady] = useState(false);
   const skipNextPersistRef = useRef(false);
   const hadTaskRef = useRef(false);
@@ -656,6 +658,15 @@ const onSessionBundleExport = useCallback(async () => {
     }
   }, []);
 
+  const previewTaskProgressHeight = useCallback((height: number) => {
+    reviewStageRef.current?.style.setProperty('--task-progress-height', `${height}px`);
+  }, []);
+
+  useEffect(() => {
+    if (!showReview) return;
+    previewTaskProgressHeight(defaultTaskProgressHeight());
+  }, [showReview, previewTaskProgressHeight]);
+
   if (!showReview) {
     return (
       <div className="app-shell">
@@ -738,7 +749,10 @@ const onSessionBundleExport = useCallback(async () => {
           />
         )}
 
-        <div className={`review-stage${mobileChartOpen ? ' chart-open' : ''}`}>
+        <div
+          ref={reviewStageRef}
+          className={`review-stage${mobileChartOpen ? ' chart-open' : ''}`}
+        >
           {bounds && route && (
             <MapView
               bounds={bounds}
@@ -771,33 +785,32 @@ const onSessionBundleExport = useCallback(async () => {
                 onClick={() => setMobileChartOpen((open) => !open)}
               >
                 <IconButtonContent icon={mobileChartOpen ? ChevronDown : LineChart}>
-                  {mobileChartOpen ? 'Hide graph' : 'Task progress'}
+                  {mobileChartOpen ? 'Hide graph' : 'Task Progress'}
                 </IconButtonContent>
               </button>
 
-              <div
-                id="review-altitude-chart"
-                className={`review-chart-slot${mobileChartOpen ? ' open' : ''}`}
-              >
-                <AltitudeChart
-                  enrichedTracks={enrichedTracks}
-                  trackColors={trackColors}
-                  route={route}
-                  currentTimeRef={currentTimeRef}
-                  playing={playing}
-                  pausedTime={currentTime}
-                  turnpoints={route.progressTurnpoints}
-                  turnpointReachMarkers={turnpointReachMarkers}
-                  taskStart={timing.taskStart}
-                  onTimeChange={setCurrentTime}
-                  altitudeMin={altitudeRange.min}
-                  altitudeMax={altitudeRange.max}
-                  altitudeStep={altitudeRange.step}
-                  taskDistanceKm={taskDistanceKm}
-                  preferences={preferences}
-                  taskProgressMarkerRef={taskProgressMarkerRef}
-                />
-              </div>
+              <TaskProgressPanel
+                mobileOpen={mobileChartOpen}
+                enrichedTracks={enrichedTracks}
+                trackColors={trackColors}
+                route={route}
+                currentTimeRef={currentTimeRef}
+                playing={playing}
+                pausedTime={currentTime}
+                turnpoints={route.progressTurnpoints}
+                turnpointReachMarkers={turnpointReachMarkers}
+                taskStart={timing.taskStart}
+                onTimeChange={setCurrentTime}
+                altitudeMin={altitudeRange.min}
+                altitudeMax={altitudeRange.max}
+                altitudeStep={altitudeRange.step}
+                taskDistanceKm={taskDistanceKm}
+                preferences={preferences}
+                taskProgressMarkerRef={taskProgressMarkerRef}
+                minimized={taskProgressMinimized}
+                onToggleMinimized={() => setTaskProgressMinimized((value) => !value)}
+                onHeightPreview={previewTaskProgressHeight}
+              />
             </>
           )}
         </div>
