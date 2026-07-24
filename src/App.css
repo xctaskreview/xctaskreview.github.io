@@ -171,8 +171,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 24px;
+  overflow-y: auto;
+  padding: 24px 24px 0;
   background:
     radial-gradient(circle at top, rgba(37, 99, 235, 0.12), transparent 42%),
     linear-gradient(180deg, #eff6ff 0%, #f8fafc 55%);
@@ -247,8 +247,50 @@ body {
   gap: 8px;
 }
 
-.welcome-export {
-  margin-top: 12px;
+.welcome-inline-button.welcome-file-import-button {
+  background: white;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
+.welcome-inline-button.welcome-file-import-button:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.welcome-action-panel {
+  position: sticky;
+  bottom: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  width: min(100%, 640px);
+  margin-top: auto;
+  padding: 16px 0 24px;
+  border-top: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.welcome-export-button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: white;
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.welcome-export-button:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
 }
 
 .welcome-section {
@@ -779,11 +821,11 @@ body {
 }
 
 .welcome-continue {
+  flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  margin-top: 20px;
+  margin-top: 0;
   padding: 14px 18px;
   border: 0;
   border-radius: 10px;
@@ -793,8 +835,13 @@ body {
   cursor: pointer;
 }
 
-.welcome-continue:hover {
+.welcome-continue:hover:not(:disabled) {
   background: #166534;
+}
+
+.welcome-continue:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
 }
 
 .error-banner {

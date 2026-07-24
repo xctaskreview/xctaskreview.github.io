@@ -117,7 +117,7 @@ export function WelcomeScreen({
         <div className="welcome-xcdemon-import">
           <div className="welcome-xcdemon-import-label">Import from</div>
           <div className="welcome-import-buttons">
-            <label className="welcome-inline-button">
+            <label className="welcome-inline-button welcome-file-import-button">
               <IconButtonContent icon={FileUp}>File</IconButtonContent>
               <input
                 type="file"
@@ -138,14 +138,6 @@ export function WelcomeScreen({
             </button>
           </div>
         </div>
-
-        {task && (
-          <div className="welcome-export">
-            <button type="button" className="welcome-inline-button" onClick={onSessionBundleExport}>
-              <IconButtonContent icon={Download}>Export task and tracks</IconButtonContent>
-            </button>
-          </div>
-        )}
 
         <section className="welcome-section">
           <div className="welcome-section-header">
@@ -392,12 +384,6 @@ export function WelcomeScreen({
           </div>
         </div>
 
-        {canContinue && (
-          <button type="button" className="welcome-continue" onClick={onContinue}>
-            <IconButtonContent icon={ArrowRight}>Continue to review</IconButtonContent>
-          </button>
-        )}
-
         {error && (
           <div className="welcome-error">
             <span className="error-message-text">{error}</span>
@@ -411,6 +397,22 @@ export function WelcomeScreen({
             </button>
           </div>
         )}
+      </div>
+
+      <div className="welcome-action-panel">
+        {task && (
+          <button type="button" className="welcome-export-button" onClick={onSessionBundleExport}>
+            <IconButtonContent icon={Download}>Export task and tracks</IconButtonContent>
+          </button>
+        )}
+        <button
+          type="button"
+          className="welcome-continue"
+          disabled={!canContinue}
+          onClick={onContinue}
+        >
+          <IconButtonContent icon={ArrowRight}>Continue to review</IconButtonContent>
+        </button>
       </div>
 
       <XcdemonImportDialog
