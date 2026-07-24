@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PencilLine, X } from 'lucide-react';
+import { ChevronDown, LineChart, PencilLine, X } from 'lucide-react';
 import { AltitudeChart } from './components/AltitudeChart';
 import { AppFooter } from './components/AppFooter';
 import { AppHomeLink } from './components/AppHomeLink';
@@ -68,6 +68,7 @@ export default function App() {
   const [taskFitKey, setTaskFitKey] = useState('');
   const [taskLocationLabel, setTaskLocationLabel] = useState<string | null>(null);
   const [taskLocationLoading, setTaskLocationLoading] = useState(false);
+  const [mobileChartOpen, setMobileChartOpen] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
   const skipNextPersistRef = useRef(false);
   const hadTaskRef = useRef(false);
@@ -208,6 +209,9 @@ export default function App() {
 
   useEffect(() => {
     setPlaying(showReview);
+    if (!showReview) {
+      setMobileChartOpen(false);
+    }
   }, [showReview]);
 
   useEffect(() => {
@@ -582,57 +586,34 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell review-mode">
       <div className="app review-screen">
-      <header className="review-header">
-        <div className="review-header-start">
-          <h1 className="review-header-title">
-            <AppHomeLink iconSize="sm" />
-          </h1>
-        </div>
-        <button type="button" className="edit-button" onClick={() => setView('welcome')}>
-          <IconButtonContent icon={PencilLine}>Edit</IconButtonContent>
-        </button>
-      </header>
-
-      {error && (
-        <div className="error-banner">
-          <span className="error-message-text">{error}</span>
-          <button
-            type="button"
-            className="error-dismiss"
-            aria-label="Dismiss error"
-            onClick={() => setError(null)}
-          >
-            <Icon icon={X} size="sm" />
+        <header className="review-header">
+          <div className="review-header-start">
+            <h1 className="review-header-title">
+              <AppHomeLink iconSize="sm" />
+            </h1>
+          </div>
+          <button type="button" className="edit-button" onClick={() => setView('welcome')}>
+            <IconButtonContent icon={PencilLine}>Edit</IconButtonContent>
           </button>
-        </div>
-      )}
+        </header>
 
-      {bounds && route && (
-        <MapView
-          bounds={bounds}
-          circles={circles}
-          optimizedRoute={route}
-          enrichedTracks={enrichedTracks}
-          trackColors={trackColors}
-          currentTimeRef={currentTimeRef}
-          leadPercentages={leadPercentages}
-          fitKey={taskFitKey || 'task'}
-          preferences={preferences}
-          playing={playing}
-          pausedTime={currentTime}
-          scoreboardCompetitors={scoreboardCompetitors}
-          legStatistics={legStatistics}
-          taskStart={timing.taskStart}
-          trackKey={leadTrackKey}
-          taskProgressMarkerRef={taskProgressMarkerRef}
-          turnpointReachMarkers={turnpointReachMarkers}
-        />
-      )}
+        {error && (
+          <div className="error-banner">
+            <span className="error-message-text">{error}</span>
+            <button
+              type="button"
+              className="error-dismiss"
+              aria-label="Dismiss error"
+              onClick={() => setError(null)}
+            >
+              <Icon icon={X} size="sm" />
+            </button>
+          </div>
+        )}
 
-      {route && (
-        <>
+        {route && (
           <TimeControls
             currentTime={currentTime}
             timing={timing}
@@ -647,28 +628,72 @@ export default function App() {
             onPlayingChange={setPlaying}
             onSpeedChange={setSpeed}
           />
-          <AltitudeChart
-            enrichedTracks={enrichedTracks}
-            trackColors={trackColors}
-            route={route}
-            currentTimeRef={currentTimeRef}
-            playing={playing}
-            pausedTime={currentTime}
-            turnpoints={route.progressTurnpoints}
-            turnpointReachMarkers={turnpointReachMarkers}
-            taskStart={timing.taskStart}
-            onTimeChange={setCurrentTime}
-            altitudeMin={altitudeRange.min}
-            altitudeMax={altitudeRange.max}
-            altitudeStep={altitudeRange.step}
-            taskDistanceKm={taskDistanceKm}
-            preferences={preferences}
-            taskProgressMarkerRef={taskProgressMarkerRef}
-          />
-        </>
-      )}
+        )}
+
+        <div className={`review-stage${mobileChartOpen ? ' chart-open' : ''}`}>
+          {bounds && route && (
+            <MapView
+              bounds={bounds}
+              circles={circles}
+              optimizedRoute={route}
+              enrichedTracks={enrichedTracks}
+              trackColors={trackColors}
+              currentTimeRef={currentTimeRef}
+              leadPercentages={leadPercentages}
+              fitKey={taskFitKey || 'task'}
+              preferences={preferences}
+              playing={playing}
+              pausedTime={currentTime}
+              scoreboardCompetitors={scoreboardCompetitors}
+              legStatistics={legStatistics}
+              taskStart={timing.taskStart}
+              trackKey={leadTrackKey}
+              taskProgressMarkerRef={taskProgressMarkerRef}
+              turnpointReachMarkers={turnpointReachMarkers}
+            />
+          )}
+
+          {route && (
+            <>
+              <button
+                type="button"
+                className="review-chart-toggle"
+                aria-expanded={mobileChartOpen}
+                aria-controls="review-altitude-chart"
+                onClick={() => setMobileChartOpen((open) => !open)}
+              >
+                <IconButtonContent icon={mobileChartOpen ? ChevronDown : LineChart}>
+                  {mobileChartOpen ? 'Hide graph' : 'Task progress'}
+                </IconButtonContent>
+              </button>
+
+              <div
+                id="review-altitude-chart"
+                className={`review-chart-slot${mobileChartOpen ? ' open' : ''}`}
+              >
+                <AltitudeChart
+                  enrichedTracks={enrichedTracks}
+                  trackColors={trackColors}
+                  route={route}
+                  currentTimeRef={currentTimeRef}
+                  playing={playing}
+                  pausedTime={currentTime}
+                  turnpoints={route.progressTurnpoints}
+                  turnpointReachMarkers={turnpointReachMarkers}
+                  taskStart={timing.taskStart}
+                  onTimeChange={setCurrentTime}
+                  altitudeMin={altitudeRange.min}
+                  altitudeMax={altitudeRange.max}
+                  altitudeStep={altitudeRange.step}
+                  taskDistanceKm={taskDistanceKm}
+                  preferences={preferences}
+                  taskProgressMarkerRef={taskProgressMarkerRef}
+                />
+              </div>
+            </>
+          )}
+        </div>
       </div>
-      <AppFooter />
     </div>
   );
 }

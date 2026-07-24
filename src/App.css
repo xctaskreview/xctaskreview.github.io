@@ -69,6 +69,12 @@
   display: block;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
 }
@@ -83,10 +89,40 @@ body {
   flex-direction: column;
 }
 
+.app-shell.review-mode {
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .app-shell > .welcome-screen,
 .app-shell > .review-screen {
   flex: 1;
   min-height: 0;
+}
+
+.review-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.review-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.review-chart-slot {
+  flex-shrink: 0;
+}
+
+.review-chart-toggle {
+  display: none;
 }
 
 .app-footer {
@@ -468,9 +504,10 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 24px;
+  padding: 12px 20px;
   background: #0f172a;
   color: #f8fafc;
+  flex-shrink: 0;
 }
 
 .review-header-start {
@@ -787,7 +824,7 @@ body {
 }
 
 .error-banner {
-  margin: 16px 24px 0;
+  margin: 12px 16px 0;
   padding: 12px 16px;
   border-radius: 8px;
   background: #fee2e2;
@@ -796,6 +833,11 @@ body {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  flex-shrink: 0;
+}
+
+.review-screen .error-banner {
+  margin: 8px 12px 0;
 }
 
 .error-message-text {
@@ -826,6 +868,13 @@ body {
   margin: 0;
   overflow: hidden;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.review-screen .map-panel {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  border-bottom: 0;
 }
 
 .map-legend-overlay {
@@ -1126,6 +1175,12 @@ body {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: white;
+  flex-shrink: 0;
+}
+
+.review-screen .time-controls {
+  margin: 8px 12px 0;
+  border-radius: 10px;
 }
 
 .time-controls-row {
@@ -1428,6 +1483,21 @@ body {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: white;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.review-screen .chart-panel {
+  margin: 8px 12px 12px;
+  padding: 12px 14px;
+  height: min(280px, 32vh);
+}
+
+.chart-panel-body {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
 }
 
 .chart-turnpoint-line-clickable {
@@ -1965,5 +2035,105 @@ body {
 
   .welcome-pref-grid {
     grid-template-columns: 1fr;
+  }
+
+  .review-header {
+    padding: 10px 12px;
+  }
+
+  .review-screen .time-controls {
+    margin: 6px 8px 0;
+    padding: 8px 10px;
+  }
+
+  .time-controls-row {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+  }
+
+  .current-time-block {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  .slider-shell {
+    order: 3;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .review-chart-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    z-index: 1100;
+    transform: translateX(-50%);
+    padding: 10px 14px;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+    backdrop-filter: blur(8px);
+    color: #0f172a;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .review-chart-toggle:hover {
+    background: rgba(248, 250, 252, 0.96);
+  }
+
+  .review-stage.chart-open .review-chart-toggle {
+    bottom: calc(min(42vh, 320px) + 10px);
+  }
+
+  .review-chart-slot {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1050;
+    max-height: min(42vh, 320px);
+    height: min(42vh, 320px);
+    pointer-events: none;
+    visibility: hidden;
+    transform: translateY(8px);
+    opacity: 0;
+    transition:
+      opacity 0.18s ease,
+      transform 0.18s ease,
+      visibility 0.18s ease;
+  }
+
+  .review-chart-slot.open {
+    pointer-events: auto;
+    visibility: visible;
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .review-screen .chart-panel {
+    margin: 0;
+    height: 100%;
+    max-height: none;
+    border-radius: 12px 12px 0 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.12);
+  }
+
+  .map-data-panels.expanded-leaderboard,
+  .map-data-panels.expanded-leg-statistics {
+    width: min(calc(100% - 16px), 620px);
+  }
+
+  .map-legend-overlay.expanded {
+    width: min(280px, calc(100% - 24px));
   }
 }
