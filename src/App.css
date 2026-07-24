@@ -2286,9 +2286,25 @@ html.turnpoint-drag-active .welcome-scroll {
   transform: translate(-50%, -50%);
 }
 
+.slider-markers .start-marker-column {
+  z-index: 3;
+  transform: translateX(-100%);
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.slider-markers .finish-marker-column {
+  z-index: 3;
+  transform: translateX(0);
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
 .start-marker-column {
   z-index: 3;
-  padding: 0 8px;
+  padding: 0;
   border: 0;
   background: transparent;
   cursor: pointer;
@@ -2301,7 +2317,7 @@ html.turnpoint-drag-active .welcome-scroll {
 
 .finish-marker-column {
   z-index: 3;
-  padding: 0 8px;
+  padding: 0;
   background: transparent;
   cursor: default;
 }
@@ -2343,7 +2359,16 @@ html.turnpoint-drag-active .welcome-scroll {
 
 .time-marker-column .time-marker-label {
   position: static;
-  transform: none;
+}
+
+.slider-markers .time-marker-column .time-marker-label.start-label {
+  position: relative;
+  left: 7px;
+}
+
+.slider-markers .time-marker-column .time-marker-label.finish-marker-top-label {
+  position: relative;
+  left: -7px;
 }
 
 .time-marker-column .time-marker {
@@ -2364,14 +2389,17 @@ html.turnpoint-drag-active .welcome-scroll {
 
 .start-label {
   color: #2563eb;
-  background: #fff;
   border-radius: 4px;
   padding: 1px 5px;
 }
 
+.start-label-with-trailing-icon {
+  flex-direction: row-reverse;
+  gap: 4px;
+}
+
 .finish-label {
   color: #dc2626;
-  background: #fff;
   border-radius: 4px;
   padding: 1px 5px;
 }
@@ -2428,6 +2456,12 @@ html.turnpoint-drag-active .welcome-scroll {
   background: rgba(255, 255, 255, 0.94);
   border-radius: 4px;
   padding: 0 4px;
+}
+
+.finish-marker-time-near-end {
+  transform: translate(-100%, -50%);
+  text-align: right;
+  align-items: flex-end;
 }
 
 .finish-pilot {

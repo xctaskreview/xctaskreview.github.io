@@ -17,6 +17,7 @@ import {
   roundChartPixel,
   taskDistanceDisplayToPercent,
 } from '../src/lib/chartAltitude';
+import { chartMaxTaskPercentForDisplay } from '../src/lib/taskProgress';
 
 describe('chart path pixels', () => {
   it('builds a path string and cumulative segment lengths', () => {
@@ -214,5 +215,13 @@ describe('tagged turnpoints', () => {
     expect(countTaggedTurnpoints(turnpoints, 1, 4, 59.9)).toBe(1);
     expect(countTaggedTurnpoints(turnpoints, 1, 4, 60)).toBe(2);
     expect(countTaggedTurnpoints(turnpoints, 1, 4, 100)).toBe(2);
+  });
+});
+
+describe('chart task progress display', () => {
+  it('does not snap markers to 100% when the goal flag is set but geometry is short', () => {
+    expect(chartMaxTaskPercentForDisplay(99.2, 100)).toBe(99.2);
+    expect(chartMaxTaskPercentForDisplay(100, 100)).toBe(100);
+    expect(chartMaxTaskPercentForDisplay(96, 94)).toBe(96);
   });
 });

@@ -14,8 +14,9 @@ import {
   buildChartDistanceTicks,
   buildChartPathPixels,
   buildChartPolylineD,
-  CHART_PILOT_LABEL_GAP,
   CHART_PILOT_MARKER_RADIUS,
+  CHART_PILOT_MARKER_FOCUS_SCALE,
+  CHART_PILOT_LABEL_GAP,
   CHART_TROPHY_SIZE,
   chartClientXToTaskDistanceDisplay,
   chartPathLengthAtTime,
@@ -49,7 +50,7 @@ import {
   normalizePilotTrailLengthM,
 } from '../lib/preferences';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
-import { getPilotMaxProgressAtTime, getTrackSnapshotAtTime, resolveSeekTimeForTaskPercent } from '../lib/taskProgress';
+import { getPilotMaxProgressAtTime, getTrackSnapshotAtTime, resolveSeekTimeForTaskPercent, chartMaxTaskPercentForDisplay, chartTaskPercentAtSnapshot } from '../lib/taskProgress';
 import type { TaskFieldTimeline } from '../lib/taskTimeline';
 import { TROPHY_ICON_PATHS, TROPHY_ICON_VIEW_SIZE } from '../lib/trophyIcon';
 import { getTrackColor } from '../lib/tracks';
@@ -275,6 +276,7 @@ interface LivePilotNodes {
   writtenFutureDash: string;
   writtenColor: string;
   writtenLabelX: string;
+  writtenMarkerRadius: string;
   writtenLanded: boolean | null;
   pilotVisible: boolean;
   maxVisible: boolean;
@@ -390,6 +392,7 @@ function createPilotNodes(
     writtenFutureDash: UNWRITTEN,
     writtenColor: UNWRITTEN,
     writtenLabelX: UNWRITTEN,
+    writtenMarkerRadius: UNWRITTEN,
     writtenLanded: null,
     pilotVisible: false,
     maxVisible: false,
@@ -428,8 +431,9 @@ interface ChartLiveSettings {
   preferences: AppPreferences;
   altitudeMin: number;
   altitudeMax: number;
-  selectedPilotTrackId: string | null;
+  fullPathTrackId: string | null;
   fullPath: SelectedFullPath | null;
+  progressFocusTrackId: string | null;
   currentTimeRef: RefObject<Date>;
   playing: boolean;
   pausedTime: Date;
@@ -440,6 +444,7 @@ interface ChartLiveSettings {
 }
 
 interface ChartLiveLayerProps extends ChartLiveSettings {
+  settingsRef: RefObject<ChartLiveSettings | null>;
   /** Injected by Recharts when rendered through <Customized>. */
   xAxisMap?: ChartAxisMap;
   yAxisMap?: ChartAxisMap;
@@ -451,6 +456,7 @@ interface ChartLiveLayerProps extends ChartLiveSettings {
  * never re-enters Recharts.
  */
 function ChartLiveLayer({
+  settingsRef,
   enrichedTracks,
   trackColors,
   route,
@@ -459,8 +465,9 @@ function ChartLiveLayer({
   preferences,
   altitudeMin,
   altitudeMax,
-  selectedPilotTrackId,
+  fullPathTrackId,
   fullPath,
+  progressFocusTrackId,
   currentTimeRef,
   playing,
   pausedTime,
@@ -629,9 +636,14 @@ function ChartLiveLayer({
     (time: Date) => {
       if (!xScale || !yScale || !plotRect) return;
 
+      const live = settingsRef.current;
+      const framePreferences = live?.preferences ?? preferences;
+      const frameFullPathTrackId = live?.fullPathTrackId ?? fullPathTrackId;
+      const frameProgressFocusTrackId = live?.progressFocusTrackId ?? progressFocusTrackId;
+
       const entries = entriesRef.current;
-      const { distanceUnit, altitudeUnit } = preferences;
-      const trailLengthM = normalizePilotTrailLengthM(preferences.pilotTrailLengthM);
+      const { distanceUnit, altitudeUnit } = framePreferences;
+      const trailLengthM = normalizePilotTrailLengthM(framePreferences.pilotTrailLengthM);
 
       let leaderId: string | null = null;
       let leaderName: string | null = null;
@@ -644,8 +656,9 @@ function ChartLiveLayer({
           continue;
         }
 
+        const chartTaskPercent = chartTaskPercentAtSnapshot(snapshot, route);
         const distance = clampChartTaskDistanceDisplay(
-          kmToDistanceUnit((snapshot.taskPercent / 100) * taskDistanceKm, distanceUnit),
+          kmToDistanceUnit((chartTaskPercent / 100) * taskDistanceKm, distanceUnit),
           taskDistanceDisplay,
         );
         const altitude = clampChartAltitudeDisplay(
@@ -660,10 +673,14 @@ function ChartLiveLayer({
         entry.frameY = yScale(altitude);
 
         const maxProgress = getPilotMaxProgressAtTime(entry.track, time);
-        let maxTaskPercent = maxProgress?.taskPercent ?? -1;
+        const prefixMax = maxProgress?.taskPercent ?? -1;
+        let maxTaskPercent =
+          prefixMax >= 0
+            ? chartMaxTaskPercentForDisplay(chartTaskPercent, prefixMax)
+            : chartTaskPercent;
         let maxAlt = maxProgress?.alt ?? 0;
-        if (snapshot.taskPercent >= maxTaskPercent) {
-          maxTaskPercent = snapshot.taskPercent;
+        if (chartTaskPercent >= maxTaskPercent) {
+          maxTaskPercent = chartTaskPercent;
           maxAlt = snapshot.alt;
         }
 
@@ -691,7 +708,7 @@ function ChartLiveLayer({
         }
 
         entry.frameTrailD =
-          trailLengthM > 0 && entry.trackId !== selectedPilotTrackId
+          trailLengthM > 0 && entry.trackId !== frameFullPathTrackId
             ? buildChartPolylineD(
                 buildPilotChartTrailPoints(
                   entry.track,
@@ -785,6 +802,16 @@ function ChartLiveLayer({
 
         const x = roundChartPixel(entry.frameX);
         const y = roundChartPixel(entry.frameY);
+        const isProgressFocus = entry.trackId === frameProgressFocusTrackId;
+        const markerRadius =
+          CHART_PILOT_MARKER_RADIUS *
+          (isProgressFocus ? CHART_PILOT_MARKER_FOCUS_SCALE : 1);
+        const markerRadiusStr = String(markerRadius);
+        if (entry.writtenMarkerRadius !== markerRadiusStr) {
+          entry.writtenMarkerRadius = markerRadiusStr;
+          entry.pilotCircle.setAttribute('r', markerRadiusStr);
+          entry.maxCircle.setAttribute('r', markerRadiusStr);
+        }
         const pilotTransform = `translate(${x},${y})`;
         if (entry.writtenPilotTransform !== pilotTransform) {
           entry.writtenPilotTransform = pilotTransform;
@@ -851,13 +878,13 @@ function ChartLiveLayer({
         }
       }
 
-      const showFutureTrail = preferences.showFutureTrail;
+      const showFutureTrail = framePreferences.showFutureTrail;
       const timeMs = time.getTime();
       for (const entry of entries) {
         const hideFuture =
           !showFutureTrail ||
           !entry.frameVisible ||
-          entry.trackId === selectedPilotTrackId;
+          entry.trackId === frameFullPathTrackId;
         if (hideFuture) {
           if (entry.futureTrailVisible) {
             setVisibility(entry.futureTrailPath, false);
@@ -882,6 +909,10 @@ function ChartLiveLayer({
         if (entry.writtenFutureDash !== dash) {
           entry.writtenFutureDash = dash;
           entry.futureTrailPath.setAttribute('stroke-dasharray', dash);
+        }
+        const futureStroke = entry.writtenColor;
+        if (entry.futureTrailPath.getAttribute('stroke') !== futureStroke) {
+          entry.futureTrailPath.setAttribute('stroke', futureStroke);
         }
         if (!entry.futureTrailVisible) {
           setVisibility(entry.futureTrailPath, true);
@@ -935,9 +966,8 @@ function ChartLiveLayer({
 
       const pastPath = pastPathRef.current;
       const futurePath = futurePathRef.current;
-      if (fullPath && fullPathPixels && pastPath && futurePath) {
+      if (frameFullPathTrackId && fullPath && fullPathPixels && pastPath && futurePath) {
         const { geometry, track, color } = fullPath;
-        const timeMs = time.getTime();
         const index = findPathIndexAtOrBefore(geometry.timesMs, timeMs, fullPathCursorRef.current);
         fullPathCursorRef.current = index;
 
@@ -956,11 +986,18 @@ function ChartLiveLayer({
           pastPath.setAttribute('stroke', stroke);
           futurePath.setAttribute('stroke', stroke);
         }
+
+        setVisibility(pastPath, true);
+        setVisibility(futurePath, showFutureTrail);
+      } else {
+        if (pastPath) setVisibility(pastPath, false);
+        if (futurePath) setVisibility(futurePath, false);
       }
     },
     // Scale identity churns per render; `scaleKey` is what actually changes the geometry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
+      settingsRef,
       scaleKey,
       plotRect,
       fullPath,
@@ -974,7 +1011,8 @@ function ChartLiveLayer({
       preferences,
       altitudeMin,
       altitudeMax,
-      selectedPilotTrackId,
+      fullPathTrackId,
+      progressFocusTrackId,
       taskProgressMarkerRef,
       onProgressPercentRef,
     ],
@@ -1029,8 +1067,17 @@ function ChartLiveLayer({
         </g>
       </defs>
 
-      {fullPath && fullPathPixels && (
-        <g className="chart-full-path" fill="none" strokeWidth={3} strokeLinecap="butt">
+      <g
+        ref={futureTrailsHostRef}
+        className="chart-pilot-future-trails"
+        fill="none"
+        strokeWidth={3}
+        strokeLinecap="butt"
+        clipPath={clipUrl}
+      />
+
+      {fullPathTrackId && fullPath && fullPathPixels && (
+        <g className="chart-full-path" fill="none" strokeWidth={3} strokeLinecap="butt" clipPath={clipUrl}>
           {/* Constant dash props so React never overwrites the imperatively animated split. */}
           <path
             ref={futurePathRef}
@@ -1038,6 +1085,7 @@ function ChartLiveLayer({
             stroke={fullPath.color}
             strokeOpacity={PILOT_PATH_FUTURE_OPACITY}
             strokeDasharray="0 1"
+            visibility="hidden"
           />
           <path
             ref={pastPathRef}
@@ -1045,16 +1093,11 @@ function ChartLiveLayer({
             stroke={fullPath.color}
             strokeOpacity={PILOT_PATH_PAST_OPACITY}
             strokeDasharray="0 1"
+            visibility="hidden"
           />
         </g>
       )}
 
-      <g
-        ref={futureTrailsHostRef}
-        className="chart-pilot-future-trails"
-        fill="none"
-        clipPath={clipUrl}
-      />
       <g ref={trailsHostRef} className="chart-pilot-trails" fill="none" clipPath={clipUrl} />
       <line
         ref={progressLineRef}
@@ -1090,7 +1133,9 @@ function ChartLiveCustomized({
   const settings = settingsRef.current;
   if (!settings) return null;
 
-  return <ChartLiveLayer {...settings} xAxisMap={xAxisMap} yAxisMap={yAxisMap} />;
+  return (
+    <ChartLiveLayer {...settings} settingsRef={settingsRef} xAxisMap={xAxisMap} yAxisMap={yAxisMap} />
+  );
 }
 
 function useSelectedFullPath({
@@ -1100,7 +1145,7 @@ function useSelectedFullPath({
   preferences,
   altitudeMin,
   altitudeMax,
-  selectedPilotTrackId,
+  fullPathTrackId,
 }: Pick<
   AltitudeChartProps,
   | 'allEnrichedTracks'
@@ -1109,11 +1154,10 @@ function useSelectedFullPath({
   | 'preferences'
   | 'altitudeMin'
   | 'altitudeMax'
-  | 'selectedPilotTrackId'
->): SelectedFullPath | null {
+> & { fullPathTrackId: string | null }): SelectedFullPath | null {
   const selectedTrack =
-    selectedPilotTrackId !== null
-      ? (allEnrichedTracks.find((track) => track.id === selectedPilotTrackId) ?? null)
+    fullPathTrackId !== null
+      ? (allEnrichedTracks.find((track) => track.id === fullPathTrackId) ?? null)
       : null;
   const selectedColor = selectedTrack
     ? getTrackColor(
@@ -1194,6 +1238,8 @@ export const AltitudeChart = memo(function AltitudeChart({
   const plotHostRef = useRef<HTMLDivElement>(null);
   const plotSize = useFixedElementSize(plotHostRef, true);
 
+  const fullPathTrackId = selectedPilotTrackId;
+
   const [floatingTooltip, setFloatingTooltip] = useState<{
     tooltip: string;
     x: number;
@@ -1207,7 +1253,7 @@ export const AltitudeChart = memo(function AltitudeChart({
     preferences,
     altitudeMin,
     altitudeMax,
-    selectedPilotTrackId,
+    fullPathTrackId,
   });
 
   const taskDistanceDisplay = kmToDistanceUnit(taskDistanceKm, preferences.distanceUnit);
@@ -1349,8 +1395,9 @@ export const AltitudeChart = memo(function AltitudeChart({
     preferences,
     altitudeMin,
     altitudeMax,
-    selectedPilotTrackId,
+    fullPathTrackId,
     fullPath: selectedFullPath,
+    progressFocusTrackId,
     currentTimeRef,
     playing,
     pausedTime,

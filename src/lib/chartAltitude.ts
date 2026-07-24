@@ -130,6 +130,7 @@ export function chartPlotRect(xRange: number[], yRange: number[]): ChartPlotRect
 
 /** Marker geometry shared by the pilot label and the trophy badge in front of it. */
 export const CHART_PILOT_MARKER_RADIUS = 7;
+export const CHART_PILOT_MARKER_FOCUS_SCALE = 1.5;
 export const CHART_PILOT_LABEL_GAP = 10;
 export const CHART_TROPHY_SIZE = 12;
 

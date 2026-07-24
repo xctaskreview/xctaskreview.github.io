@@ -34,18 +34,18 @@ export function PilotDetailPanel({ entry, competitors, preferences, expanded }: 
             </div>
           )}
           <div>
-            <dt>Task</dt>
+            <dt>Dist</dt>
             <dd>
               {formatDistance(entry.taskKm, preferences.distanceUnit)}
-              {distanceBehindKm != null && (
-                <span className="competitor-popup-muted">
-                  {' '}
-                  · {formatDistance(distanceBehindKm, preferences.distanceUnit)} behind
-                </span>
-              )}
               <span className="competitor-popup-muted"> ({Math.round(entry.taskPercent)}%)</span>
             </dd>
           </div>
+          {distanceBehindKm != null && (
+            <div>
+              <dt>Behind</dt>
+              <dd>{formatDistance(distanceBehindKm, preferences.distanceUnit)}</dd>
+            </div>
+          )}
           <div>
             <dt>Lead</dt>
             <dd>{entry.leadPercent.toFixed(1)} %</dd>
@@ -59,7 +59,7 @@ export function PilotDetailPanel({ entry, competitors, preferences, expanded }: 
             <dd>{formatGroundSpeed(entry.groundSpeedMps, preferences.speedUnit)}</dd>
           </div>
           <div>
-            <dt>V/S</dt>
+            <dt>Vario</dt>
             <dd className={`competitor-popup-vario${varioClass}`}>
               {formatVerticalSpeed(entry.verticalSpeedMps, preferences.verticalSpeedUnit)}
             </dd>

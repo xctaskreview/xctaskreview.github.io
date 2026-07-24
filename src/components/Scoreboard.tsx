@@ -215,7 +215,7 @@ export function Scoreboard({
             <span className="scoreboard-header-stack">
               <span className="scoreboard-header-label">
                 <Icon icon={TrendingUp} size="xs" />
-                V/S
+                Vario
               </span>
               <span className="scoreboard-header-unit">{varioUnitLabel}</span>
             </span>

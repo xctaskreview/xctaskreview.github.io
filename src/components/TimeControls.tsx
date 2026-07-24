@@ -34,6 +34,11 @@ function markerPercent(timing: TaskTiming, markerTime?: Date): number | null {
   return ((markerTime.getTime() - start) / (end - start)) * 100;
 }
 
+function markersOverlap(a: number | null, b: number | null, tolerancePct = 0.4): boolean {
+  if (a === null || b === null) return false;
+  return Math.abs(a - b) <= tolerancePct;
+}
+
 function fastestFinishElapsed(timing: TaskTiming): string | null {
   if (!timing.fastestFinish) return null;
   const start = timing.taskStart ?? timing.trackStart;
@@ -145,7 +150,7 @@ export function TimeControls({
                 onClick={() => onTimeChange(timing.taskStart!)}
               >
                 <span className="time-marker-label start-label">
-                  <IconLabel icon={Flag} iconSize="xs">
+                  <IconLabel icon={Flag} iconSize="xs" className="start-label-with-trailing-icon">
                     Start
                   </IconLabel>
                 </span>
@@ -155,6 +160,7 @@ export function TimeControls({
             {turnpointReachMarkers.map((marker) => {
               const markerPct = markerPercent(timing, marker.time);
               if (markerPct === null) return null;
+              if (markersOverlap(markerPct, finishPct)) return null;
               const reached = currentMs >= marker.time.getTime();
 
               return (
@@ -188,7 +194,7 @@ export function TimeControls({
                 style={{ left: `${finishPct}%` }}
                 tooltip={finishTurnpointTooltip}
               >
-                <span className="time-marker-label finish-label">
+                <span className="time-marker-label finish-label finish-marker-top-label">
                   <IconLabel icon={Trophy} iconSize="xs">
                     Fastest
                   </IconLabel>
@@ -216,7 +222,10 @@ export function TimeControls({
               </span>
             )}
             {finishPct !== null && fastestElapsed && (
-              <span className="slider-marker-time finish-marker-time" style={{ left: `${finishPct}%` }}>
+              <span
+                className={`slider-marker-time finish-marker-time${finishPct >= 85 ? ' finish-marker-time-near-end' : ''}`}
+                style={{ left: `${finishPct}%` }}
+              >
                 <span>{`Elapsed ${fastestElapsed}`}</span>
                 {timing.fastestPilot && <span className="finish-pilot">{timing.fastestPilot}</span>}
               </span>

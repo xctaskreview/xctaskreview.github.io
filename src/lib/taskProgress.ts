@@ -115,6 +115,37 @@ export function computeTaskPercentForLeg(
   return Math.max(0, Math.min(100, (distanceAlong / progressTotalDistance) * 100));
 }
 
+/** Horizontal position on the task-progress chart follows route geometry, not the goal “finished” shortcut to 100%. */
+export function chartTaskPercentAtSnapshot(
+  snapshot: {
+    lat: number;
+    lon: number;
+    legIndex: number;
+    hasStarted: boolean;
+  },
+  route: OptimizedRoute,
+): number {
+  if (!snapshot.hasStarted) return 0;
+  return computeTaskPercentForLeg(
+    { lat: snapshot.lat, lon: snapshot.lon },
+    snapshot.legIndex,
+    false,
+    true,
+    route,
+  );
+}
+
+/** Prefix max task % can jump to 100 when the goal is tagged; chart markers stay on geographic progress until then. */
+export function chartMaxTaskPercentForDisplay(
+  liveChartPercent: number,
+  prefixMaxTaskPercent: number,
+): number {
+  if (prefixMaxTaskPercent >= 100 && liveChartPercent < 100) {
+    return liveChartPercent;
+  }
+  return Math.max(prefixMaxTaskPercent, liveChartPercent);
+}
+
 export function enrichTrackWithTaskProgress(
   track: {
     id: string;

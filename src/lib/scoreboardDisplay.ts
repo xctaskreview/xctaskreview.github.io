@@ -118,7 +118,7 @@ export function formatCompetitorLeaderboardPopupHtml(
     `<div><dt>Lead (%)</dt><dd>${entry.leadPercent.toFixed(1)}</dd></div>` +
     `<div><dt>Alt (${altitudeUnitLabel})</dt><dd>${formatAltitudeValue(entry.alt, preferences.altitudeUnit)}</dd></div>` +
     `<div><dt>Speed (${speedUnit})</dt><dd>${formatGroundSpeedValue(entry.groundSpeedMps, preferences.speedUnit)}</dd></div>` +
-    `<div><dt>V/S (${varioUnitLabel})</dt><dd class="competitor-popup-vario${varioClass}">${formatVerticalSpeedValue(entry.verticalSpeedMps, preferences.verticalSpeedUnit)}</dd></div>` +
+    `<div><dt>Vario (${varioUnitLabel})</dt><dd class="competitor-popup-vario${varioClass}">${formatVerticalSpeedValue(entry.verticalSpeedMps, preferences.verticalSpeedUnit)}</dd></div>` +
     `<div><dt>Next TP</dt><dd>${escapeHtml(formatNextTurnpointLabel(entry.nextTurnpointName, entry.nextTurnpointNumber))}</dd></div>` +
     `</dl>` +
     `</div>`
