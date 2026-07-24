@@ -25,7 +25,11 @@ export function FileDropZone({
   const dragCounter = useRef(0);
   const [dragOver, setDragOver] = useState(false);
 
+  const isFileDrag = (event: DragEvent<HTMLDivElement>) =>
+    Array.from(event.dataTransfer.types).includes('Files');
+
   const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
+    if (!isFileDrag(event)) return;
     event.preventDefault();
     event.stopPropagation();
     if (disabled) return;
@@ -34,6 +38,7 @@ export function FileDropZone({
   };
 
   const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    if (!isFileDrag(event)) return;
     event.preventDefault();
     event.stopPropagation();
     if (disabled) return;
@@ -45,11 +50,13 @@ export function FileDropZone({
   };
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (!isFileDrag(event)) return;
     event.preventDefault();
     event.stopPropagation();
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    if (!isFileDrag(event)) return;
     event.preventDefault();
     event.stopPropagation();
     dragCounter.current = 0;

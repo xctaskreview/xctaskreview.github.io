@@ -20,11 +20,15 @@ export interface Turnpoint {
 export type TurnpointTypeOption = '' | 'SSS' | 'ESS';
 
 export interface EditableTurnpointRow {
+  /** Stable row id for React keys and drag-and-drop (not persisted). */
+  key: string;
   name: string;
   lat: string;
   lon: string;
   radius: string;
   type: TurnpointTypeOption;
+  altSmoothed?: number;
+  description?: string;
 }
 
 export interface TaskEditDraft {
