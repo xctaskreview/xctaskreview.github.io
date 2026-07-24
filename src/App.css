@@ -1707,6 +1707,8 @@ body {
 .scoreboard-leader-trophy {
   flex-shrink: 0;
   color: #0f172a;
+  display: block;
+  margin: 0 auto;
 }
 
 .scoreboard-glider {

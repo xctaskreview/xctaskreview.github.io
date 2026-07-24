@@ -199,17 +199,22 @@ export function Scoreboard({
                 }}
                 role="row"
               >
-                <span className="scoreboard-cell scoreboard-pos" role="cell">
-                  {entry.position}
+                <span
+                  className="scoreboard-cell scoreboard-pos"
+                  role="cell"
+                  aria-label={entry.position === 1 ? '1' : undefined}
+                >
+                  {entry.position === 1 ? (
+                    <Icon icon={Trophy} size="xs" className="scoreboard-leader-trophy" />
+                  ) : (
+                    entry.position
+                  )}
                 </span>
                 <span className="scoreboard-cell scoreboard-pilot" role="cell">
                   <span className="scoreboard-pilot-inner">
                     <span className="scoreboard-color" style={{ background: markerColor }} />
                     <span className="scoreboard-pilot-text">
                       <span className="scoreboard-name">
-                        {entry.position === 1 && (
-                          <Icon icon={Trophy} size="xs" className="scoreboard-leader-trophy" />
-                        )}
                         <span className="scoreboard-name-text">{entry.pilotName}</span>
                       </span>
                       {entry.gliderType && (
