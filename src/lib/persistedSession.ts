@@ -7,11 +7,16 @@ import type { FlightTrack, XcTask } from './types';
 const DB_NAME = 'xc-task-review';
 const DB_VERSION = 1;
 const STORE_NAME = 'session';
-const SESSION_ID = 'current';
+const LEGACY_SESSION_ID = 'current';
+const SESSION_KEY_PREFIX = 'session:';
 const TRACK_KEY_PREFIX = 'track:';
 const LEGACY_STORAGE_KEY = 'xc-task-review-session';
+const TAB_ID_STORAGE_KEY = 'xc-task-review-tab-id';
+const TAB_REGISTRY_KEY = 'xc-task-review-tab-registry';
 const STORAGE_VERSION_V1 = 1;
 const STORAGE_VERSION_V2 = 2;
+const TAB_STALE_MS = 7 * 24 * 60 * 60 * 1000;
+const TAB_HEARTBEAT_MS = 30_000;
 
 export type PersistedView = 'welcome' | 'review';
 
@@ -99,12 +104,92 @@ export interface PersistedSession {
 
 export type SaveSessionResult = 'saved' | 'partial' | 'failed';
 
-function trackStorageKey(trackId: string): string {
+type TabRegistry = Record<string, number>;
+
+function createTabId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `tab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getTabId(): string {
+  try {
+    const existing = sessionStorage.getItem(TAB_ID_STORAGE_KEY);
+    if (existing) return existing;
+
+    const tabId = createTabId();
+    sessionStorage.setItem(TAB_ID_STORAGE_KEY, tabId);
+    return tabId;
+  } catch {
+    return createTabId();
+  }
+}
+
+function sessionStorageKey(tabId: string): string {
+  return `${SESSION_KEY_PREFIX}${tabId}`;
+}
+
+function trackStorageKey(tabId: string, trackId: string): string {
+  return `${TRACK_KEY_PREFIX}${tabId}:${trackId}`;
+}
+
+function legacyTrackStorageKey(trackId: string): string {
   return `${TRACK_KEY_PREFIX}${trackId}`;
 }
 
-function isTrackStorageKey(key: IDBValidKey): key is string {
-  return typeof key === 'string' && key.startsWith(TRACK_KEY_PREFIX);
+function isSessionStorageKey(key: IDBValidKey): key is string {
+  return typeof key === 'string' && key.startsWith(SESSION_KEY_PREFIX);
+}
+
+function isTabTrackStorageKey(tabId: string, key: IDBValidKey): key is string {
+  return typeof key === 'string' && key.startsWith(`${TRACK_KEY_PREFIX}${tabId}:`);
+}
+
+function tabIdFromSessionKey(key: string): string {
+  return key.slice(SESSION_KEY_PREFIX.length);
+}
+
+function readTabRegistry(): TabRegistry {
+  try {
+    const raw = localStorage.getItem(TAB_REGISTRY_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    const registry: TabRegistry = {};
+    for (const [tabId, timestamp] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof timestamp === 'number' && Number.isFinite(timestamp)) {
+        registry[tabId] = timestamp;
+      }
+    }
+    return registry;
+  } catch {
+    return {};
+  }
+}
+
+function writeTabRegistry(registry: TabRegistry): void {
+  try {
+    localStorage.setItem(TAB_REGISTRY_KEY, JSON.stringify(registry));
+  } catch {
+    // Ignore registry write failures.
+  }
+}
+
+function touchTab(tabId: string): void {
+  const registry = readTabRegistry();
+  registry[tabId] = Date.now();
+  writeTabRegistry(registry);
+}
+
+let heartbeatStarted = false;
+
+function ensureTabHeartbeat(tabId: string): void {
+  if (heartbeatStarted || typeof window === 'undefined') return;
+  heartbeatStarted = true;
+  touchTab(tabId);
+  window.setInterval(() => touchTab(tabId), TAB_HEARTBEAT_MS);
+  window.addEventListener('pagehide', () => touchTab(tabId));
 }
 
 function serializeTrackV2(track: FlightTrack): StoredFlightTrackV2 {
@@ -391,26 +476,63 @@ function idbWriteBatch(writes: Array<{ key: string; value: unknown }>, deletes: 
   );
 }
 
-async function deleteTrackKeysExcept(keepTrackIds: Set<string>): Promise<void> {
+async function deleteTabTrackKeysExcept(tabId: string, keepTrackIds: Set<string>): Promise<void> {
   const keys = await idbGetAllKeys();
   const deletes = keys
-    .filter(isTrackStorageKey)
-    .filter((key) => !keepTrackIds.has(key.slice(TRACK_KEY_PREFIX.length)));
+    .filter((key) => isTabTrackStorageKey(tabId, key))
+    .filter((key) => !keepTrackIds.has(key.slice(`${TRACK_KEY_PREFIX}${tabId}:`.length)));
 
   if (deletes.length === 0) return;
   await idbWriteBatch([], deletes);
 }
 
-async function deleteAllTrackKeys(): Promise<void> {
+async function deleteTabData(tabId: string): Promise<void> {
   const keys = await idbGetAllKeys();
-  const deletes = keys.filter(isTrackStorageKey);
+  const deletes = keys.filter(
+    (key) => key === sessionStorageKey(tabId) || isTabTrackStorageKey(tabId, key),
+  );
   if (deletes.length === 0) return;
   await idbWriteBatch([], deletes);
 }
 
-async function loadSplitSession(meta: StoredSessionPayloadV2Split): Promise<PersistedSession | null> {
+async function pruneStaleTabs(currentTabId: string): Promise<void> {
+  const registry = readTabRegistry();
+  const now = Date.now();
+  const keys = await idbGetAllKeys();
+  const sessionTabIds = new Set(
+    keys.filter(isSessionStorageKey).map((key) => tabIdFromSessionKey(key)),
+  );
+
+  const staleTabIds = new Set<string>();
+  for (const [tabId, lastSeen] of Object.entries(registry)) {
+    if (tabId === currentTabId) continue;
+    if (now - lastSeen > TAB_STALE_MS) {
+      staleTabIds.add(tabId);
+    }
+  }
+  for (const tabId of sessionTabIds) {
+    if (tabId === currentTabId) continue;
+    const lastSeen = registry[tabId];
+    if (lastSeen === undefined || now - lastSeen > TAB_STALE_MS) {
+      staleTabIds.add(tabId);
+    }
+  }
+
+  if (staleTabIds.size === 0) return;
+
+  for (const tabId of staleTabIds) {
+    await deleteTabData(tabId);
+    delete registry[tabId];
+  }
+  writeTabRegistry(registry);
+}
+
+async function loadSplitSession(
+  meta: StoredSessionPayloadV2Split,
+  trackKeyForId: (trackId: string) => string,
+): Promise<PersistedSession | null> {
   const storedTracks = await Promise.all(
-    meta.trackIds.map(async (trackId) => idbGet<StoredFlightTrackV2>(trackStorageKey(trackId))),
+    meta.trackIds.map(async (trackId) => idbGet<StoredFlightTrackV2>(trackKeyForId(trackId))),
   );
 
   const tracks = storedTracks.flatMap((track) => (track && isValidTrackV2(track) ? [deserializeTrackV2(track)] : []));
@@ -430,9 +552,13 @@ async function loadSplitSession(meta: StoredSessionPayloadV2Split): Promise<Pers
   );
 }
 
-async function loadStoredSessionRecord(record: StoredSessionRecord): Promise<PersistedSession | null> {
+async function loadStoredSessionRecord(
+  tabId: string,
+  record: StoredSessionRecord,
+  trackKeyForId: (trackId: string) => string = (trackId) => trackStorageKey(tabId, trackId),
+): Promise<PersistedSession | null> {
   if (isValidStoredSessionV2Split(record)) {
-    return loadSplitSession(record);
+    return loadSplitSession(record, trackKeyForId);
   }
 
   if (isValidStoredSessionV2Monolithic(record) || isValidStoredSessionV1(record)) {
@@ -470,20 +596,20 @@ function buildSplitMeta(session: PersistedSession, trackIds: string[]): StoredSe
   };
 }
 
-async function trySaveMonolithic(session: PersistedSession): Promise<boolean> {
+async function trySaveMonolithic(tabId: string, session: PersistedSession): Promise<boolean> {
   const payload = buildMonolithicPayload(session);
   const keepTrackIds = new Set(session.tracks.map((track) => track.id));
 
   try {
-    await idbWriteBatch([{ key: SESSION_ID, value: payload }]);
-    await deleteTrackKeysExcept(keepTrackIds);
+    await idbWriteBatch([{ key: sessionStorageKey(tabId), value: payload }]);
+    await deleteTabTrackKeysExcept(tabId, keepTrackIds);
     return true;
   } catch {
     return false;
   }
 }
 
-async function trySaveSplit(session: PersistedSession): Promise<boolean> {
+async function trySaveSplit(tabId: string, session: PersistedSession): Promise<boolean> {
   const serializedTracks = session.tracks.map(serializeTrackV2);
   const keepTrackIds = new Set(serializedTracks.map((track) => track.id));
   const trackIds = serializedTracks.map((track) => track.id);
@@ -491,35 +617,90 @@ async function trySaveSplit(session: PersistedSession): Promise<boolean> {
 
   try {
     await idbWriteBatch([
-      ...serializedTracks.map((track) => ({ key: trackStorageKey(track.id), value: track })),
-      { key: SESSION_ID, value: meta },
+      ...serializedTracks.map((track) => ({
+        key: trackStorageKey(tabId, track.id),
+        value: track,
+      })),
+      { key: sessionStorageKey(tabId), value: meta },
     ]);
-    await deleteTrackKeysExcept(keepTrackIds);
+    await deleteTabTrackKeysExcept(tabId, keepTrackIds);
     return true;
   } catch {
     return false;
   }
 }
 
-async function trySaveMetaOnly(session: PersistedSession): Promise<boolean> {
+async function trySaveMetaOnly(tabId: string, session: PersistedSession): Promise<boolean> {
   const meta = buildSplitMeta(session, []);
 
   try {
-    await deleteAllTrackKeys();
-    await idbWriteBatch([{ key: SESSION_ID, value: meta }]);
+    await deleteTabTrackKeysExcept(tabId, new Set());
+    await idbWriteBatch([{ key: sessionStorageKey(tabId), value: meta }]);
     return true;
   } catch {
     return false;
   }
 }
 
-export async function loadPersistedSession(): Promise<PersistedSession | null> {
+const LEGACY_SESSION_OWNER_KEY = 'xc-task-review-legacy-owner';
+
+function claimLegacySharedSession(tabId: string): boolean {
   try {
-    const stored = await idbGet<StoredSessionRecord>(SESSION_ID);
+    const owner = localStorage.getItem(LEGACY_SESSION_OWNER_KEY);
+    if (owner === tabId) return true;
+    if (owner) return false;
+    localStorage.setItem(LEGACY_SESSION_OWNER_KEY, tabId);
+    return localStorage.getItem(LEGACY_SESSION_OWNER_KEY) === tabId;
+  } catch {
+    return true;
+  }
+}
+
+async function migrateLegacySharedSession(tabId: string): Promise<PersistedSession | null> {
+  if (!claimLegacySharedSession(tabId)) return null;
+
+  const stored = await idbGet<StoredSessionRecord>(LEGACY_SESSION_ID);
+  if (!stored) return null;
+
+  const session = await loadStoredSessionRecord(tabId, stored, legacyTrackStorageKey);
+  if (!session) {
+    await idbWriteBatch([], [LEGACY_SESSION_ID]);
+    return null;
+  }
+
+  // Claim the shared legacy session for this tab so other tabs start empty.
+  const saveResult = await performSaveForTab(tabId, session);
+  if (saveResult === 'failed') {
+    return session;
+  }
+
+  const keys = await idbGetAllKeys();
+  const legacyTrackDeletes = keys.filter((key): key is string => {
+    if (typeof key !== 'string' || !key.startsWith(TRACK_KEY_PREFIX)) return false;
+    if (key.startsWith(`${TRACK_KEY_PREFIX}${tabId}:`)) return false;
+    // Legacy split tracks use `track:<id>` with no extra colon in the key suffix.
+    return !key.slice(TRACK_KEY_PREFIX.length).includes(':');
+  });
+  await idbWriteBatch([], [LEGACY_SESSION_ID, ...legacyTrackDeletes]);
+  return session;
+}
+
+export async function loadPersistedSession(): Promise<PersistedSession | null> {
+  const tabId = getTabId();
+  ensureTabHeartbeat(tabId);
+
+  try {
+    touchTab(tabId);
+    await pruneStaleTabs(tabId);
+
+    const stored = await idbGet<StoredSessionRecord>(sessionStorageKey(tabId));
     if (stored) {
-      const session = await loadStoredSessionRecord(stored);
+      const session = await loadStoredSessionRecord(tabId, stored);
       if (session) return session;
     }
+
+    const migrated = await migrateLegacySharedSession(tabId);
+    if (migrated) return migrated;
 
     const legacy = loadLegacyLocalStorageSession();
     if (!legacy) return null;
@@ -535,24 +716,26 @@ export async function loadPersistedSession(): Promise<PersistedSession | null> {
 
 let saveQueue: Promise<SaveSessionResult> = Promise.resolve('saved');
 
-async function performSave(session: PersistedSession | null): Promise<SaveSessionResult> {
+async function performSaveForTab(tabId: string, session: PersistedSession | null): Promise<SaveSessionResult> {
   try {
     if (!session) {
-      await clearPersistedSession();
+      await deleteTabData(tabId);
       return 'saved';
     }
 
-    if (await trySaveMonolithic(session)) {
+    touchTab(tabId);
+
+    if (await trySaveMonolithic(tabId, session)) {
       localStorage.removeItem(LEGACY_STORAGE_KEY);
       return 'saved';
     }
 
-    if (await trySaveSplit(session)) {
+    if (await trySaveSplit(tabId, session)) {
       localStorage.removeItem(LEGACY_STORAGE_KEY);
       return 'saved';
     }
 
-    if (await trySaveMetaOnly(session)) {
+    if (await trySaveMetaOnly(tabId, session)) {
       localStorage.removeItem(LEGACY_STORAGE_KEY);
       return 'partial';
     }
@@ -563,6 +746,10 @@ async function performSave(session: PersistedSession | null): Promise<SaveSessio
   }
 }
 
+async function performSave(session: PersistedSession | null): Promise<SaveSessionResult> {
+  return performSaveForTab(getTabId(), session);
+}
+
 export function savePersistedSession(session: PersistedSession | null): Promise<SaveSessionResult> {
   const next = saveQueue.then(() => performSave(session));
   saveQueue = next.catch(() => 'failed' as SaveSessionResult);
@@ -570,15 +757,12 @@ export function savePersistedSession(session: PersistedSession | null): Promise<
 }
 
 export async function clearPersistedSession(): Promise<void> {
+  const tabId = getTabId();
   try {
-    const keys = await idbGetAllKeys();
-    const deletes = keys.filter((key) => key === SESSION_ID || isTrackStorageKey(key));
-    if (deletes.length > 0) {
-      await idbWriteBatch([], deletes);
-    }
+    await deleteTabData(tabId);
   } catch {
     try {
-      await idbWriteBatch([], [SESSION_ID]);
+      await idbWriteBatch([], [sessionStorageKey(tabId)]);
     } catch {
       // Ignore storage cleanup failures.
     }

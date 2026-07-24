@@ -32,6 +32,8 @@ export interface EditableTurnpointRow {
 }
 
 export interface TaskEditDraft {
+  name: string;
+  location: string;
   turnpoints: EditableTurnpointRow[];
   startTime: string;
 }

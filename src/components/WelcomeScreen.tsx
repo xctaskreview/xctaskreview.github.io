@@ -7,11 +7,13 @@ import {
   FileUp,
   FolderUp,
   Gauge,
+  History,
   Map,
   MapPinned,
   Mountain,
   Route,
   Ruler,
+  Save,
   Search,
   Settings2,
   Trash2,
@@ -22,6 +24,7 @@ import {
 import { extractGliderType, extractPilotDisplayName, extractPilotFileName } from '../lib/igc';
 import type { CivlImportResult } from '../lib/civl';
 import type { XcdemonImportResult } from '../lib/xcdemon';
+import type { TaskHistoryEntry } from '../lib/taskHistory';
 import { getTaskDisplayInfo } from '../lib/xctask';
 import type { AppPreferences } from '../lib/preferences';
 import { getMapTypeOptions, getSpeedUnitOptions, getTimezoneOptions, getVerticalSpeedUnitOptions, normalizePilotTrailLengthM } from '../lib/preferences';
@@ -30,6 +33,7 @@ import { CivlImportDialog } from './CivlImportDialog';
 import { FileDropZone } from './FileDropZone';
 import { CivlButtonContent, Icon, IconButtonContent, IconLabel, XcdemonButtonContent } from './Icon';
 import { TaskEditForm } from './TaskEditForm';
+import { TaskHistoryDialog } from './TaskHistoryDialog';
 import { XcdemonImportDialog } from './XcdemonImportDialog';
 
 function getDistanceUnitOptions() {
@@ -71,6 +75,8 @@ interface WelcomeScreenProps {
   onCivlImport: (result: CivlImportResult) => void;
   onSessionBundleImport: (file: File) => void;
   onSessionBundleExport: () => void;
+  onSaveToHistory: () => void;
+  onHistorySelect: (entry: TaskHistoryEntry) => void;
   onError: (message: string) => void;
   onTaskUpdate: (task: XcTask) => void;
   onClearTask: () => void;
@@ -101,13 +107,18 @@ export function WelcomeScreen({
   onCivlImport,
   onSessionBundleImport,
   onSessionBundleExport,
+  onSaveToHistory,
+  onHistorySelect,
   onError,
   onTaskUpdate,
   onClearTask,
 }: WelcomeScreenProps) {
   const [xcdemonOpen, setXcdemonOpen] = useState(false);
   const [civlOpen, setCivlOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [pilotSearch, setPilotSearch] = useState('');
+  const [editingTaskField, setEditingTaskField] = useState<'name' | 'location' | null>(null);
+  const [taskFieldDraft, setTaskFieldDraft] = useState('');
   const selectAllRef = useRef<HTMLInputElement>(null);
 
   const updatePreference = <K extends keyof AppPreferences>(key: K, value: AppPreferences[K]) => {
@@ -115,6 +126,37 @@ export function WelcomeScreen({
   };
 
   const taskDisplay = task ? getTaskDisplayInfo(task, taskFileName) : null;
+  const displayedLocation = taskLocationLabel ?? task?.location ?? '';
+
+  const beginTaskFieldEdit = (field: 'name' | 'location') => {
+    if (!task || !taskDisplay) return;
+    setEditingTaskField(field);
+    setTaskFieldDraft(field === 'name' ? taskDisplay.name : displayedLocation);
+  };
+
+  const cancelTaskFieldEdit = () => {
+    setEditingTaskField(null);
+    setTaskFieldDraft('');
+  };
+
+  const commitTaskFieldEdit = () => {
+    if (!task || !taskDisplay || !editingTaskField) return;
+
+    const nextName =
+      editingTaskField === 'name'
+        ? taskFieldDraft.trim() || taskDisplay.name
+        : taskDisplay.name;
+    const nextLocation =
+      editingTaskField === 'location' ? taskFieldDraft.trim() : displayedLocation.trim();
+
+    onTaskUpdate({
+      ...task,
+      name: nextName,
+      taskName: nextName,
+      ...(nextLocation ? { location: nextLocation } : { location: undefined }),
+    });
+    cancelTaskFieldEdit();
+  };
 
   const filteredTracks = useMemo(() => {
     const query = pilotSearch.trim().toLowerCase();
@@ -167,6 +209,13 @@ export function WelcomeScreen({
             </label>
             <button
               type="button"
+              className="welcome-inline-button welcome-history-button"
+              onClick={() => setHistoryOpen(true)}
+            >
+              <IconButtonContent icon={History}>History</IconButtonContent>
+            </button>
+            <button
+              type="button"
               className="welcome-inline-button xcdemon-import-button"
               onClick={() => setXcdemonOpen(true)}
             >
@@ -206,29 +255,95 @@ export function WelcomeScreen({
 
           <FileDropZone
             accept={['.xctsk', '.json']}
-            className={`welcome-task-panel${task ? ' loaded' : ''}`}
+            className={`welcome-task-panel${task ? ' loaded' : ' create'}`}
             onFiles={(files) => onTaskFile(files[0])}
           >
             {task && taskDisplay ? (
               <>
                 <div className="welcome-task-header">
-                  <div className="welcome-task-name">{taskDisplay.name}</div>
+                  {editingTaskField === 'name' ? (
+                    <input
+                      type="text"
+                      className="welcome-task-name-input"
+                      value={taskFieldDraft}
+                      aria-label="Task name"
+                      autoFocus
+                      onChange={(e) => setTaskFieldDraft(e.target.value)}
+                      onBlur={commitTaskFieldEdit}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          commitTaskFieldEdit();
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault();
+                          cancelTaskFieldEdit();
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="welcome-task-name welcome-task-editable"
+                      title="Click to edit name"
+                      onClick={() => beginTaskFieldEdit('name')}
+                    >
+                      {taskDisplay.name}
+                    </button>
+                  )}
                   <button type="button" className="welcome-text-button danger" onClick={onClearTask}>
                     <IconButtonContent icon={Trash2}>Clear task</IconButtonContent>
                   </button>
                 </div>
-                {taskLocationLoading ? (
+                {editingTaskField === 'location' ? (
+                  <input
+                    type="text"
+                    className="welcome-task-meta-input"
+                    value={taskFieldDraft}
+                    aria-label="Task location"
+                    placeholder="Location"
+                    autoFocus
+                    onChange={(e) => setTaskFieldDraft(e.target.value)}
+                    onBlur={commitTaskFieldEdit}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        commitTaskFieldEdit();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        cancelTaskFieldEdit();
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : taskLocationLoading && !displayedLocation ? (
                   <div className="welcome-task-meta">Looking up location…</div>
-                ) : taskLocationLabel ? (
-                  <div className="welcome-task-meta">{taskLocationLabel}</div>
-                ) : null}
+                ) : (
+                  <button
+                    type="button"
+                    className={`welcome-task-meta welcome-task-editable${displayedLocation ? '' : ' placeholder'}`}
+                    title="Click to edit location"
+                    onClick={() => beginTaskFieldEdit('location')}
+                  >
+                    {displayedLocation || 'Add location'}
+                  </button>
+                )}
                 {taskFileName && taskDisplay.name !== taskFileName.replace(/\.(xctsk|json)$/i, '') && (
                   <div className="welcome-task-file">{taskFileName}</div>
                 )}
-                <TaskEditForm task={task} onChange={onTaskUpdate} />
+                <TaskEditForm
+                  task={task}
+                  locationLabel={taskLocationLabel}
+                  onChange={onTaskUpdate}
+                />
               </>
             ) : (
-              <div className="welcome-task-empty">No task loaded yet — drop a .xctsk or .json file here</div>
+              <>
+                <p className="welcome-task-create-hint">
+                  Drop a .xctsk / .json file, or create a task manually below.
+                </p>
+                <TaskEditForm task={null} onChange={onTaskUpdate} />
+              </>
             )}
           </FileDropZone>
         </section>
@@ -481,6 +596,11 @@ export function WelcomeScreen({
             <IconButtonContent icon={Download}>Export task and tracks</IconButtonContent>
           </button>
         )}
+        {task && (
+          <button type="button" className="welcome-export-button" onClick={onSaveToHistory}>
+            <IconButtonContent icon={Save}>Save to history</IconButtonContent>
+          </button>
+        )}
         <button
           type="button"
           className="welcome-continue"
@@ -501,6 +621,13 @@ export function WelcomeScreen({
         open={civlOpen}
         onClose={() => setCivlOpen(false)}
         onImported={onCivlImport}
+        onError={onError}
+      />
+      <TaskHistoryDialog
+        open={historyOpen}
+        preferences={preferences}
+        onClose={() => setHistoryOpen(false)}
+        onSelect={onHistorySelect}
         onError={onError}
       />
     </div>

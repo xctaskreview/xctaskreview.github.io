@@ -50,9 +50,9 @@ function editableRowFromTurnpoint(tp: Turnpoint): EditableTurnpointRow {
 export function createEmptyTurnpointRow(template?: EditableTurnpointRow): EditableTurnpointRow {
   return {
     key: nextTurnpointRowKey(),
-    name: template ? `${template.name || 'TP'} copy` : 'TP',
-    lat: template?.lat ?? '0',
-    lon: template?.lon ?? '0',
+    name: template ? `${template.name || 'TP'} copy` : '',
+    lat: template?.lat ?? '',
+    lon: template?.lon ?? '',
     radius: template?.radius ?? '400',
     type: '',
     altSmoothed: template?.altSmoothed,
@@ -60,8 +60,34 @@ export function createEmptyTurnpointRow(template?: EditableTurnpointRow): Editab
   };
 }
 
-export function createTaskEditDraft(task: XcTask): TaskEditDraft {
+export function createBlankXcTask(): XcTask {
   return {
+    version: 1,
+    taskType: 'CLASSIC',
+    earthModel: 'WGS84',
+    turnpoints: [
+      {
+        radius: 400,
+        waypoint: { name: 'TP1', lat: 0, lon: 0 },
+      },
+    ],
+  };
+}
+
+export function createEmptyTaskEditDraft(): TaskEditDraft {
+  return {
+    name: '',
+    location: '',
+    turnpoints: [],
+    startTime: '',
+  };
+}
+
+export function createTaskEditDraft(task: XcTask, locationLabel?: string | null): TaskEditDraft {
+  const info = getTaskDisplayInfo(task, '');
+  return {
+    name: info.name,
+    location: (task.location ?? info.embeddedLocation ?? locationLabel ?? '').trim(),
     turnpoints: task.turnpoints.map(editableRowFromTurnpoint),
     startTime: getTaskStartGate(task),
   };
@@ -69,7 +95,12 @@ export function createTaskEditDraft(task: XcTask): TaskEditDraft {
 
 export function taskEditDraftEquals(task: XcTask, draft: TaskEditDraft): boolean {
   const current = createTaskEditDraft(task);
-  if (current.startTime !== draft.startTime.trim() || current.turnpoints.length !== draft.turnpoints.length) {
+  if (
+    current.name !== draft.name.trim() ||
+    current.location !== draft.location.trim() ||
+    current.startTime !== draft.startTime.trim() ||
+    current.turnpoints.length !== draft.turnpoints.length
+  ) {
     return false;
   }
   return current.turnpoints.every((row, i) => {
@@ -109,10 +140,20 @@ export function taskEffectivelyEquals(a: XcTask, b: XcTask): boolean {
   } catch {
     return false;
   }
-  return aNormalized === bNormalized && turnpointsEffectivelyEqual(a.turnpoints, b.turnpoints);
+  const aName = (a.name ?? a.taskName ?? a.title ?? '').trim();
+  const bName = (b.name ?? b.taskName ?? b.title ?? '').trim();
+  const aLocation = (a.location ?? a.flyingSite ?? '').trim();
+  const bLocation = (b.location ?? b.flyingSite ?? '').trim();
+  return (
+    aNormalized === bNormalized &&
+    aName === bName &&
+    aLocation === bLocation &&
+    turnpointsEffectivelyEqual(a.turnpoints, b.turnpoints)
+  );
 }
 
 export function applyTaskEditDraft(baseTask: XcTask, draft: TaskEditDraft): XcTask {
+  const taskName = draft.name.trim() || 'Untitled task';
   if (!draft.turnpoints.length) throw new Error('Task must have at least one turnpoint');
 
   const turnpoints: Turnpoint[] = draft.turnpoints.map((row, index) => {
@@ -162,7 +203,16 @@ export function applyTaskEditDraft(baseTask: XcTask, draft: TaskEditDraft): XcTa
     sss = { ...sss, timeGates: [] };
   }
 
-  return { ...baseTask, turnpoints, sss };
+  const location = draft.location.trim();
+
+  return {
+    ...baseTask,
+    name: taskName,
+    taskName,
+    ...(location ? { location } : { location: undefined }),
+    turnpoints,
+    sss,
+  };
 }
 
 export function tryApplyTaskEditDraft(baseTask: XcTask, draft: TaskEditDraft): XcTask | null {

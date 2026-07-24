@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, LineChart, PencilLine, X } from 'lucide-react';
 import { AppFooter } from './components/AppFooter';
 import { AppHomeLink } from './components/AppHomeLink';
@@ -28,6 +28,7 @@ import type { FlightTrack, TaskTiming, XcTask } from './lib/types';
 import {
   buildOptimizedRoute,
   getTaskBounds,
+  getTaskDisplayInfo,
   getTaskStartTime,
   getUniqueTurnpointCircles,
   parseXcTask,
@@ -35,6 +36,11 @@ import {
 } from './lib/xctask';
 import { loadPersistedSession, savePersistedSession } from './lib/persistedSession';
 import { downloadSessionBundle, importSessionBundle } from './lib/sessionBundle';
+import {
+  updateTaskHistoryLocation,
+  upsertTaskHistory,
+  type TaskHistoryEntry,
+} from './lib/taskHistory';
 import type { TaskProgressMarker } from './lib/taskProgressMarker';
 import { computeTurnpointReachTimes } from './lib/taskProgressMarker';
 import {
@@ -45,6 +51,23 @@ import { useThrottledDate } from './lib/useThrottledDate';
 import './App.css';
 
 type AppView = 'welcome' | 'review';
+
+const APP_DOCUMENT_TITLE = 'XC Task Review';
+
+function syncAppDocumentTitle(
+  task: XcTask | null,
+  taskFileName: string,
+  locationLabel?: string | null,
+): void {
+  if (!task) {
+    document.title = APP_DOCUMENT_TITLE;
+    return;
+  }
+
+  const { name, embeddedLocation } = getTaskDisplayInfo(task, taskFileName);
+  const label = name || locationLabel || embeddedLocation || taskFileName || 'Task';
+  document.title = `${label} · ${APP_DOCUMENT_TITLE}`;
+}
 
 const EMPTY_APP_STATE = {
   task: null as XcTask | null,
@@ -90,6 +113,7 @@ export default function App() {
         if (persisted) {
           skipNextPersistRef.current = true;
           hadTaskRef.current = true;
+          syncAppDocumentTitle(persisted.task, persisted.taskFileName ?? '');
           setTask(persisted.task);
           setTaskFileName(persisted.taskFileName ?? '');
           setTracks(persisted.tracks);
@@ -114,6 +138,18 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+
+  useLayoutEffect(() => {
+    syncAppDocumentTitle(task, taskFileName, taskLocationLabel);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncAppDocumentTitle(task, taskFileName, taskLocationLabel);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [task, taskFileName, taskLocationLabel]);
 
   useEffect(() => {
     setTracks((prev) => {
@@ -391,6 +427,10 @@ export default function App() {
       if (!cancelled) {
         setTaskLocationLabel(label);
         setTaskLocationLoading(false);
+        const historyName = getTaskDisplayInfo(task, taskFileName).name;
+        if (historyName) {
+          void updateTaskHistoryLocation(historyName, label);
+        }
       }
     });
 
@@ -434,11 +474,34 @@ export default function App() {
     });
   }, [storageReady, task, taskFileName, tracks, enabledTrackIdsKey, trackColors, preferences, view]);
 
+  const onSaveToHistory = useCallback(async () => {
+    if (!task) return;
+
+    try {
+      setError(null);
+      const entry = await upsertTaskHistory({
+        task,
+        taskFileName: taskFileName || undefined,
+        location: taskLocationLabel,
+      });
+      if (!entry) {
+        setError('Could not save task to history.');
+        return;
+      }
+      setError(`Saved “${entry.name}” to history.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save task to history.');
+    }
+  }, [task, taskFileName, taskLocationLabel]);
+
   const onTaskUpdate = useCallback((updatedTask: XcTask) => {
     setError(null);
     setTask(updatedTask);
     setTaskFitKey(`${taskFileName || 'task'}-${Date.now()}`);
-  }, [taskFileName]);
+    const location = updatedTask.location?.trim() || null;
+    if (location) setTaskLocationLabel(location);
+    syncAppDocumentTitle(updatedTask, taskFileName, location ?? taskLocationLabel);
+  }, [taskFileName, taskLocationLabel]);
 
   const onClearTask = useCallback(() => {
     setError(null);
@@ -448,6 +511,7 @@ export default function App() {
     setTaskLocationLabel(null);
     setTaskLocationLoading(false);
     setView('welcome');
+    syncAppDocumentTitle(null, '');
   }, []);
 
   const onSetTracksEnabled = useCallback((trackIds: string[], enabled: boolean) => {
@@ -464,9 +528,11 @@ export default function App() {
   const onTaskFile = useCallback(async (file: File) => {
     try {
       setError(null);
-      setTask(parseXcTask(await file.text()));
+      const parsed = parseXcTask(await file.text());
+      setTask(parsed);
       setTaskFileName(file.name);
       setTaskFitKey(`${file.name}-${Date.now()}`);
+      syncAppDocumentTitle(parsed, file.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load task file');
     }
@@ -573,6 +639,7 @@ const applyPersistedSession = useCallback((session: {
   view?: AppView;
 }) => {
   hadTaskRef.current = true;
+  syncAppDocumentTitle(session.task, session.taskFileName ?? '');
   setTask(session.task);
   setTaskFileName(session.taskFileName ?? '');
   setTracks(session.tracks);
@@ -581,6 +648,15 @@ const applyPersistedSession = useCallback((session: {
   setPreferences(session.preferences);
   setView(session.view === 'review' ? 'review' : 'welcome');
   setTaskFitKey(`${session.taskFileName ?? 'task'}-${Date.now()}`);
+}, []);
+
+const onHistorySelect = useCallback((entry: TaskHistoryEntry) => {
+  setError(null);
+  setTask(entry.task);
+  setTaskFileName(entry.taskFileName ?? '');
+  setTaskFitKey(`${entry.taskFileName ?? entry.name}-${Date.now()}`);
+  syncAppDocumentTitle(entry.task, entry.taskFileName ?? '', entry.location);
+  if (entry.location) setTaskLocationLabel(entry.location);
 }, []);
 
 const onSessionBundleImport = useCallback(async (file: File) => {
@@ -626,6 +702,7 @@ const onSessionBundleExport = useCallback(async () => {
     setTracks(result.tracks);
     setEnabledTrackIds(new Set(result.tracks.map((track) => track.id)));
     setTrackColors(assignUniqueTrackColors(result.tracks));
+    syncAppDocumentTitle(result.task, result.taskFileName);
 
     if (result.tracks.length === 0 && result.trackErrors.length > 0) {
       setError(result.trackErrors[0] ?? 'Imported task, but no tracklogs could be loaded.');
@@ -646,6 +723,7 @@ const onSessionBundleExport = useCallback(async () => {
     setTracks(result.tracks);
     setEnabledTrackIds(new Set(result.tracks.map((track) => track.id)));
     setTrackColors(assignUniqueTrackColors(result.tracks));
+    syncAppDocumentTitle(result.task, result.taskFileName);
 
     if (result.tracks.length === 0 && result.trackErrors.length > 0) {
       setError(result.trackErrors[0] ?? 'Imported task, but no tracklogs could be loaded.');
@@ -695,6 +773,8 @@ const onSessionBundleExport = useCallback(async () => {
           onCivlImport={onCivlImport}
           onSessionBundleImport={(file) => void onSessionBundleImport(file)}
           onSessionBundleExport={() => void onSessionBundleExport()}
+          onSaveToHistory={() => void onSaveToHistory()}
+          onHistorySelect={onHistorySelect}
           onError={setError}
           onTaskUpdate={onTaskUpdate}
           onClearTask={onClearTask}
