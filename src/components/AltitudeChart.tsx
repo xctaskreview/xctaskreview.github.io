@@ -10,6 +10,11 @@ import {
   YAxis,
 } from 'recharts';
 import { buildCompetitorSnapshots } from '../lib/competitors';
+import {
+  buildChartDistanceTicks,
+  clampChartTaskDistanceDisplay,
+  formatChartDistanceTick,
+} from '../lib/chartAltitude';
 import { clampChartAltitudeDisplay, LANDED_COLOR } from '../lib/geo';
 import { buildPilotChartTrailPoints } from '../lib/pilotTrail';
 import type { AppPreferences } from '../lib/preferences';
@@ -81,29 +86,34 @@ function renderFixedYAxisTick(props: {
   );
 }
 
-function renderFixedXAxisTick(props: {
-  x?: number;
-  y?: number;
-  payload?: { value?: number };
-}) {
-  const { x, y, payload } = props;
-  if (x == null || y == null || payload?.value == null) {
-    return <g />;
-  }
-  return (
-    <text
-      x={x}
-      y={y}
-      dy={12}
-      textAnchor="middle"
-      fill="#64748b"
-      fontSize={10}
-      fontFamily={CHART_TICK_FONT}
-      style={{ fontVariantNumeric: 'tabular-nums' }}
-    >
-      {payload.value.toFixed(0)}
-    </text>
-  );
+function renderFixedXAxisTick(
+  maxDistance: number,
+  distanceUnit: AppPreferences['distanceUnit'],
+) {
+  return function FixedXAxisTick(props: {
+    x?: number;
+    y?: number;
+    payload?: { value?: number };
+  }) {
+    const { x, y, payload } = props;
+    if (x == null || y == null || payload?.value == null) {
+      return <g />;
+    }
+    return (
+      <text
+        x={x}
+        y={y}
+        dy={12}
+        textAnchor="middle"
+        fill="#64748b"
+        fontSize={10}
+        fontFamily={CHART_TICK_FONT}
+        style={{ fontVariantNumeric: 'tabular-nums' }}
+      >
+        {formatChartDistanceTick(payload.value, maxDistance, distanceUnit)}
+      </text>
+    );
+  };
 }
 
 export interface AltitudeChartProps {
@@ -182,18 +192,26 @@ function useLiveProgressState({
   playing,
   pausedTime,
   distanceUnit,
+  taskDistanceDisplay,
   suspendLiveUpdates,
 }: {
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
   playing: boolean;
   pausedTime: Date;
   distanceUnit: AppPreferences['distanceUnit'];
+  taskDistanceDisplay: number;
   suspendLiveUpdates: boolean;
 }): { distance: number | null; percent: number } {
   const readState = () => {
     const marker = taskProgressMarkerRef.current;
     return {
-      distance: marker !== null ? kmToDistanceUnit(marker.taskKm, distanceUnit) : null,
+      distance:
+        marker !== null
+          ? clampChartTaskDistanceDisplay(
+              kmToDistanceUnit(marker.taskKm, distanceUnit),
+              taskDistanceDisplay,
+            )
+          : null,
       percent: marker?.taskPercent ?? 0,
     };
   };
@@ -203,7 +221,7 @@ function useLiveProgressState({
   useEffect(() => {
     if (playing) return;
     setProgressState(readState());
-  }, [playing, pausedTime, taskProgressMarkerRef, distanceUnit]);
+  }, [playing, pausedTime, taskProgressMarkerRef, distanceUnit, taskDistanceDisplay]);
 
   useEffect(() => {
     if (suspendLiveUpdates || !playing) return;
@@ -216,7 +234,7 @@ function useLiveProgressState({
 
     rafId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafId);
-  }, [playing, suspendLiveUpdates, taskProgressMarkerRef, distanceUnit]);
+  }, [playing, suspendLiveUpdates, taskProgressMarkerRef, distanceUnit, taskDistanceDisplay]);
 
   return progressState;
 }
@@ -290,18 +308,19 @@ function buildMaxProgressMarkers(
     if (maxTaskPercent <= 0) return [];
 
     const color = getTrackColor(track.id, trackColors, index);
-    const currentTaskDistance = kmToDistanceUnit(
-      (snapshot.taskPercent / 100) * taskDistanceKm,
-      preferences.distanceUnit,
+    const maxDistanceDisplay = kmToDistanceUnit(taskDistanceKm, preferences.distanceUnit);
+    const currentTaskDistance = clampChartTaskDistanceDisplay(
+      kmToDistanceUnit((snapshot.taskPercent / 100) * taskDistanceKm, preferences.distanceUnit),
+      maxDistanceDisplay,
     );
     const currentAltitude = clampChartAltitudeDisplay(
       metersToAltitudeUnit(snapshot.alt, preferences.altitudeUnit),
       altitudeMin,
       altitudeMax,
     );
-    const taskDistance = kmToDistanceUnit(
-      (maxTaskPercent / 100) * taskDistanceKm,
-      preferences.distanceUnit,
+    const taskDistance = clampChartTaskDistanceDisplay(
+      kmToDistanceUnit((maxTaskPercent / 100) * taskDistanceKm, preferences.distanceUnit),
+      maxDistanceDisplay,
     );
     const altitude = clampChartAltitudeDisplay(
       metersToAltitudeUnit(maxAlt, preferences.altitudeUnit),
@@ -338,6 +357,8 @@ function buildChartTrails(
     return [];
   }
 
+  const maxDistanceDisplay = kmToDistanceUnit(taskDistanceKm, preferences.distanceUnit);
+
   return enrichedTracks.flatMap((track, index) => {
     const snapshot = getTrackSnapshotAtTime(track, time, route);
     if (!snapshot) return [];
@@ -361,7 +382,10 @@ function buildChartTrails(
         id: track.id,
         color: getTrackColor(track.id, trackColors, index),
         landed: snapshot.landed,
-        points,
+        points: points.map((point) => ({
+          ...point,
+          taskDistance: clampChartTaskDistanceDisplay(point.taskDistance, maxDistanceDisplay),
+        })),
       },
     ];
   });
@@ -639,15 +663,21 @@ export const AltitudeChart = memo(function AltitudeChart({
     suspendLiveUpdates,
   });
 
+  const taskDistanceDisplay = kmToDistanceUnit(taskDistanceKm, preferences.distanceUnit);
+
   const { distance: progressDistanceDisplay, percent: progressPercent } = useLiveProgressState({
     taskProgressMarkerRef,
     playing,
     pausedTime,
     distanceUnit: preferences.distanceUnit,
+    taskDistanceDisplay,
     suspendLiveUpdates,
   });
 
-  const taskDistanceDisplay = kmToDistanceUnit(taskDistanceKm, preferences.distanceUnit);
+  const xAxisTick = useMemo(
+    () => renderFixedXAxisTick(taskDistanceDisplay, preferences.distanceUnit),
+    [taskDistanceDisplay, preferences.distanceUnit],
+  );
 
   const reachMarkerByNumber = useMemo(() => {
     const map = new Map<number, TurnpointReachMarker>();
@@ -662,14 +692,10 @@ export const AltitudeChart = memo(function AltitudeChart({
     [altitudeMin, altitudeMax, altitudeStep],
   );
 
-  const xTicks = useMemo(() => {
-    if (taskDistanceDisplay <= 0) return [0];
-    const tickCount = 5;
-    const step = taskDistanceDisplay / tickCount;
-    return Array.from({ length: tickCount + 1 }, (_, index) =>
-      index === tickCount ? taskDistanceDisplay : Math.round(index * step),
-    );
-  }, [taskDistanceDisplay]);
+  const xTicks = useMemo(
+    () => buildChartDistanceTicks(taskDistanceDisplay),
+    [taskDistanceDisplay],
+  );
 
   const leaderId = useMemo(() => {
     if (competitors.length === 0) return null;
@@ -694,7 +720,10 @@ export const AltitudeChart = memo(function AltitudeChart({
   const points = useMemo(
     () =>
       competitors.map((c) => ({
-        taskDistance: kmToDistanceUnit(c.taskKm, preferences.distanceUnit),
+        taskDistance: clampChartTaskDistanceDisplay(
+          kmToDistanceUnit(c.taskKm, preferences.distanceUnit),
+          taskDistanceDisplay,
+        ),
         altitude: clampChartAltitudeDisplay(
           metersToAltitudeUnit(c.alt, preferences.altitudeUnit),
           altitudeMin,
@@ -706,7 +735,7 @@ export const AltitudeChart = memo(function AltitudeChart({
         landed: c.landed,
         isLeader: c.id === leaderId,
       })),
-    [competitors, leaderId, preferences.distanceUnit, preferences.altitudeUnit, altitudeMin, altitudeMax],
+    [competitors, leaderId, preferences.distanceUnit, preferences.altitudeUnit, altitudeMin, altitudeMax, taskDistanceDisplay],
   );
 
   const maxProgressPoints = useMemo(
@@ -766,11 +795,12 @@ export const AltitudeChart = memo(function AltitudeChart({
               type="number"
               dataKey="taskDistance"
               domain={[0, taskDistanceDisplay]}
+              allowDataOverflow
               ticks={xTicks}
               padding={{ left: 0, right: 0 }}
               axisLine={false}
               tickLine={false}
-              tick={renderFixedXAxisTick}
+              tick={xAxisTick}
             />
             <YAxis
               type="number"
@@ -836,7 +866,10 @@ export const AltitudeChart = memo(function AltitudeChart({
               return (
                 <ReferenceLine
                   key={`${tp.number}-${tp.name}`}
-                  x={kmToDistanceUnit(tp.taskKm, preferences.distanceUnit)}
+                  x={clampChartTaskDistanceDisplay(
+                    kmToDistanceUnit(tp.taskKm, preferences.distanceUnit),
+                    taskDistanceDisplay,
+                  )}
                   stroke="none"
                   shape={buildTurnpointLineShape(strokeColor, handleTurnpointClick, hoverHandlers)}
                   label={{
@@ -871,7 +904,7 @@ export const AltitudeChart = memo(function AltitudeChart({
                 x={progressDistanceDisplay}
                 stroke={TASK_PROGRESS_LINE_COLOR}
                 strokeWidth={2}
-                ifOverflow="extendDomain"
+                ifOverflow="hidden"
               />
             )}
 

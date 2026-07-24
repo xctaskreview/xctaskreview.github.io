@@ -1,6 +1,32 @@
 import { isFlyingAltitudeMeters } from './geo';
-import { chartAltitudeStep, metersToAltitudeUnit, type AltitudeUnit } from './preferences';
+import { chartAltitudeStep, metersToAltitudeUnit, type AltitudeUnit, type DistanceUnit } from './preferences';
 import type { EnrichedFlightTrack } from './taskProgress';
+
+export function clampChartTaskDistanceDisplay(value: number, maxDistance: number): number {
+  if (!Number.isFinite(value) || maxDistance <= 0) return 0;
+  return Math.min(Math.max(0, value), maxDistance);
+}
+
+export function buildChartDistanceTicks(maxDistance: number, segments = 5): number[] {
+  if (maxDistance <= 0) return [0];
+  if (segments <= 0) return [0, maxDistance];
+
+  const step = maxDistance / segments;
+  return Array.from({ length: segments + 1 }, (_, index) =>
+    index === segments ? maxDistance : index * step,
+  );
+}
+
+export function formatChartDistanceTick(
+  value: number,
+  maxDistance: number,
+  unit: DistanceUnit,
+): string {
+  if (!Number.isFinite(value)) return '';
+  const decimals =
+    unit === 'mi' ? (maxDistance < 10 ? 2 : maxDistance < 100 ? 1 : 0) : maxDistance < 10 ? 1 : maxDistance < 100 ? 1 : 0;
+  return value.toFixed(decimals);
+}
 
 export function computeChartAltitudeRange(
   tracks: EnrichedFlightTrack[],

@@ -334,7 +334,10 @@ export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
   for (const leg of progressLegDistances) {
     progressCumulativeDistances.push(progressCumulativeDistances[progressCumulativeDistances.length - 1] + leg);
   }
-  const progressTotalDistance = progressCumulativeDistances[progressCumulativeDistances.length - 1];
+  const progressGoalApproachDistance =
+    goalIndex < legDistances.length ? (legDistances[goalIndex] ?? 0) : 0;
+  const progressTotalDistance =
+    progressCumulativeDistances[progressCumulativeDistances.length - 1] + progressGoalApproachDistance;
 
   const progressTurnpoints = task.turnpoints.slice(startIndex, goalIndex + 1).map((tp, i) => ({
     number: startIndex + i + 1,
@@ -357,6 +360,7 @@ export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
     progressPoints,
     progressLegDistances,
     progressCumulativeDistances,
+    progressGoalApproachDistance,
     progressTotalDistance,
     progressTurnpoints,
     sssIndex: startIndex,

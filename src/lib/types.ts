@@ -109,6 +109,8 @@ export interface OptimizedRoute {
   progressPoints: LatLon[];
   progressLegDistances: number[];
   progressCumulativeDistances: number[];
+  /** Optimized leg from ESS into the goal/landing cylinder when one exists after ESS. */
+  progressGoalApproachDistance: number;
   progressTotalDistance: number;
   progressTurnpoints: ProgressTurnpoint[];
   sssIndex: number;

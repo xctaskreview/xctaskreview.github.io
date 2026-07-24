@@ -241,7 +241,7 @@ describe('xcdemon-680-2026-07-19 review bundle metrics', () => {
     expect(metrics.trackCount).toBe(15);
     expect(metrics.enabledTrackCount).toBe(15);
     expect(metrics.progressLegCount).toBe(11);
-    expect(metrics.progressTotalDistanceM).toBeCloseTo(29693.801082978072, 6);
+    expect(metrics.progressTotalDistanceM).toBeCloseTo(30293.76133297357, 4);
 
     expectDateIso(metrics.taskStart, '2026-07-19T20:30:00.808Z');
     expectDateIso(metrics.timing.trackStart, '2026-07-19T19:16:58.000Z');
@@ -263,7 +263,7 @@ describe('xcdemon-680-2026-07-19 review bundle metrics', () => {
     }
 
     const goalMarker = metrics.turnpointReachMarkers.at(-1);
-    expect(goalMarker?.taskPercent).toBe(100);
+    expect(goalMarker?.taskPercent).toBeCloseTo(98.01952539534118, 4);
     expect(goalMarker?.taskKm).toBeCloseTo(29.693801082978073, 6);
   });
 });

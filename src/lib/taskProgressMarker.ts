@@ -192,15 +192,17 @@ export function computeTaskProgressMarker(
     return null;
   }
 
-  const runningMaxProgress = updateRunningMaxProgress(tracks, route, taskStart, time, cacheRef, trackKey);
+  const runningMaxProgress = Math.min(100, updateRunningMaxProgress(tracks, route, taskStart, time, cacheRef, trackKey));
   if (runningMaxProgress <= 0) return null;
 
   const routePoint = pointOnRouteAtProgress(route, runningMaxProgress);
   if (!routePoint) return null;
 
+  const taskDistanceKm = route.progressTotalDistance / 1000;
+
   return {
     taskPercent: runningMaxProgress,
-    taskKm: (runningMaxProgress / 100) * (route.progressTotalDistance / 1000),
+    taskKm: (runningMaxProgress / 100) * taskDistanceKm,
     legNumber: routePoint.legIndex + 1,
     center: routePoint.point,
     line: buildProgressLineAtPoint(route, routePoint.legIndex, routePoint.point),
