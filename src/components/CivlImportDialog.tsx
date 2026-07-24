@@ -11,6 +11,7 @@ import {
   type CivlYearOption,
 } from '../lib/civl';
 import { CivlButtonContent, Icon, IconButtonContent } from './Icon';
+import { ImportCatalogPicker } from './ImportCatalogPicker';
 
 interface CivlImportDialogProps {
   open: boolean;
@@ -216,22 +217,18 @@ export function CivlImportDialog({
             </select>
           </label>
 
-          <label className="welcome-pref-field">
-            Task with IGC zip
-            <select
-              value={selectedTaskId}
-              disabled={busy || tasks.length === 0 || !selectedEvent}
-              onChange={(event) => setSelectedTaskId(event.target.value)}
-            >
-              <option value="">Select a task…</option>
-              {tasks.map((task) => (
-                <option key={task.taskId} value={task.taskId}>
-                  {task.label}
-                  {!task.igcZipUrl ? ' (no IGC zip)' : ''}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ImportCatalogPicker
+            label="Task with IGC zip"
+            value={selectedTaskId}
+            disabled={busy || !selectedEvent}
+            placeholder="Select a task…"
+            emptyHint="Select an event to load tasks."
+            options={tasks.map((task) => ({
+              value: task.taskId,
+              label: `${task.label}${!task.igcZipUrl ? ' (no IGC zip)' : ''}`,
+            }))}
+            onChange={setSelectedTaskId}
+          />
 
           {(loadingYears || loadingEvents || loadingTasks) && (
             <p className="xcdemon-dialog-status">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, LineChart, PencilLine, X } from 'lucide-react';
+import { LineChart, PencilLine, X } from 'lucide-react';
 import { AppFooter } from './components/AppFooter';
 import { AppHomeLink } from './components/AppHomeLink';
 import { Icon, IconButtonContent } from './components/Icon';
@@ -877,17 +877,17 @@ const onSessionBundleExport = useCallback(async () => {
 
           {route && (
             <>
-              <button
-                type="button"
-                className="review-chart-toggle"
-                aria-expanded={mobileChartOpen}
-                aria-controls="review-altitude-chart"
-                onClick={() => setMobileChartOpen((open) => !open)}
-              >
-                <IconButtonContent icon={mobileChartOpen ? ChevronDown : LineChart}>
-                  {mobileChartOpen ? 'Hide graph' : 'Task Progress'}
-                </IconButtonContent>
-              </button>
+              {!mobileChartOpen && (
+                <button
+                  type="button"
+                  className="review-chart-toggle"
+                  aria-expanded={false}
+                  aria-controls="review-altitude-chart"
+                  onClick={() => setMobileChartOpen(true)}
+                >
+                  <IconButtonContent icon={LineChart}>Task Progress</IconButtonContent>
+                </button>
+              )}
 
               <TaskProgressPanel
                 mobileOpen={mobileChartOpen}
@@ -909,6 +909,10 @@ const onSessionBundleExport = useCallback(async () => {
                 taskProgressMarkerRef={taskProgressMarkerRef}
                 minimized={taskProgressMinimized}
                 onToggleMinimized={() => setTaskProgressMinimized((value) => !value)}
+                onMobileDismiss={() => {
+                  setMobileChartOpen(false);
+                  setTaskProgressMinimized(false);
+                }}
                 onHeightPreview={previewTaskProgressHeight}
               />
             </>

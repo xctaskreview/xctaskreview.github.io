@@ -10,6 +10,7 @@ import {
   type XcdemonLeagueTask,
 } from '../lib/xcdemon';
 import { Icon, IconButtonContent, XcdemonButtonContent } from './Icon';
+import { ImportCatalogPicker } from './ImportCatalogPicker';
 
 interface XcdemonImportDialogProps {
   open: boolean;
@@ -176,22 +177,18 @@ export function XcdemonImportDialog({
             </select>
           </label>
 
-          <label className="welcome-pref-field">
-            Task with results
-            <select
-              value={selectedTaskId}
-              disabled={busy || tasks.length === 0}
-              onChange={(event) => setSelectedTaskId(event.target.value)}
-            >
-              <option value="">Select a task…</option>
-              {tasks.map((task) => (
-                <option key={task.taskId} value={task.taskId}>
-                  {task.label}
-                  {!task.igcZipUrl ? ' (no IGC zip)' : ''}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ImportCatalogPicker
+            label="Task with results"
+            value={selectedTaskId}
+            disabled={busy}
+            placeholder="Select a task…"
+            emptyHint="No tasks loaded for this year."
+            options={tasks.map((task) => ({
+              value: task.taskId,
+              label: `${task.label}${!task.igcZipUrl ? ' (no IGC zip)' : ''}`,
+            }))}
+            onChange={setSelectedTaskId}
+          />
 
           {(loadingLeagues || loadingCatalog) && (
             <p className="xcdemon-dialog-status">

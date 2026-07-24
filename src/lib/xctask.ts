@@ -247,6 +247,53 @@ export function isEndTurnpointLabel(label: string): boolean {
   return label.toUpperCase().trim().endsWith('ES');
 }
 
+export function findDraftStartIndex(turnpoints: EditableTurnpointRow[]): number {
+  return turnpoints.findIndex((tp) => tp.type === 'SSS');
+}
+
+export function findDraftGoalIndex(turnpoints: EditableTurnpointRow[]): number {
+  return turnpoints.findIndex((tp) => tp.type === 'ESS');
+}
+
+export function canOfferStartType(index: number, turnpoints: EditableTurnpointRow[]): boolean {
+  if (turnpoints.length === 0) return false;
+  if (index === turnpoints.length - 1) return false;
+  const goalIdx = findDraftGoalIndex(turnpoints);
+  if (goalIdx >= 0 && index > goalIdx) return false;
+  return true;
+}
+
+export function canOfferGoalType(index: number, turnpoints: EditableTurnpointRow[]): boolean {
+  if (turnpoints.length === 0) return false;
+  if (index === 0) return false;
+  const startIdx = findDraftStartIndex(turnpoints);
+  if (startIdx >= 0 && index <= startIdx) return false;
+  return true;
+}
+
+export function applyTurnpointTypeChange(
+  draft: TaskEditDraft,
+  index: number,
+  newType: TurnpointTypeOption,
+): TaskEditDraft {
+  if (newType !== 'SSS' && newType !== 'ESS') {
+    return {
+      ...draft,
+      turnpoints: draft.turnpoints.map((row, i) => (i === index ? { ...row, type: '' } : row)),
+    };
+  }
+
+  return {
+    ...draft,
+    turnpoints: draft.turnpoints.map((row, i) => {
+      if (i === index) return { ...row, type: newType };
+      if (newType === 'SSS' && row.type === 'SSS') return { ...row, type: '' };
+      if (newType === 'ESS' && row.type === 'ESS') return { ...row, type: '' };
+      return row;
+    }),
+  };
+}
+
 export function getStartIndex(task: XcTask): number {
   const ssSuffixIndex = task.turnpoints.findIndex((tp) =>
     isStartTurnpointLabel(getTurnpointLabel(tp)),

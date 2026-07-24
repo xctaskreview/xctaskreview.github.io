@@ -24,6 +24,7 @@ interface TaskProgressPanelProps extends AltitudeChartProps {
   minimized: boolean;
   onToggleMinimized: () => void;
   onHeightPreview?: (height: number) => void;
+  onMobileDismiss?: () => void;
 }
 
 export function TaskProgressPanel({
@@ -31,6 +32,7 @@ export function TaskProgressPanel({
   minimized,
   onToggleMinimized,
   onHeightPreview,
+  onMobileDismiss,
   preferences,
   ...chartProps
 }: TaskProgressPanelProps) {
@@ -106,7 +108,13 @@ export function TaskProgressPanel({
               className="chart-panel-icon-button"
               aria-expanded={!minimized}
               aria-label={minimized ? 'Restore task progress graph' : 'Minimize task progress graph'}
-              onClick={onToggleMinimized}
+              onClick={() => {
+                if (mobileOpen && onMobileDismiss && !minimized) {
+                  onMobileDismiss();
+                  return;
+                }
+                onToggleMinimized();
+              }}
             >
               <Icon icon={minimized ? ChevronUp : ChevronDown} size="sm" />
             </button>
