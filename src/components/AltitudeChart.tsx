@@ -523,14 +523,42 @@ function ChartLiveLayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fullPath, scaleKey]);
 
+  const fullPathPixelsRef = useRef(fullPathPixels);
+  fullPathPixelsRef.current = fullPathPixels;
+
+  const syncFutureTrailPathD = useCallback((entry: LivePilotNodes) => {
+    const item = futurePathCacheRef.current.get(entry.trackId);
+    if (item) {
+      const d = item.pixels.d;
+      if (entry.futureTrailPath.getAttribute('d') !== d) {
+        entry.futureTrailPath.setAttribute('d', d);
+      }
+      entry.futureCursor = -1;
+      return;
+    }
+    if (entry.futureTrailPath.getAttribute('d') !== '') {
+      entry.futureTrailPath.setAttribute('d', '');
+    }
+    entry.futureCursor = -1;
+  }, []);
+
   useEffect(() => {
     const cache = futurePathCacheRef.current;
-    cache.clear();
-    if (!preferences.showFutureTrail || !xScale || !yScale) {
+    const prefs = settingsRef.current?.preferences ?? preferences;
+    if (!prefs.showFutureTrail) {
+      cache.clear();
+      for (const entry of poolRef.current.values()) {
+        entry.futureTrailPath.setAttribute('d', '');
+        entry.futureCursor = -1;
+      }
+      return;
+    }
+    if (!xScale || !yScale) {
       return;
     }
 
-    const { distanceUnit, altitudeUnit } = preferences;
+    cache.clear();
+    const { distanceUnit, altitudeUnit } = prefs;
     for (const track of enrichedTracks) {
       const geometry = buildPilotChartFullPathGeometry(
         track,
@@ -548,11 +576,7 @@ function ChartLiveLayer({
     }
 
     for (const entry of poolRef.current.values()) {
-      const item = cache.get(entry.trackId);
-      if (item) {
-        entry.futureTrailPath.setAttribute('d', item.pixels.d);
-        entry.futureCursor = -1;
-      }
+      syncFutureTrailPathD(entry);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -564,6 +588,8 @@ function ChartLiveLayer({
     altitudeMin,
     altitudeMax,
     scaleKey,
+    syncFutureTrailPathD,
+    settingsRef,
   ]);
 
   useEffect(() => {
@@ -615,11 +641,12 @@ function ChartLiveLayer({
       hosts.links.append(entry.linkPath);
       hosts.maxMarkers.append(entry.maxGroup);
       hosts.pilots.append(entry.pilotGroup);
+      syncFutureTrailPathD(entry);
       ordered.push(entry);
     }
 
     entriesRef.current = ordered;
-  }, [enrichedTracks, onPilotSelectRef, trophyId]);
+  }, [enrichedTracks, onPilotSelectRef, trophyId, syncFutureTrailPathD]);
 
   useEffect(() => {
     const pool = poolRef.current;
@@ -639,6 +666,8 @@ function ChartLiveLayer({
       const live = settingsRef.current;
       const framePreferences = live?.preferences ?? preferences;
       const frameFullPathTrackId = live?.fullPathTrackId ?? fullPathTrackId;
+      const frameFullPath = live?.fullPath ?? fullPath;
+      const frameFullPathPixels = fullPathPixelsRef.current;
       const frameProgressFocusTrackId = live?.progressFocusTrackId ?? progressFocusTrackId;
 
       const entries = entriesRef.current;
@@ -894,7 +923,7 @@ function ChartLiveLayer({
         }
 
         const cached = futurePathCacheRef.current.get(entry.trackId);
-        if (!cached) {
+        if (!cached || cached.pixels.d === '') {
           if (entry.futureTrailVisible) {
             setVisibility(entry.futureTrailPath, false);
             entry.futureTrailVisible = false;
@@ -910,7 +939,12 @@ function ChartLiveLayer({
           entry.writtenFutureDash = dash;
           entry.futureTrailPath.setAttribute('stroke-dasharray', dash);
         }
-        const futureStroke = entry.writtenColor;
+        const futureStroke =
+          entry.writtenColor !== UNWRITTEN
+            ? entry.writtenColor
+            : entry.frameLanded
+              ? LANDED_COLOR
+              : getTrackColor(entry.trackId, trackColors, entry.index);
         if (entry.futureTrailPath.getAttribute('stroke') !== futureStroke) {
           entry.futureTrailPath.setAttribute('stroke', futureStroke);
         }
@@ -966,13 +1000,13 @@ function ChartLiveLayer({
 
       const pastPath = pastPathRef.current;
       const futurePath = futurePathRef.current;
-      if (frameFullPathTrackId && fullPath && fullPathPixels && pastPath && futurePath) {
-        const { geometry, track, color } = fullPath;
+      if (frameFullPathTrackId && frameFullPath && frameFullPathPixels && pastPath && futurePath) {
+        const { geometry, track, color } = frameFullPath;
         const index = findPathIndexAtOrBefore(geometry.timesMs, timeMs, fullPathCursorRef.current);
         fullPathCursorRef.current = index;
 
-        const flown = chartPathLengthAtTime(fullPathPixels, geometry.timesMs, timeMs, index);
-        const total = fullPathPixels.totalLength;
+        const flown = chartPathLengthAtTime(frameFullPathPixels, geometry.timesMs, timeMs, index);
+        const total = frameFullPathPixels.totalLength;
         pastPath.setAttribute('stroke-dasharray', `${flown} ${total}`);
         futurePath.setAttribute('stroke-dasharray', `0 ${flown} ${total} 0`);
 
