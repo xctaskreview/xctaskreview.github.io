@@ -12,6 +12,8 @@ import { buildCompetitorSnapshots } from './lib/competitors';
 import { computeChartAltitudeRange } from './lib/chartAltitude';
 import {
   createDefaultPreferences,
+  loadPersistedPreferences,
+  savePersistedPreferences,
   type AppPreferences,
 } from './lib/preferences';
 import {
@@ -79,12 +81,21 @@ const EMPTY_APP_STATE = {
 };
 
 export default function App() {
+  const skipNextPersistRef = useRef(false);
+  const hadTaskRef = useRef(false);
+  const hasStoredPreferencesRef = useRef(false);
+  const taskProgressMarkerRef = useRef<TaskProgressMarker | null>(null);
+
   const [task, setTask] = useState<XcTask | null>(EMPTY_APP_STATE.task);
   const [taskFileName, setTaskFileName] = useState(EMPTY_APP_STATE.taskFileName);
   const [tracks, setTracks] = useState<FlightTrack[]>(EMPTY_APP_STATE.tracks);
   const [enabledTrackIds, setEnabledTrackIds] = useState<Set<string>>(EMPTY_APP_STATE.enabledTrackIds);
   const [trackColors, setTrackColors] = useState<Record<string, string>>(EMPTY_APP_STATE.trackColors);
-  const [preferences, setPreferences] = useState<AppPreferences>(EMPTY_APP_STATE.preferences);
+  const [preferences, setPreferences] = useState<AppPreferences>(() => {
+    const stored = loadPersistedPreferences();
+    hasStoredPreferencesRef.current = stored !== null;
+    return stored ?? EMPTY_APP_STATE.preferences;
+  });
   const [view, setView] = useState<AppView>('welcome');
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
@@ -97,10 +108,7 @@ export default function App() {
   const [taskProgressMinimized, setTaskProgressMinimized] = useState(false);
   const reviewStageRef = useRef<HTMLDivElement>(null);
   const [storageReady, setStorageReady] = useState(false);
-  const skipNextPersistRef = useRef(false);
-  const hadTaskRef = useRef(false);
   const currentTimeRef = useRef(currentTime);
-  const taskProgressMarkerRef = useRef<TaskProgressMarker | null>(null);
   const enabledTrackIdsKey = useMemo(() => [...enabledTrackIds].sort().join('|'), [enabledTrackIds]);
 
   useEffect(() => {
@@ -119,7 +127,13 @@ export default function App() {
           setTracks(persisted.tracks);
           setEnabledTrackIds(new Set(persisted.enabledTrackIds));
           setTrackColors(assignUniqueTrackColors(persisted.tracks, persisted.trackColors));
-          setPreferences(persisted.preferences);
+          // Dedicated preferences storage is the source of truth. Migrate from the
+          // session blob only when preferences have never been saved independently.
+          if (!hasStoredPreferencesRef.current) {
+            setPreferences(persisted.preferences);
+            savePersistedPreferences(persisted.preferences);
+            hasStoredPreferencesRef.current = true;
+          }
           if (persisted.view === 'review') {
             setView('review');
           }
@@ -150,6 +164,12 @@ export default function App() {
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [task, taskFileName, taskLocationLabel]);
+
+  useEffect(() => {
+    if (!storageReady) return;
+    savePersistedPreferences(preferences);
+    hasStoredPreferencesRef.current = true;
+  }, [storageReady, preferences]);
 
   useEffect(() => {
     setTracks((prev) => {
