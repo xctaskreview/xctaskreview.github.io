@@ -671,201 +671,203 @@ export const AltitudeChart = memo(function AltitudeChart({
           y={floatingTooltip.y}
         />
       )}
-      <ResponsiveContainer width="100%" height={320}>
-        <ComposedChart margin={{ top: 28, right: 24, left: 8, bottom: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-          <XAxis
-            type="number"
-            dataKey="taskDistance"
-            domain={[0, taskDistanceDisplay]}
-            tickFormatter={(value) => `${value.toFixed(0)}`}
-            label={{
-              value: distanceAxisLabel(preferences.distanceUnit),
-              position: 'insideBottom',
-              offset: -8,
-            }}
-          />
-          <YAxis
-            type="number"
-            dataKey="altitude"
-            domain={[altitudeMin, altitudeMax]}
-            ticks={yTicks}
-            allowDataOverflow={false}
-            tickFormatter={(value) => `${value}`}
-            label={{
-              value: altitudeAxisLabel(preferences.altitudeUnit),
-              angle: -90,
-              position: 'insideLeft',
-            }}
-          />
+      <div className="chart-panel-body">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart margin={{ top: 28, right: 24, left: 8, bottom: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+            <XAxis
+              type="number"
+              dataKey="taskDistance"
+              domain={[0, taskDistanceDisplay]}
+              tickFormatter={(value) => `${value.toFixed(0)}`}
+              label={{
+                value: distanceAxisLabel(preferences.distanceUnit),
+                position: 'insideBottom',
+                offset: -8,
+              }}
+            />
+            <YAxis
+              type="number"
+              dataKey="altitude"
+              domain={[altitudeMin, altitudeMax]}
+              ticks={yTicks}
+              allowDataOverflow={false}
+              tickFormatter={(value) => `${value}`}
+              label={{
+                value: altitudeAxisLabel(preferences.altitudeUnit),
+                angle: -90,
+                position: 'insideLeft',
+              }}
+            />
 
-          {turnpoints.map((tp) => {
-            const isStart = tp.number === route.sssIndex + 1;
-            const isGoal = tp.number === route.goalIndex + 1;
-            const reachMarker = reachMarkerByNumber.get(tp.number);
-            const tagged =
-              !isStart &&
-              !isGoal &&
-              progressPercent > 0 &&
-              progressPercent >= tp.taskPercent - 0.001;
-            const strokeColor = isStart
-              ? START_COLOR
-              : isGoal
-                ? GOAL_COLOR
-                : tagged
-                  ? TASK_PROGRESS_LINE_COLOR
-                  : '#64748b';
-            const labelColor = strokeColor;
-            const jumpTime = isStart ? taskStart : reachMarker?.time;
-            const handleTurnpointClick =
-              jumpTime !== undefined ? () => onTimeChange(jumpTime) : undefined;
-            const hoverTooltip =
-              reachMarker !== undefined
-                ? formatTurnpointHoverLabel(reachMarker, {
-                    distanceUnit: preferences.distanceUnit,
-                    taskStart,
-                  })
-                : undefined;
-            const hoverHandlers =
-              hoverTooltip !== undefined
-                ? {
-                    onMouseEnter: (event: MouseEvent<SVGGElement>) => {
-                      setFloatingTooltip({
-                        tooltip: hoverTooltip,
-                        x: event.clientX,
-                        y: event.clientY,
-                      });
-                    },
-                    onMouseLeave: () => setFloatingTooltip(null),
-                    onMouseMove: (event: MouseEvent<SVGGElement>) => {
-                      setFloatingTooltip({
-                        tooltip: hoverTooltip,
-                        x: event.clientX,
-                        y: event.clientY,
-                      });
-                    },
-                  }
-                : undefined;
+            {turnpoints.map((tp) => {
+              const isStart = tp.number === route.sssIndex + 1;
+              const isGoal = tp.number === route.goalIndex + 1;
+              const reachMarker = reachMarkerByNumber.get(tp.number);
+              const tagged =
+                !isStart &&
+                !isGoal &&
+                progressPercent > 0 &&
+                progressPercent >= tp.taskPercent - 0.001;
+              const strokeColor = isStart
+                ? START_COLOR
+                : isGoal
+                  ? GOAL_COLOR
+                  : tagged
+                    ? TASK_PROGRESS_LINE_COLOR
+                    : '#64748b';
+              const labelColor = strokeColor;
+              const jumpTime = isStart ? taskStart : reachMarker?.time;
+              const handleTurnpointClick =
+                jumpTime !== undefined ? () => onTimeChange(jumpTime) : undefined;
+              const hoverTooltip =
+                reachMarker !== undefined
+                  ? formatTurnpointHoverLabel(reachMarker, {
+                      distanceUnit: preferences.distanceUnit,
+                      taskStart,
+                    })
+                  : undefined;
+              const hoverHandlers =
+                hoverTooltip !== undefined
+                  ? {
+                      onMouseEnter: (event: MouseEvent<SVGGElement>) => {
+                        setFloatingTooltip({
+                          tooltip: hoverTooltip,
+                          x: event.clientX,
+                          y: event.clientY,
+                        });
+                      },
+                      onMouseLeave: () => setFloatingTooltip(null),
+                      onMouseMove: (event: MouseEvent<SVGGElement>) => {
+                        setFloatingTooltip({
+                          tooltip: hoverTooltip,
+                          x: event.clientX,
+                          y: event.clientY,
+                        });
+                      },
+                    }
+                  : undefined;
 
-            return (
-              <ReferenceLine
-                key={`${tp.number}-${tp.name}`}
-                x={kmToDistanceUnit(tp.taskKm, preferences.distanceUnit)}
-                stroke="none"
-                shape={buildTurnpointLineShape(strokeColor, handleTurnpointClick, hoverHandlers)}
-                label={{
-                  value: String(tp.number),
-                  position: 'insideTopLeft',
-                  fill: labelColor,
-                  fontSize: 11,
-                  onClick: handleTurnpointClick,
-                  className: handleTurnpointClick ? 'chart-turnpoint-label-clickable' : undefined,
-                }}
+              return (
+                <ReferenceLine
+                  key={`${tp.number}-${tp.name}`}
+                  x={kmToDistanceUnit(tp.taskKm, preferences.distanceUnit)}
+                  stroke="none"
+                  shape={buildTurnpointLineShape(strokeColor, handleTurnpointClick, hoverHandlers)}
+                  label={{
+                    value: String(tp.number),
+                    position: 'insideTopLeft',
+                    fill: labelColor,
+                    fontSize: 11,
+                    onClick: handleTurnpointClick,
+                    className: handleTurnpointClick ? 'chart-turnpoint-label-clickable' : undefined,
+                  }}
+                />
+              );
+            })}
+
+            {trails.map((trail) => (
+              <Line
+                key={`trail-${trail.id}`}
+                data={trail.points}
+                type="linear"
+                dataKey="altitude"
+                stroke={trail.landed ? LANDED_COLOR : trail.color}
+                strokeWidth={2.5}
+                strokeOpacity={trail.landed ? 0.55 : 0.8}
+                dot={false}
+                isAnimationActive={false}
+                connectNulls
               />
-            );
-          })}
+            ))}
 
-          {trails.map((trail) => (
-            <Line
-              key={`trail-${trail.id}`}
-              data={trail.points}
-              type="linear"
-              dataKey="altitude"
-              stroke={trail.landed ? LANDED_COLOR : trail.color}
-              strokeWidth={2.5}
-              strokeOpacity={trail.landed ? 0.55 : 0.8}
-              dot={false}
+            {progressDistanceDisplay !== null && (
+              <ReferenceLine
+                x={progressDistanceDisplay}
+                stroke={TASK_PROGRESS_LINE_COLOR}
+                strokeWidth={2}
+                ifOverflow="extendDomain"
+              />
+            )}
+
+            {maxProgressLinks.map((link) => (
+              <Line
+                key={`max-progress-link-${link.id}`}
+                data={link.points}
+                type="linear"
+                dataKey="altitude"
+                stroke={link.color}
+                strokeWidth={1.5}
+                strokeOpacity={MAX_PROGRESS_LINK_OPACITY}
+                strokeDasharray="4 3"
+                dot={false}
+                isAnimationActive={false}
+                legendType="none"
+              />
+            ))}
+
+            <Scatter
+              name="Max progress"
+              data={maxProgressPoints}
+              fill="#111827"
               isAnimationActive={false}
-              connectNulls
+              activeShape={false}
+              shape={(props: {
+                cx?: number;
+                cy?: number;
+                payload?: { color?: string; landed?: boolean };
+              }) => {
+                const { cx, cy, payload } = props;
+                if (cx == null || cy == null) return <g />;
+                const landed = payload?.landed ?? false;
+                const fill = landed ? LANDED_COLOR : (payload?.color ?? '#111827');
+                return (
+                  <g
+                    className="chart-max-progress-marker"
+                    opacity={landed ? MAX_PROGRESS_MARKER_OPACITY * 0.85 : MAX_PROGRESS_MARKER_OPACITY}
+                  >
+                    <circle cx={cx} cy={cy} r={7} fill={fill} stroke="#ffffff" strokeWidth={2} />
+                  </g>
+                );
+              }}
             />
-          ))}
 
-          {progressDistanceDisplay !== null && (
-            <ReferenceLine
-              x={progressDistanceDisplay}
-              stroke={TASK_PROGRESS_LINE_COLOR}
-              strokeWidth={2}
-              ifOverflow="extendDomain"
-            />
-          )}
-
-          {maxProgressLinks.map((link) => (
-            <Line
-              key={`max-progress-link-${link.id}`}
-              data={link.points}
-              type="linear"
-              dataKey="altitude"
-              stroke={link.color}
-              strokeWidth={1.5}
-              strokeOpacity={MAX_PROGRESS_LINK_OPACITY}
-              strokeDasharray="4 3"
-              dot={false}
+            <Scatter
+              name="Pilots"
+              data={points}
+              fill="#111827"
               isAnimationActive={false}
-              legendType="none"
+              activeShape={false}
+              shape={(props: {
+                cx?: number;
+                cy?: number;
+                payload?: { color?: string; firstName?: string; landed?: boolean; isLeader?: boolean };
+              }) => {
+                const { cx, cy, payload } = props;
+                if (cx == null || cy == null) return <g />;
+                const landed = payload?.landed ?? false;
+                const fill = landed ? LANDED_COLOR : (payload?.color ?? '#111827');
+                const isLeader = payload?.isLeader ?? false;
+                const trophySize = 12;
+                const labelX = cx + 10 + (isLeader ? trophySize + 2 : 0);
+                return (
+                  <g opacity={landed ? 0.7 : 1}>
+                    <circle cx={cx} cy={cy} r={7} fill={fill} stroke="#ffffff" strokeWidth={2} />
+                    {isLeader && (
+                      <g transform={`translate(${cx + 10}, ${cy - trophySize / 2})`}>
+                        <Trophy size={trophySize} color={fill} strokeWidth={2} aria-hidden="true" />
+                      </g>
+                    )}
+                    <text x={labelX} y={cy + 4} fill={fill} fontSize={11} fontWeight={600}>
+                      {payload?.firstName ?? ''}
+                    </text>
+                  </g>
+                );
+              }}
             />
-          ))}
-
-          <Scatter
-            name="Max progress"
-            data={maxProgressPoints}
-            fill="#111827"
-            isAnimationActive={false}
-            activeShape={false}
-            shape={(props: {
-              cx?: number;
-              cy?: number;
-              payload?: { color?: string; landed?: boolean };
-            }) => {
-              const { cx, cy, payload } = props;
-              if (cx == null || cy == null) return <g />;
-              const landed = payload?.landed ?? false;
-              const fill = landed ? LANDED_COLOR : (payload?.color ?? '#111827');
-              return (
-                <g
-                  className="chart-max-progress-marker"
-                  opacity={landed ? MAX_PROGRESS_MARKER_OPACITY * 0.85 : MAX_PROGRESS_MARKER_OPACITY}
-                >
-                  <circle cx={cx} cy={cy} r={7} fill={fill} stroke="#ffffff" strokeWidth={2} />
-                </g>
-              );
-            }}
-          />
-
-          <Scatter
-            name="Pilots"
-            data={points}
-            fill="#111827"
-            isAnimationActive={false}
-            activeShape={false}
-            shape={(props: {
-              cx?: number;
-              cy?: number;
-              payload?: { color?: string; firstName?: string; landed?: boolean; isLeader?: boolean };
-            }) => {
-              const { cx, cy, payload } = props;
-              if (cx == null || cy == null) return <g />;
-              const landed = payload?.landed ?? false;
-              const fill = landed ? LANDED_COLOR : (payload?.color ?? '#111827');
-              const isLeader = payload?.isLeader ?? false;
-              const trophySize = 12;
-              const labelX = cx + 10 + (isLeader ? trophySize + 2 : 0);
-              return (
-                <g opacity={landed ? 0.7 : 1}>
-                  <circle cx={cx} cy={cy} r={7} fill={fill} stroke="#ffffff" strokeWidth={2} />
-                  {isLeader && (
-                    <g transform={`translate(${cx + 10}, ${cy - trophySize / 2})`}>
-                      <Trophy size={trophySize} color={fill} strokeWidth={2} aria-hidden="true" />
-                    </g>
-                  )}
-                  <text x={labelX} y={cy + 4} fill={fill} fontSize={11} fontWeight={600}>
-                    {payload?.firstName ?? ''}
-                  </text>
-                </g>
-              );
-            }}
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 });
