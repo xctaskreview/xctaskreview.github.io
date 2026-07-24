@@ -141,7 +141,8 @@ export function enrichTrackWithTaskProgress(
       }
 
       if (hasExitedSss && currentLeg >= 0) {
-        const nextTpIndex = currentLeg + 1;
+        // currentLeg is 0-based in the SSS→ESS progress route; cylinders use absolute indices.
+        const nextTpIndex = route.sssIndex + currentLeg + 1;
         if (nextTpIndex <= goalIndex) {
           const nextTp = turnpoints[nextTpIndex];
           if (pointInCylinder(point, nextTp.center, nextTp.radius)) {
@@ -149,7 +150,7 @@ export function enrichTrackWithTaskProgress(
               finished = true;
               finishTime ??= point.time;
             } else {
-              currentLeg = nextTpIndex;
+              currentLeg = nextTpIndex - route.sssIndex;
             }
           }
         }
@@ -221,6 +222,39 @@ function findLastPointIndexAtOrBefore(points: EnrichedTrackPoint[], timeMs: numb
   }
 
   return lo;
+}
+
+/**
+ * Maximal task progress the pilot has achieved at or before `time`,
+ * with altitude from the track point where that max was last reached.
+ * Callers may still raise this with the live interpolated snapshot at `time`.
+ */
+export function getPilotMaxProgressAtTime(
+  track: EnrichedFlightTrack,
+  time: Date,
+): { taskPercent: number; alt: number } | null {
+  if (track.points.length === 0) return null;
+
+  const timeMs = time.getTime();
+  let maxPercent = -1;
+  let altAtMax = 0;
+  let timeAtMax = time;
+
+  for (const point of track.points) {
+    if (point.time.getTime() > timeMs) break;
+    if (point.taskPercent >= maxPercent) {
+      maxPercent = point.taskPercent;
+      altAtMax = point.alt;
+      timeAtMax = point.time;
+    }
+  }
+
+  if (maxPercent < 0) return null;
+
+  return {
+    taskPercent: maxPercent,
+    alt: resolveDisplayAltitudeMeters(track.points, timeAtMax, altAtMax),
+  };
 }
 
 export function getTrackSnapshotAtTime(

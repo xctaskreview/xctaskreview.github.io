@@ -19,11 +19,11 @@ export { DEFAULT_TURNPOINT_COLOR, GOAL_COLOR, LANDING_COLOR, START_COLOR };
 
 export const ROUTE_LEG_COLOR = '#111827';
 export const TURNPOINT_CIRCLE_WEIGHT = 2;
-export const NEXT_TURNPOINT_CIRCLE_WEIGHT = 4.5;
 export const TURNPOINT_FILL_OPACITY = 0.08;
+export const NEXT_TURNPOINT_FILL_OPACITY = 0.35;
 export const ROUTE_LEG_WEIGHT = 1.5;
-export const COMPLETED_LEG_WEIGHT = 3;
-export const COMPLETED_LEG_OPACITY = 0.95;
+export const COMPLETED_LEG_WEIGHT = 12;
+export const COMPLETED_LEG_OPACITY = 0.45;
 export const PROGRESS_INDICATOR_WEIGHT = 2.5;
 export const PROGRESS_INDICATOR_OPACITY = 0.95;
 
@@ -52,11 +52,20 @@ export function isLandingTurnpoint(circle: RoutePoint, route: OptimizedRoute): b
   return circle.number - 1 > route.goalIndex;
 }
 
+export function isPreStartTurnpoint(circle: RoutePoint, route: OptimizedRoute): boolean {
+  if (circle.number === undefined) return false;
+  return circle.number - 1 < route.sssIndex;
+}
+
+export function isNonTaskTurnpoint(circle: RoutePoint, route: OptimizedRoute): boolean {
+  return isPreStartTurnpoint(circle, route) || isLandingTurnpoint(circle, route);
+}
+
 export function getDefaultTurnpointColor(circle: RoutePoint, route: OptimizedRoute): string {
   if (matchesGoal(circle, route)) return GOAL_COLOR;
   if (circle.type === 'SSS') return START_COLOR;
   if (circle.type === 'ESS') return GOAL_COLOR;
-  if (isLandingTurnpoint(circle, route)) return LANDING_COLOR;
+  if (isNonTaskTurnpoint(circle, route)) return LANDING_COLOR;
   return DEFAULT_TURNPOINT_COLOR;
 }
 
@@ -81,7 +90,11 @@ export function getTurnpointColor(
   route: OptimizedRoute,
   tagged: boolean,
 ): string {
-  if (isStartTurnpoint(circle, route) || isGoalTurnpoint(circle, route) || isLandingTurnpoint(circle, route)) {
+  if (
+    isStartTurnpoint(circle, route) ||
+    isGoalTurnpoint(circle, route) ||
+    isNonTaskTurnpoint(circle, route)
+  ) {
     return getDefaultTurnpointColor(circle, route);
   }
   return tagged ? TASK_PROGRESS_COLOR : getDefaultTurnpointColor(circle, route);
@@ -91,16 +104,16 @@ export function getTurnpointCirclePathOptions(
   circle: RoutePoint,
   route: OptimizedRoute,
   tagged: boolean,
-  weight = 2,
+  fillHighlight = false,
 ): L.PathOptions {
   const color = getTurnpointColor(circle, route, tagged);
 
   return {
     color,
-    weight,
-    fillColor: color,
-    fillOpacity: 0.08,
-    dashArray: isLandingTurnpoint(circle, route) ? ROUTE_DASH_ARRAY : undefined,
+    weight: TURNPOINT_CIRCLE_WEIGHT,
+    fillColor: fillHighlight ? TASK_PROGRESS_COLOR : color,
+    fillOpacity: fillHighlight ? NEXT_TURNPOINT_FILL_OPACITY : TURNPOINT_FILL_OPACITY,
+    dashArray: isNonTaskTurnpoint(circle, route) ? ROUTE_DASH_ARRAY : undefined,
   };
 }
 

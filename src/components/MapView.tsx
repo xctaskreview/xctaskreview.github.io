@@ -236,7 +236,12 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
       {preRacePoints.length > 1 && (
         <Polyline
           positions={preRacePoints.map((p) => [p.lat, p.lon])}
-          pathOptions={{ color: '#111827', weight: 1.5, dashArray: ROUTE_DASH_ARRAY, interactive: false }}
+          pathOptions={{
+            color: LANDING_COLOR,
+            weight: 1.5,
+            dashArray: ROUTE_DASH_ARRAY,
+            interactive: false,
+          }}
         />
       )}
 

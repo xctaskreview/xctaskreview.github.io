@@ -23,7 +23,7 @@ import {
   normalizePilotTrailLengthM,
 } from '../lib/preferences';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
-import { getTrackSnapshotAtTime } from '../lib/taskProgress';
+import { getPilotMaxProgressAtTime, getTrackSnapshotAtTime } from '../lib/taskProgress';
 import { getTrackColor } from '../lib/tracks';
 import { GOAL_COLOR, START_COLOR, TASK_PROGRESS_LINE_COLOR } from '../lib/taskMapStyle';
 import type { TaskProgressMarker, TurnpointReachMarker } from '../lib/taskProgressMarker';
@@ -38,6 +38,19 @@ interface ChartTrail {
   landed: boolean;
   points: { taskDistance: number; altitude: number }[];
 }
+
+interface ChartMaxProgressMarker {
+  id: string;
+  color: string;
+  landed: boolean;
+  taskDistance: number;
+  altitude: number;
+  currentTaskDistance: number;
+  currentAltitude: number;
+}
+
+const MAX_PROGRESS_MARKER_OPACITY = 0.4;
+const MAX_PROGRESS_LINK_OPACITY = 0.45;
 
 interface AltitudeChartProps {
   enrichedTracks: EnrichedFlightTrack[];
@@ -189,6 +202,63 @@ function useLiveChartCompetitors({
   return competitors;
 }
 
+function buildMaxProgressMarkers(
+  enrichedTracks: EnrichedFlightTrack[],
+  trackColors: Record<string, string>,
+  route: OptimizedRoute,
+  time: Date,
+  taskDistanceKm: number,
+  preferences: AppPreferences,
+  altitudeMin: number,
+  altitudeMax: number,
+): ChartMaxProgressMarker[] {
+  return enrichedTracks.flatMap((track, index) => {
+    const snapshot = getTrackSnapshotAtTime(track, time, route);
+    if (!snapshot) return [];
+
+    const maxProgress = getPilotMaxProgressAtTime(track, time);
+    let maxTaskPercent = maxProgress?.taskPercent ?? -1;
+    let maxAlt = maxProgress?.alt ?? 0;
+    if (snapshot.taskPercent >= maxTaskPercent) {
+      maxTaskPercent = snapshot.taskPercent;
+      maxAlt = snapshot.alt;
+    }
+    if (maxTaskPercent <= 0) return [];
+
+    const color = getTrackColor(track.id, trackColors, index);
+    const currentTaskDistance = kmToDistanceUnit(
+      (snapshot.taskPercent / 100) * taskDistanceKm,
+      preferences.distanceUnit,
+    );
+    const currentAltitude = clampChartAltitudeDisplay(
+      metersToAltitudeUnit(snapshot.alt, preferences.altitudeUnit),
+      altitudeMin,
+      altitudeMax,
+    );
+    const taskDistance = kmToDistanceUnit(
+      (maxTaskPercent / 100) * taskDistanceKm,
+      preferences.distanceUnit,
+    );
+    const altitude = clampChartAltitudeDisplay(
+      metersToAltitudeUnit(maxAlt, preferences.altitudeUnit),
+      altitudeMin,
+      altitudeMax,
+    );
+
+    return [
+      {
+        id: track.id,
+        color,
+        landed: snapshot.landed,
+        taskDistance,
+        altitude,
+        currentTaskDistance,
+        currentAltitude,
+      },
+    ];
+  });
+}
+
 function buildChartTrails(
   enrichedTracks: EnrichedFlightTrack[],
   trackColors: Record<string, string>,
@@ -333,6 +403,106 @@ function useLiveChartTrails({
   return trails;
 }
 
+function useLiveMaxProgressMarkers({
+  enrichedTracks,
+  trackColors,
+  route,
+  currentTimeRef,
+  playing,
+  pausedTime,
+  taskDistanceKm,
+  preferences,
+  altitudeMin,
+  altitudeMax,
+}: Pick<
+  AltitudeChartProps,
+  | 'enrichedTracks'
+  | 'trackColors'
+  | 'route'
+  | 'currentTimeRef'
+  | 'playing'
+  | 'pausedTime'
+  | 'taskDistanceKm'
+  | 'preferences'
+  | 'altitudeMin'
+  | 'altitudeMax'
+>): ChartMaxProgressMarker[] {
+  const [markers, setMarkers] = useState<ChartMaxProgressMarker[]>(() =>
+    buildMaxProgressMarkers(
+      enrichedTracks,
+      trackColors,
+      route,
+      pausedTime,
+      taskDistanceKm,
+      preferences,
+      altitudeMin,
+      altitudeMax,
+    ),
+  );
+
+  useEffect(() => {
+    if (playing) return;
+    setMarkers(
+      buildMaxProgressMarkers(
+        enrichedTracks,
+        trackColors,
+        route,
+        pausedTime,
+        taskDistanceKm,
+        preferences,
+        altitudeMin,
+        altitudeMax,
+      ),
+    );
+  }, [
+    enrichedTracks,
+    trackColors,
+    route,
+    playing,
+    pausedTime,
+    taskDistanceKm,
+    preferences,
+    altitudeMin,
+    altitudeMax,
+  ]);
+
+  useEffect(() => {
+    if (!playing) return;
+
+    let rafId = 0;
+    const loop = () => {
+      setMarkers(
+        buildMaxProgressMarkers(
+          enrichedTracks,
+          trackColors,
+          route,
+          currentTimeRef.current,
+          taskDistanceKm,
+          preferences,
+          altitudeMin,
+          altitudeMax,
+        ),
+      );
+      rafId = requestAnimationFrame(loop);
+    };
+
+    rafId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafId);
+  }, [
+    playing,
+    enrichedTracks,
+    trackColors,
+    route,
+    currentTimeRef,
+    taskDistanceKm,
+    preferences,
+    altitudeMin,
+    altitudeMax,
+  ]);
+
+  return markers;
+}
+
 export const AltitudeChart = memo(function AltitudeChart({
   enrichedTracks,
   trackColors,
@@ -367,6 +537,19 @@ export const AltitudeChart = memo(function AltitudeChart({
   });
 
   const trails = useLiveChartTrails({
+    enrichedTracks,
+    trackColors,
+    route,
+    currentTimeRef,
+    playing,
+    pausedTime,
+    taskDistanceKm,
+    preferences,
+    altitudeMin,
+    altitudeMax,
+  });
+
+  const maxProgressMarkers = useLiveMaxProgressMarkers({
     enrichedTracks,
     trackColors,
     route,
@@ -437,6 +620,42 @@ export const AltitudeChart = memo(function AltitudeChart({
         isLeader: c.id === leaderId,
       })),
     [competitors, leaderId, preferences.distanceUnit, preferences.altitudeUnit, altitudeMin, altitudeMax],
+  );
+
+  const maxProgressPoints = useMemo(
+    () =>
+      maxProgressMarkers.map((marker) => ({
+        taskDistance: marker.taskDistance,
+        altitude: marker.altitude,
+        color: marker.color,
+        landed: marker.landed,
+      })),
+    [maxProgressMarkers],
+  );
+
+  const maxProgressLinks = useMemo(
+    () =>
+      maxProgressMarkers
+        .filter(
+          (marker) =>
+            Math.abs(marker.taskDistance - marker.currentTaskDistance) > 0.01 ||
+            Math.abs(marker.altitude - marker.currentAltitude) > 1,
+        )
+        .map((marker) => ({
+          id: marker.id,
+          color: marker.landed ? LANDED_COLOR : marker.color,
+          points: [
+            {
+              taskDistance: marker.currentTaskDistance,
+              altitude: marker.currentAltitude,
+            },
+            {
+              taskDistance: marker.taskDistance,
+              altitude: marker.altitude,
+            },
+          ],
+        })),
+    [maxProgressMarkers],
   );
 
   return (
@@ -569,6 +788,48 @@ export const AltitudeChart = memo(function AltitudeChart({
               ifOverflow="extendDomain"
             />
           )}
+
+          {maxProgressLinks.map((link) => (
+            <Line
+              key={`max-progress-link-${link.id}`}
+              data={link.points}
+              type="linear"
+              dataKey="altitude"
+              stroke={link.color}
+              strokeWidth={1.5}
+              strokeOpacity={MAX_PROGRESS_LINK_OPACITY}
+              strokeDasharray="4 3"
+              dot={false}
+              isAnimationActive={false}
+              legendType="none"
+            />
+          ))}
+
+          <Scatter
+            name="Max progress"
+            data={maxProgressPoints}
+            fill="#111827"
+            isAnimationActive={false}
+            activeShape={false}
+            shape={(props: {
+              cx?: number;
+              cy?: number;
+              payload?: { color?: string; landed?: boolean };
+            }) => {
+              const { cx, cy, payload } = props;
+              if (cx == null || cy == null) return <g />;
+              const landed = payload?.landed ?? false;
+              const fill = landed ? LANDED_COLOR : (payload?.color ?? '#111827');
+              return (
+                <g
+                  className="chart-max-progress-marker"
+                  opacity={landed ? MAX_PROGRESS_MARKER_OPACITY * 0.85 : MAX_PROGRESS_MARKER_OPACITY}
+                >
+                  <circle cx={cx} cy={cy} r={7} fill={fill} stroke="#ffffff" strokeWidth={2} />
+                </g>
+              );
+            }}
+          />
 
           <Scatter
             name="Pilots"

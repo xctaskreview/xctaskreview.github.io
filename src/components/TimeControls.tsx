@@ -34,13 +34,6 @@ function markerPercent(timing: TaskTiming, markerTime?: Date): number | null {
   return ((markerTime.getTime() - start) / (end - start)) * 100;
 }
 
-const MARKER_OVERLAP_THRESHOLD_PCT = 6;
-
-function markerPositionsOverlap(a: number | null, b: number | null): boolean {
-  if (a === null || b === null) return false;
-  return Math.abs(a - b) < MARKER_OVERLAP_THRESHOLD_PCT;
-}
-
 function fastestFinishElapsed(timing: TaskTiming): string | null {
   if (!timing.fastestFinish) return null;
   const start = timing.taskStart ?? timing.trackStart;
@@ -162,16 +155,13 @@ export function TimeControls({
             {turnpointReachMarkers.map((marker) => {
               const markerPct = markerPercent(timing, marker.time);
               if (markerPct === null) return null;
-              const hideLabel =
-                markerPositionsOverlap(markerPct, taskStartPct) ||
-                markerPositionsOverlap(markerPct, finishPct);
               const reached = currentMs >= marker.time.getTime();
 
               return (
                 <TurnpointHoverTrigger
                   key={`tp-${marker.index}-${marker.number}`}
                   type="button"
-                  className={`time-marker-column tp-reach-marker-column${hideLabel ? ' tp-reach-marker-column-overlap' : ''}${reached ? ' tp-reach-marker-column-reached' : ''}`}
+                  className={`time-marker-column tp-reach-marker-column${reached ? ' tp-reach-marker-column-reached' : ''}`}
                   style={{ left: `${markerPct}%` }}
                   tooltip={formatTurnpointHoverLabel(marker, {
                     distanceUnit,
@@ -180,7 +170,7 @@ export function TimeControls({
                   onClick={() => onTimeChange(marker.time)}
                 >
                   <span
-                    className={`time-marker-label tp-reach-label${hideLabel ? ' tp-reach-label-overlap' : ''}${reached ? ' tp-reach-label-reached' : ''}`}
+                    className={`time-marker-label tp-reach-label${reached ? ' tp-reach-label-reached' : ''}`}
                   >
                     {marker.number}
                   </span>
