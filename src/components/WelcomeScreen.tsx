@@ -25,6 +25,7 @@ import { getMapTypeOptions, getSpeedUnitOptions, getTimezoneOptions, getVertical
 import { AppHomeLink } from './AppHomeLink';
 import { FileDropZone } from './FileDropZone';
 import { Icon, IconButtonContent, IconLabel, XcdemonButtonContent } from './Icon';
+import { TaskEditForm } from './TaskEditForm';
 import { XcdemonImportDialog } from './XcdemonImportDialog';
 
 function getDistanceUnitOptions() {

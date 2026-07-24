@@ -1,4 +1,4 @@
-import type { LatLon, OptimizedRoute, RoutePoint, XcTask } from './types';
+import type { EditableTurnpointRow, LatLon, OptimizedRoute, RoutePoint, TaskEditDraft, Turnpoint, XcTask } from './types';
 import { computeOptimizedRoute } from './route';
 import { haversine, parseIsoDate, parseLocalTimeOnDate, parseUtcTimeOnDate } from './geo';
 
@@ -8,6 +8,42 @@ export function parseXcTask(text: string): XcTask {
     throw new Error('Task file has no turnpoints');
   }
   return task;
+}
+
+export function getTaskStartGate(task: XcTask): string { return task.sss?.timeGates?.[0] ?? ''; }
+function normalizeTimeGate(timeGate: string): string {
+  const match = timeGate.trim().match(/^(\d{2}):(\d{2})(?::(\d{2}))?(Z)?$/i);
+  if (!match) throw new Error('Start time must be HH:MM or HH:MM:SS');
+  return `${match[1]}:${match[2]}:${match[3] ?? '00'}${match[4] ?? ''}`;
+}
+function editableRowFromTurnpoint(tp: Turnpoint): EditableTurnpointRow {
+  return { name: tp.waypoint.name, lat: String(tp.waypoint.lat), lon: String(tp.waypoint.lon), radius: String(tp.radius), type: tp.type ?? '' };
+}
+export function createTaskEditDraft(task: XcTask): TaskEditDraft {
+  return { turnpoints: task.turnpoints.map(editableRowFromTurnpoint), startTime: getTaskStartGate(task) };
+}
+export function taskEditDraftEquals(task: XcTask, draft: TaskEditDraft): boolean {
+  const current = createTaskEditDraft(task);
+  if (current.startTime !== draft.startTime.trim() || current.turnpoints.length !== draft.turnpoints.length) return false;
+  return current.turnpoints.every((row, i) => {
+    const e = draft.turnpoints[i];
+    return row.name === e.name.trim() && row.lat === e.lat.trim() && row.lon === e.lon.trim() && row.radius === e.radius.trim() && row.type === e.type;
+  });
+}
+export function applyTaskEditDraft(baseTask: XcTask, draft: TaskEditDraft): XcTask {
+  if (!draft.turnpoints.length) throw new Error('Task must have at least one turnpoint');
+  const turnpoints: Turnpoint[] = draft.turnpoints.map((row, index) => {
+    const name = row.name.trim(); if (!name) throw new Error(`Turnpoint ${index + 1}: name is required`);
+    const lat = Number(row.lat); if (!Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error(`Turnpoint ${index + 1}: latitude must be between -90 and 90`);
+    const lon = Number(row.lon); if (!Number.isFinite(lon) || lon < -180 || lon > 180) throw new Error(`Turnpoint ${index + 1}: longitude must be between -180 and 180`);
+    const radius = Number(row.radius); if (!Number.isFinite(radius) || radius <= 0) throw new Error(`Turnpoint ${index + 1}: radius must be a positive number`);
+    const existing = baseTask.turnpoints[index];
+    return { radius, type: row.type || undefined, waypoint: { ...existing?.waypoint, name, lat, lon } };
+  });
+  const startTime = draft.startTime.trim(); let sss = baseTask.sss;
+  if (startTime) sss = { ...baseTask.sss, type: baseTask.sss?.type ?? 'RACE', direction: baseTask.sss?.direction ?? 'EXIT', timeGates: [normalizeTimeGate(startTime)] };
+  else if (sss?.timeGates?.length) sss = { ...sss, timeGates: [] };
+  return { ...baseTask, turnpoints, sss };
 }
 
 export function getRoutePoints(task: XcTask): RoutePoint[] {
@@ -21,7 +57,34 @@ export function getRoutePoints(task: XcTask): RoutePoint[] {
   }));
 }
 
+export function getTurnpointLabel(tp: Turnpoint): string {
+  return tp.waypoint.name.trim();
+}
+
+export function isStartTurnpointLabel(label: string): boolean {
+  const upper = label.toUpperCase();
+  return upper.endsWith('SS') && !upper.endsWith('ES');
+}
+
+export function isEndTurnpointLabel(label: string): boolean {
+  return label.toUpperCase().trim().endsWith('ES');
+}
+
+export function getStartIndex(task: XcTask): number {
+  const ssSuffixIndex = task.turnpoints.findIndex((tp) =>
+    isStartTurnpointLabel(getTurnpointLabel(tp)),
+  );
+  if (ssSuffixIndex >= 0) return ssSuffixIndex;
+  const sssIndex = task.turnpoints.findIndex((tp) => tp.type === 'SSS');
+  if (sssIndex >= 0) return sssIndex;
+  return 0;
+}
+
 export function getGoalIndex(task: XcTask): number {
+  const esSuffixIndex = task.turnpoints.findIndex((tp) =>
+    isEndTurnpointLabel(getTurnpointLabel(tp)),
+  );
+  if (esSuffixIndex >= 0) return esSuffixIndex;
   const essIndex = task.turnpoints.findIndex((tp) => tp.type === 'ESS');
   if (essIndex >= 0) return essIndex;
   return task.turnpoints.length - 1;
@@ -38,9 +101,8 @@ export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
     cumulativeDistances.push(cumulativeDistances[cumulativeDistances.length - 1] + leg);
   }
 
-  const sssIndex = task.turnpoints.findIndex((tp) => tp.type === 'SSS');
+  const startIndex = getStartIndex(task);
   const goalIndex = getGoalIndex(task);
-  const startIndex = sssIndex >= 0 ? sssIndex : 0;
 
   const progressPoints = fixes.slice(startIndex, goalIndex + 1);
   const progressLegDistances = legDistances.slice(startIndex, goalIndex);

@@ -17,6 +17,21 @@ export interface Turnpoint {
   type?: 'SSS' | 'ESS';
 }
 
+export type TurnpointTypeOption = '' | 'SSS' | 'ESS';
+
+export interface EditableTurnpointRow {
+  name: string;
+  lat: string;
+  lon: string;
+  radius: string;
+  type: TurnpointTypeOption;
+}
+
+export interface TaskEditDraft {
+  turnpoints: EditableTurnpointRow[];
+  startTime: string;
+}
+
 export interface XcTask {
   version: number;
   taskType: string;
