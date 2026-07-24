@@ -1,7 +1,7 @@
 import { getTrackEndTime, sanitizeTrackPointAltitudes } from './geo';
 import { parseGliderTypeFromHeader } from './igc';
 import type { AppPreferences } from './preferences';
-import { createDefaultPreferences } from './preferences';
+import { normalizePreferences } from './preferences';
 import type { FlightTrack, XcTask } from './types';
 
 const DB_NAME = 'xc-task-review';
@@ -273,7 +273,7 @@ function finalizeSession(
     enabledTrackIds:
       tracks.length === 0 ? [] : enabled.length > 0 ? enabled : tracks.map((track) => track.id),
     trackColors,
-    preferences: { ...createDefaultPreferences(), ...preferences },
+    preferences: normalizePreferences(preferences),
     ...(view ? { view } : {}),
   };
 }

@@ -39,6 +39,71 @@ export function createDefaultPreferences(): AppPreferences {
   };
 }
 
+const PREFERENCES_STORAGE_KEY = 'xc-task-review-preferences';
+
+const DISTANCE_UNITS = new Set<DistanceUnit>(['km', 'mi']);
+const ALTITUDE_UNITS = new Set<AltitudeUnit>(['m', 'ft']);
+const SPEED_UNITS = new Set<SpeedUnit>(['km/h', 'mph', 'kt']);
+const VERTICAL_SPEED_UNITS = new Set<VerticalSpeedUnit>(['m/s', 'ft/min']);
+const MAP_TYPES = new Set<MapType>(['topo', 'osm', 'satellite']);
+
+export function normalizePreferences(value: Partial<AppPreferences> | null | undefined): AppPreferences {
+  const defaults = createDefaultPreferences();
+  if (!value || typeof value !== 'object') return defaults;
+
+  return {
+    distanceUnit: DISTANCE_UNITS.has(value.distanceUnit as DistanceUnit)
+      ? (value.distanceUnit as DistanceUnit)
+      : defaults.distanceUnit,
+    altitudeUnit: ALTITUDE_UNITS.has(value.altitudeUnit as AltitudeUnit)
+      ? (value.altitudeUnit as AltitudeUnit)
+      : defaults.altitudeUnit,
+    speedUnit: SPEED_UNITS.has(value.speedUnit as SpeedUnit)
+      ? (value.speedUnit as SpeedUnit)
+      : defaults.speedUnit,
+    verticalSpeedUnit: VERTICAL_SPEED_UNITS.has(value.verticalSpeedUnit as VerticalSpeedUnit)
+      ? (value.verticalSpeedUnit as VerticalSpeedUnit)
+      : defaults.verticalSpeedUnit,
+    timezone:
+      typeof value.timezone === 'string' && value.timezone.trim().length > 0
+        ? value.timezone
+        : defaults.timezone,
+    mapType: MAP_TYPES.has(value.mapType as MapType) ? (value.mapType as MapType) : defaults.mapType,
+    pilotTrailLengthM: normalizePilotTrailLengthM(
+      typeof value.pilotTrailLengthM === 'number' ? value.pilotTrailLengthM : defaults.pilotTrailLengthM,
+    ),
+  };
+}
+
+/** Load preferences from localStorage. Independent of task/session persistence. */
+export function loadPersistedPreferences(): AppPreferences | null {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const raw = localStorage.getItem(PREFERENCES_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') {
+      localStorage.removeItem(PREFERENCES_STORAGE_KEY);
+      return null;
+    }
+
+    return normalizePreferences(parsed as Partial<AppPreferences>);
+  } catch {
+    return null;
+  }
+}
+
+/** Persist preferences to localStorage so they survive reloads and cleared sessions. */
+export function savePersistedPreferences(preferences: AppPreferences): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(normalizePreferences(preferences)));
+  } catch {
+    // Ignore quota / private-mode failures.
+  }
+}
+
 const KM_TO_MI = 0.621371;
 const M_TO_FT = 3.28084;
 const MPS_TO_KT = 1.9438444924406;
