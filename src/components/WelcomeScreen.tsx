@@ -313,11 +313,11 @@ export function WelcomeScreen({
                           </label>
                           <button
                             type="button"
-                            className="welcome-icon-button"
+                            className="welcome-icon-button danger"
                             aria-label={`Remove ${pilotName}`}
                             onClick={() => onRemoveTrack(track.id)}
                           >
-                            <Icon icon={X} size="sm" />
+                            <Icon icon={Trash2} size="sm" />
                           </button>
                         </li>
                       );

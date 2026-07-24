@@ -196,7 +196,7 @@ body,
 }
 
 .welcome-card {
-  width: min(100%, 640px);
+  width: min(100%, 704px);
   padding: 40px;
   border-radius: 20px;
   background: white;
@@ -286,7 +286,7 @@ body,
   align-items: stretch;
   gap: 12px;
   width: 100%;
-  max-width: 688px;
+  max-width: 757px;
   margin: 0 auto;
   padding: 16px 24px;
   border: 1px solid #e2e8f0;
@@ -521,12 +521,15 @@ body,
 }
 
 .welcome-task-edit-actions-col {
-  width: 40px;
+  width: 48px;
   text-align: center;
+  padding-right: 12px !important;
+  padding-left: 4px !important;
 }
 
 .welcome-task-edit-actions-col .welcome-icon-button {
   margin-right: 0;
+  padding: 6px;
 }
 
 .welcome-task-edit-actions-col .welcome-icon-button:disabled {
