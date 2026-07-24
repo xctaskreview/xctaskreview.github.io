@@ -141,7 +141,8 @@ export function enrichTrackWithTaskProgress(
       }
 
       if (hasExitedSss && currentLeg >= 0) {
-        const nextTpIndex = currentLeg + 1;
+        // currentLeg is 0-based in the SSS→ESS progress route; cylinders use absolute indices.
+        const nextTpIndex = route.sssIndex + currentLeg + 1;
         if (nextTpIndex <= goalIndex) {
           const nextTp = turnpoints[nextTpIndex];
           if (pointInCylinder(point, nextTp.center, nextTp.radius)) {
@@ -149,7 +150,7 @@ export function enrichTrackWithTaskProgress(
               finished = true;
               finishTime ??= point.time;
             } else {
-              currentLeg = nextTpIndex;
+              currentLeg = nextTpIndex - route.sssIndex;
             }
           }
         }

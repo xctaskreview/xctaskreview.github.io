@@ -7,10 +7,13 @@ import { formatAltitude, formatDistance, normalizePilotTrailLengthM, type AppPre
 import {
   buildCompletedRouteSegments,
   circleKey,
+  COMPLETED_LEG_OPACITY,
+  COMPLETED_LEG_WEIGHT,
   getLeaderNextLegSegment,
   getTurnpointCirclePathOptions,
   getTurnpointColor,
   isCircleTagged,
+  isStartTurnpoint,
   ROUTE_DASH_ARRAY,
   TASK_PROGRESS_LINE_COLOR,
   turnpointIcon,
@@ -176,11 +179,14 @@ export function LiveCompetitorLayer({
 
     const completedRoute = L.polyline([], {
       color: TASK_PROGRESS_LINE_COLOR,
-      weight: 3,
-      opacity: 0.95,
-      dashArray: ROUTE_DASH_ARRAY,
+      weight: COMPLETED_LEG_WEIGHT,
+      opacity: COMPLETED_LEG_OPACITY,
+      lineCap: 'round',
+      lineJoin: 'round',
+      interactive: false,
     });
     completedRoute.addTo(map);
+    completedRoute.bringToBack();
     completedRouteRef.current = completedRoute;
 
     const progressLine = L.polyline([], {
@@ -398,6 +404,11 @@ export function LiveCompetitorLayer({
       syncTrail(track, time, snapshot.landed);
     };
 
+    const shouldHighlightStartFill = (time: Date) => {
+      const currentTaskStart = taskStartRef.current;
+      return Boolean(currentTaskStart && time.getTime() >= currentTaskStart.getTime());
+    };
+
     const resetLeaderNextTurnpointCircle = () => {
       const layers = layerRefs.current;
       const previousKey = leaderNextTpKeyRef.current;
@@ -458,7 +469,6 @@ export function LiveCompetitorLayer({
       }
 
       line.setLatLngs(segment.map((point) => [point.lat, point.lon] as L.LatLngTuple));
-      completedRouteRef.current?.bringToFront();
       progressLineRef.current?.bringToFront();
 
       const nextIndex = snapshot.legIndex + 1;
@@ -478,11 +488,11 @@ export function LiveCompetitorLayer({
       leaderNextTpKeyRef.current = nextKey;
       const tagged = taggedTurnpointStateRef.current.get(nextKey) ?? false;
       layers.circles.get(nextKey)?.setStyle(
-        getTurnpointCirclePathOptions(nextCircle, routeRef.current, tagged, 4.5),
+        getTurnpointCirclePathOptions(nextCircle, routeRef.current, tagged, true),
       );
     };
 
-    const resetTaskProgressVisuals = () => {
+    const resetTaskProgressVisuals = (time: Date) => {
       completedRouteRef.current?.setLatLngs([]);
       taggedTurnpointStateRef.current.clear();
       resetLeaderNextTurnpointHighlight();
@@ -490,11 +500,16 @@ export function LiveCompetitorLayer({
       const layers = layerRefs.current;
       if (!layers) return;
 
+      const highlightStart = shouldHighlightStartFill(time);
       for (const circle of circlesRef.current) {
         const key = circleKey(circle);
         const markerKey = `${key}-marker`;
         const color = getTurnpointColor(circle, routeRef.current, false);
-        layers.circles.get(key)?.setStyle(getTurnpointCirclePathOptions(circle, routeRef.current, false));
+        const fillHighlight =
+          highlightStart && isStartTurnpoint(circle, routeRef.current);
+        layers.circles
+          .get(key)
+          ?.setStyle(getTurnpointCirclePathOptions(circle, routeRef.current, false, fillHighlight));
         layers.markers.get(markerKey)?.setIcon(turnpointIcon(color, circle.name ?? 'TP'));
       }
     };
@@ -508,7 +523,7 @@ export function LiveCompetitorLayer({
             segment.map((point) => [point.lat, point.lon] as L.LatLngTuple),
           ),
         );
-        completedRoute.bringToFront();
+        completedRoute.bringToBack();
         progressLineRef.current?.bringToFront();
       }
 
@@ -524,7 +539,10 @@ export function LiveCompetitorLayer({
 
         taggedTurnpointStateRef.current.set(key, tagged);
         const color = getTurnpointColor(circle, routeRef.current, tagged);
-        layers.circles.get(key)?.setStyle(getTurnpointCirclePathOptions(circle, routeRef.current, tagged));
+        const fillHighlight = key === leaderNextTpKeyRef.current;
+        layers.circles
+          .get(key)
+          ?.setStyle(getTurnpointCirclePathOptions(circle, routeRef.current, tagged, fillHighlight));
         layers.markers.get(markerKey)?.setIcon(turnpointIcon(color, circle.name ?? 'TP'));
       }
     };
@@ -540,7 +558,7 @@ export function LiveCompetitorLayer({
           progressLabel.labelEl.style.display = 'none';
         }
         taskProgressMarkerRef.current = null;
-        resetTaskProgressVisuals();
+        resetTaskProgressVisuals(time);
       };
 
       if (!progressLine || !currentTaskStart) {

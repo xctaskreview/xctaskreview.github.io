@@ -12,7 +12,6 @@ import {
 } from 'recharts';
 import { buildCompetitorSnapshots } from '../lib/competitors';
 import { clampChartAltitudeDisplay, LANDED_COLOR } from '../lib/geo';
-import { pilotFirstName } from '../lib/igc';
 import { buildPilotChartTrailPoints } from '../lib/pilotTrail';
 import type { AppPreferences } from '../lib/preferences';
 import {
@@ -44,7 +43,6 @@ interface ChartMaxProgressMarker {
   id: string;
   color: string;
   landed: boolean;
-  firstName: string;
   taskDistance: number;
   altitude: number;
   currentTaskDistance: number;
@@ -252,7 +250,6 @@ function buildMaxProgressMarkers(
         id: track.id,
         color,
         landed: snapshot.landed,
-        firstName: pilotFirstName(track.pilotName),
         taskDistance,
         altitude,
         currentTaskDistance,
@@ -630,7 +627,6 @@ export const AltitudeChart = memo(function AltitudeChart({
       maxProgressMarkers.map((marker) => ({
         taskDistance: marker.taskDistance,
         altitude: marker.altitude,
-        firstName: marker.firstName,
         color: marker.color,
         landed: marker.landed,
       })),
@@ -818,7 +814,7 @@ export const AltitudeChart = memo(function AltitudeChart({
             shape={(props: {
               cx?: number;
               cy?: number;
-              payload?: { color?: string; firstName?: string; landed?: boolean };
+              payload?: { color?: string; landed?: boolean };
             }) => {
               const { cx, cy, payload } = props;
               if (cx == null || cy == null) return <g />;
@@ -830,9 +826,6 @@ export const AltitudeChart = memo(function AltitudeChart({
                   opacity={landed ? MAX_PROGRESS_MARKER_OPACITY * 0.85 : MAX_PROGRESS_MARKER_OPACITY}
                 >
                   <circle cx={cx} cy={cy} r={7} fill={fill} stroke="#ffffff" strokeWidth={2} />
-                  <text x={cx + 10} y={cy + 4} fill={fill} fontSize={11} fontWeight={600}>
-                    {payload?.firstName ?? ''}
-                  </text>
                 </g>
               );
             }}
