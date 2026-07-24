@@ -24,6 +24,8 @@ interface SessionManifest {
   taskFileName: string;
   preferences: AppPreferences;
   view?: PersistedView;
+  taskProgressMinimized?: boolean;
+  taskProgressHeightPx?: number;
   tracks: SessionManifestTrack[];
 }
 
@@ -57,6 +59,10 @@ function buildManifest(session: PersistedSession, tracks: SessionManifestTrack[]
     taskFileName: session.taskFileName || 'task.xctsk',
     preferences: session.preferences,
     view: session.view,
+    ...(session.taskProgressMinimized ? { taskProgressMinimized: true } : {}),
+    ...(session.taskProgressHeightPx !== undefined
+      ? { taskProgressHeightPx: session.taskProgressHeightPx }
+      : {}),
     tracks,
   };
 }
@@ -156,6 +162,11 @@ function finalizeImportedSession(
     trackColors: assignUniqueTrackColors(tracks, existingColors),
     preferences: { ...createDefaultPreferences(), ...manifest.preferences },
     view: manifest.view,
+    ...(manifest.taskProgressMinimized ? { taskProgressMinimized: true } : {}),
+    ...(typeof manifest.taskProgressHeightPx === 'number' &&
+    Number.isFinite(manifest.taskProgressHeightPx)
+      ? { taskProgressHeightPx: Math.round(manifest.taskProgressHeightPx) }
+      : {}),
   };
 }
 

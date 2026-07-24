@@ -9,8 +9,10 @@ import {
   type XcdemonLeague,
   type XcdemonLeagueTask,
 } from '../lib/xcdemon';
+import { useStableCallbackRef } from '../lib/useStableCallbackRef';
 import { Icon, IconButtonContent, XcdemonButtonContent } from './Icon';
 import { ImportCatalogPicker } from './ImportCatalogPicker';
+import { ModalDialogBackdrop } from './ModalDialogBackdrop';
 
 interface XcdemonImportDialogProps {
   open: boolean;
@@ -35,6 +37,7 @@ export function XcdemonImportDialog({
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [tasks, setTasks] = useState<XcdemonLeagueTask[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState('');
+  const onErrorRef = useStableCallbackRef(onError);
 
   useEffect(() => {
     if (!open) return;
@@ -53,8 +56,7 @@ export function XcdemonImportDialog({
       })
       .catch((err) => {
         if (cancelled) return;
-        onError(err instanceof Error ? err.message : 'Could not load XCDemon leagues.');
-        onClose();
+        onErrorRef.current(err instanceof Error ? err.message : 'Could not load XCDemon leagues.');
       })
       .finally(() => {
         if (!cancelled) setLoadingLeagues(false);
@@ -63,7 +65,7 @@ export function XcdemonImportDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, onClose, onError]);
+  }, [open, onErrorRef]);
 
   useEffect(() => {
     if (!open || loadingLeagues || activeLeagues.length === 0) return;
@@ -84,7 +86,7 @@ export function XcdemonImportDialog({
       })
       .catch((err) => {
         if (cancelled) return;
-        onError(err instanceof Error ? err.message : 'Could not load XCDemon tasks.');
+        onErrorRef.current(err instanceof Error ? err.message : 'Could not load XCDemon tasks.');
       })
       .finally(() => {
         if (!cancelled) setLoadingCatalog(false);
@@ -93,7 +95,7 @@ export function XcdemonImportDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, loadingLeagues, activeLeagues.length, selectedLeagueId, selectedYear, onError]);
+  }, [open, loadingLeagues, activeLeagues.length, selectedLeagueId, selectedYear, onErrorRef]);
 
   const selectedTask = useMemo(
     () => tasks.find((task) => task.taskId === selectedTaskId) ?? null,
@@ -115,18 +117,16 @@ export function XcdemonImportDialog({
     }
   };
 
-  if (!open) return null;
-
   const busy = loadingLeagues || loadingCatalog || importing;
 
   return (
-    <div className="xcdemon-dialog-backdrop" role="presentation" onClick={onClose}>
+    <ModalDialogBackdrop open={open} onClose={onClose}>
       <div
         className="xcdemon-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="xcdemon-dialog-title"
-        onClick={(event) => event.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="xcdemon-dialog-header">
           <div>
@@ -181,6 +181,7 @@ export function XcdemonImportDialog({
             label="Task with results"
             value={selectedTaskId}
             disabled={busy}
+            loading={loadingCatalog}
             placeholder="Select a task…"
             emptyHint="No tasks loaded for this year."
             options={tasks.map((task) => ({
@@ -233,6 +234,6 @@ export function XcdemonImportDialog({
           </button>
         </div>
       </div>
-    </div>
+    </ModalDialogBackdrop>
   );
 }

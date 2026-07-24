@@ -4,11 +4,11 @@ import { formatDuration, formatTime } from '../lib/geo';
 import type { TurnpointReachMarker } from '../lib/taskProgressMarker';
 import type { TaskTiming } from '../lib/types';
 import type { AppPreferences } from '../lib/preferences';
+import { PLAYBACK_SPEEDS } from '../lib/preferences';
 import { formatTurnpointHoverLabel } from '../lib/turnpointTooltip';
 import { Icon, IconLabel } from './Icon';
 import { TurnpointHoverTrigger } from './TurnpointHoverTooltip';
 
-const SPEEDS = [1, 2, 5, 10, 20, 50, 100];
 const DISPLAY_UPDATE_INTERVAL_MS = 1000;
 
 interface TimeControlsProps {
@@ -126,7 +126,7 @@ export function TimeControls({
             aria-label="Playback speed"
             onChange={(e) => onSpeedChange(Number(e.target.value))}
           >
-            {SPEEDS.map((value) => (
+            {PLAYBACK_SPEEDS.map((value) => (
               <option key={value} value={value}>
                 x{value}
               </option>

@@ -61,6 +61,11 @@ async function fetchXcdemon(url: string, init?: RequestInit): Promise<Response> 
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('Request to XCDemon timed out. Please try again.');
     }
+    if (error instanceof TypeError) {
+      throw new Error(
+        'Could not reach XCDemon. Check your network, disable ad blockers for this site, or run the app with npm run dev (local proxy).',
+      );
+    }
     throw error;
   } finally {
     window.clearTimeout(timeoutId);

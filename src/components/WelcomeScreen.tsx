@@ -452,8 +452,9 @@ export function WelcomeScreen({
                               onChange={(e) => onTrackColorChange(track.id, e.target.value)}
                             />
                             <span className="welcome-pilot-name">
-                              <button
-                                type="button"
+                              <span
+                                role="button"
+                                tabIndex={0}
                                 className={`welcome-pilot-name-toggle${progressFocusTrackId === track.id ? ' is-progress-focus' : ''}`}
                                 aria-pressed={progressFocusTrackId === track.id}
                                 aria-label={
@@ -462,13 +463,19 @@ export function WelcomeScreen({
                                     : `Show ${pilotName} task progress on map`
                                 }
                                 onClick={() => onProgressFocusTrack(track.id)}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    onProgressFocusTrack(track.id);
+                                  }
+                                }}
                               >
                                 <span className="welcome-pilot-line">
                                   {pilotName}
                                   <span className="welcome-pilot-file"> ({extractPilotFileName(track)})</span>
                                 </span>
                                 {gliderType && <span className="welcome-pilot-glider">{gliderType}</span>}
-                              </button>
+                              </span>
                             </span>
                           </div>
                           <button
@@ -602,6 +609,15 @@ export function WelcomeScreen({
                 onChange={(e) =>
                   updatePreference('pilotTrailLengthM', normalizePilotTrailLengthM(Number(e.target.value)))
                 }
+              />
+            </label>
+
+            <label className="welcome-pref-field welcome-pref-field--checkbox">
+              <IconLabel icon={Eye}>Show future trail</IconLabel>
+              <input
+                type="checkbox"
+                checked={preferences.showFutureTrail}
+                onChange={(e) => updatePreference('showFutureTrail', e.target.checked)}
               />
             </label>
           </div>

@@ -136,6 +136,7 @@ export interface CompetitorSnapshot {
   groundSpeedMps: number;
   verticalSpeedMps: number;
   nextTurnpointName: string;
+  nextTurnpointNumber: number | null;
   leadPercent: number;
 }
 

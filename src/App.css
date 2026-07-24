@@ -1548,6 +1548,13 @@ html.turnpoint-drag-active .welcome-scroll {
   line-height: 1.4;
 }
 
+.import-catalog-picker-loading {
+  border-style: solid;
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+}
+
 .import-catalog-picker-list.disabled {
   opacity: 0.65;
   pointer-events: none;
@@ -1606,13 +1613,25 @@ html.turnpoint-drag-active .welcome-scroll {
   flex-direction: column;
   gap: 1px;
   min-width: 0;
+  margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
-  text-align: left;
-  font: inherit;
   color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.welcome-pilot-name-toggle:focus {
+  outline: none;
+}
+
+.welcome-pilot-name-toggle:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .welcome-pilot-name-toggle.is-progress-focus .welcome-pilot-line,
@@ -1708,7 +1727,7 @@ html.turnpoint-drag-active .welcome-scroll {
 }
 
 .welcome-pref-field select,
-.welcome-pref-field input {
+.welcome-pref-field input:not([type='checkbox']) {
   padding: 8px 10px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
@@ -1716,6 +1735,15 @@ html.turnpoint-drag-active .welcome-scroll {
   font-size: 1rem;
   font-weight: 500;
   color: #0f172a;
+}
+
+.welcome-pref-field--checkbox input[type='checkbox'] {
+  width: 1.1rem;
+  height: 1.1rem;
+  align-self: flex-start;
+  margin-top: 2px;
+  accent-color: #2563eb;
+  cursor: pointer;
 }
 
 .welcome-continue {
@@ -2036,7 +2064,12 @@ html.turnpoint-drag-active .welcome-scroll {
   background: transparent;
   border: 0;
   overflow: visible;
-  z-index: 1000 !important;
+}
+
+.competitor-marker-column--focused,
+.competitor-marker-column--focused .competitor-marker {
+  width: 24px;
+  height: 24px;
 }
 
 .competitor-marker-column {
@@ -2455,6 +2488,19 @@ html.turnpoint-drag-active .welcome-scroll {
   color: #0f172a;
 }
 
+.chart-panel-title-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.chart-panel-title-button:hover {
+  color: #1d4ed8;
+}
+
 .chart-panel-title-text {
   min-width: 0;
   overflow: hidden;
@@ -2538,6 +2584,20 @@ html.turnpoint-drag-active .welcome-scroll {
   min-height: 0;
 }
 
+.chart-plot-host-interactive {
+  cursor: crosshair;
+}
+
+.chart-pilot-marker,
+.chart-max-progress-marker {
+  cursor: pointer;
+}
+
+.chart-pilot-marker text {
+  stroke: none;
+  pointer-events: none;
+}
+
 .review-screen .chart-panel-body .recharts-wrapper,
 .review-screen .chart-panel-body .recharts-surface {
   overflow: visible;
@@ -2611,29 +2671,119 @@ html.turnpoint-drag-active .welcome-scroll {
   top: 12px;
   right: 12px;
   z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: calc(100% - 24px);
+  pointer-events: none;
+  width: auto;
+}
+
+.map-data-panels-toggles,
+.map-data-panels .scoreboard-table-scroll,
+.map-data-panels .leg-statistics-table-scroll,
+.map-data-panels .pilot-detail-panel {
+  pointer-events: auto;
+}
+
+.map-data-panels-toggles {
   border: 1px solid rgba(226, 232, 240, 0.95);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
   backdrop-filter: blur(8px);
-  pointer-events: auto;
-  width: auto;
+  width: max-content;
+  max-width: 100%;
 }
 
-.map-data-panels.expanded-leaderboard {
-  width: min(620px, calc(100% - 24px));
+.map-data-panels.expanded .map-data-panels-toggles {
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
 }
 
-.map-data-panels.expanded-leg-statistics {
-  width: min(880px, calc(100% - 24px));
+.map-data-panels.expanded-leaderboard .scoreboard-table-scroll {
+  width: min(620px, calc(100vw - 24px));
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 0 0 10px 10px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(8px);
 }
 
-.map-data-panels.expanded-pilot-detail {
-  width: min(320px, calc(100% - 24px));
+.map-data-panels.expanded-leg-statistics .leg-statistics-table-scroll {
+  width: min(880px, calc(100vw - 24px));
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 0 0 10px 10px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(8px);
+}
+
+.map-data-panels.expanded-pilot-detail .pilot-detail-panel {
+  width: min(320px, calc(100vw - 24px));
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 0 0 10px 10px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(8px);
 }
 
 .map-data-panel-toggle-pilot {
-  max-width: 180px;
+  max-width: 220px;
+}
+
+.map-data-panel-toggle + .map-data-panel-pilot-tab,
+.map-data-panel-pilot-tab + .map-data-panel-toggle {
+  border-left: 1px solid #e2e8f0;
+}
+
+.map-data-panel-pilot-tab {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: min(260px, 100%);
+}
+
+.map-data-panel-pilot-tab .map-data-panel-toggle-pilot {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.map-data-panel-pilot-tab.active .map-data-panel-toggle-pilot,
+.map-data-panel-pilot-tab.active .map-data-panel-pilot-close {
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.map-data-panel-toggle-text .map-data-panel-pilot-color {
+  align-self: center;
+}
+
+.map-data-panel-pilot-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.map-data-panel-pilot-close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 32px;
+  height: 32px;
+  margin: 0 6px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
 }
 
 .map-data-panel-pilot-name {
@@ -2652,10 +2802,29 @@ html.turnpoint-drag-active .welcome-scroll {
   margin: 0;
 }
 
-.pilot-detail-card-title {
+.pilot-detail-stats {
+  margin: 0;
+}
+
+.pilot-detail-close {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.pilot-detail-close:hover {
+  background: rgba(248, 250, 252, 0.95);
+  color: #0f172a;
 }
 
 .scoreboard-row-selectable {
@@ -3503,10 +3672,10 @@ html.turnpoint-drag-active .welcome-scroll {
     box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.16);
   }
 
-  .map-data-panels.expanded-leaderboard,
-  .map-data-panels.expanded-leg-statistics,
-  .map-data-panels.expanded-pilot-detail {
-    width: min(calc(100% - 16px), 620px);
+  .map-data-panels.expanded-leaderboard .scoreboard-table-scroll,
+  .map-data-panels.expanded-leg-statistics .leg-statistics-table-scroll,
+  .map-data-panels.expanded-pilot-detail .pilot-detail-panel {
+    width: min(calc(100vw - 16px), 620px);
   }
 
   .map-legend-overlay.expanded {

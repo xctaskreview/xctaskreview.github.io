@@ -1,8 +1,9 @@
-import { createLocalProjection, haversine } from './geo';
+import { createLocalProjection, haversine, type LocalProjection } from './geo';
 import { extractPilotDisplayName } from './igc';
 import { getTaggedTurnpointProgressIndices, TASK_PROGRESS_LINE_COLOR } from './taskMapStyle';
 import type { EnrichedFlightTrack } from './taskProgress';
 import { getPilotMaxProgressAtTime, getTrackSnapshotAtTime } from './taskProgress';
+import { fieldRunningMaxPercentAt, type TaskFieldTimeline } from './taskTimeline';
 import type { LatLon, OptimizedRoute, RoutePoint } from './types';
 
 export { TASK_PROGRESS_LINE_COLOR };
@@ -27,88 +28,6 @@ export interface TaskProgressMarker {
   legNumber: number;
   center: LatLon;
   line: [LatLon, LatLon];
-}
-
-export interface TaskProgressMarkerCache {
-  trackKey: string;
-  taskStartMs: number;
-  lastTimeMs: number;
-  runningMaxProgress: number;
-}
-
-function maxTaskPercentAmongPilots(
-  tracks: EnrichedFlightTrack[],
-  route: OptimizedRoute,
-  timeMs: number,
-): number {
-  let maxProgress = 0;
-
-  for (const track of tracks) {
-    if (track.points.length === 0 || track.points[0].time.getTime() > timeMs) {
-      continue;
-    }
-
-    const snapshot = getTrackSnapshotAtTime(track, new Date(timeMs), route);
-    if (!snapshot?.hasStarted) continue;
-    maxProgress = Math.max(maxProgress, snapshot.taskPercent);
-  }
-
-  return maxProgress;
-}
-
-function recomputeRunningMaxProgress(
-  tracks: EnrichedFlightTrack[],
-  route: OptimizedRoute,
-  taskStartMs: number,
-  timeMs: number,
-): number {
-  if (timeMs < taskStartMs) return 0;
-
-  let runningMax = 0;
-  const startSecond = Math.floor(taskStartMs / 1000);
-  const endSecond = Math.floor(timeMs / 1000);
-
-  for (let second = startSecond; second <= endSecond; second += 1) {
-    runningMax = Math.max(runningMax, maxTaskPercentAmongPilots(tracks, route, second * 1000));
-  }
-
-  return Math.max(runningMax, maxTaskPercentAmongPilots(tracks, route, timeMs));
-}
-
-export function updateRunningMaxProgress(
-  tracks: EnrichedFlightTrack[],
-  route: OptimizedRoute,
-  taskStart: Date,
-  time: Date,
-  cacheRef: { current: TaskProgressMarkerCache | null },
-  trackKey: string,
-): number {
-  const taskStartMs = taskStart.getTime();
-  const timeMs = time.getTime();
-  const cache = cacheRef.current;
-  const needsReset =
-    !cache ||
-    cache.trackKey !== trackKey ||
-    cache.taskStartMs !== taskStartMs ||
-    timeMs < cache.lastTimeMs;
-
-  let runningMaxProgress: number;
-
-  if (needsReset) {
-    runningMaxProgress = recomputeRunningMaxProgress(tracks, route, taskStartMs, timeMs);
-  } else {
-    const currentMax = maxTaskPercentAmongPilots(tracks, route, timeMs);
-    runningMaxProgress = Math.max(cache.runningMaxProgress, currentMax);
-  }
-
-  cacheRef.current = {
-    trackKey,
-    taskStartMs,
-    lastTimeMs: timeMs,
-    runningMaxProgress,
-  };
-
-  return runningMaxProgress;
 }
 
 export function pointOnRouteAtProgress(
@@ -150,13 +69,25 @@ export function pointOnRouteAtProgress(
   };
 }
 
+/** One projection per route: building it per frame was pure repeated work. */
+const routeProjections = new WeakMap<OptimizedRoute, LocalProjection>();
+
+function getRouteProjection(route: OptimizedRoute): LocalProjection {
+  const cached = routeProjections.get(route);
+  if (cached) return cached;
+
+  const projection = createLocalProjection(route.progressPoints[0]);
+  routeProjections.set(route, projection);
+  return projection;
+}
+
 export function buildProgressLineAtPoint(
   route: OptimizedRoute,
   legIndex: number,
   point: LatLon,
 ): [LatLon, LatLon] {
   const clampedLeg = Math.max(0, Math.min(route.progressLegDistances.length - 1, legIndex));
-  const projection = createLocalProjection(route.progressPoints[0]);
+  const projection = getRouteProjection(route);
   const legStart = projection.toLocal(route.progressPoints[clampedLeg]);
   const legEnd = projection.toLocal(route.progressPoints[clampedLeg + 1] ?? route.progressPoints[clampedLeg]);
 
@@ -182,14 +113,11 @@ export function buildProgressLineAtPoint(
 export function computeTaskProgressMarker(
   tracks: EnrichedFlightTrack[],
   route: OptimizedRoute,
-  taskStart: Date,
+  timeline: TaskFieldTimeline,
   time: Date,
-  cacheRef: { current: TaskProgressMarkerCache | null },
-  trackKey: string,
   options?: { focusTrackId?: string | null },
 ): TaskProgressMarker | null {
   if (tracks.length === 0 || route.progressTotalDistance <= 0) {
-    cacheRef.current = null;
     return null;
   }
 
@@ -197,23 +125,15 @@ export function computeTaskProgressMarker(
 
   if (options?.focusTrackId) {
     const track = tracks.find((entry) => entry.id === options.focusTrackId);
-    if (!track) {
-      cacheRef.current = null;
-      return null;
-    }
+    if (!track) return null;
+
     const snapshot = getTrackSnapshotAtTime(track, time, route);
-    if (!snapshot?.hasStarted) {
-      cacheRef.current = null;
-      return null;
-    }
+    if (!snapshot?.hasStarted) return null;
+
     const maxProgress = getPilotMaxProgressAtTime(track, time);
     runningMaxProgress = Math.max(maxProgress?.taskPercent ?? 0, snapshot.taskPercent);
-    cacheRef.current = null;
   } else {
-    runningMaxProgress = Math.min(
-      100,
-      updateRunningMaxProgress(tracks, route, taskStart, time, cacheRef, trackKey),
-    );
+    runningMaxProgress = Math.min(100, fieldRunningMaxPercentAt(timeline, time.getTime()));
   }
 
   if (runningMaxProgress <= 0) return null;
@@ -296,6 +216,7 @@ export function computeTurnpointReachTimes(
   taskStart: Date,
   endTime: Date,
   circles: RoutePoint[],
+  timeline: TaskFieldTimeline,
 ): TurnpointReachMarker[] {
   if (tracks.length === 0 || route.progressTurnpoints.length === 0) {
     return [];
@@ -305,8 +226,6 @@ export function computeTurnpointReachTimes(
   const endMs = endTime.getTime();
   if (endMs < taskStartMs) return [];
 
-  const cacheRef: { current: TaskProgressMarkerCache | null } = { current: null };
-  const trackKey = tracks.map((track) => track.id).join('|');
   const firstPilotTags = computeFirstPilotTags(tracks, route, taskStart);
   const reached = new Map<number, TurnpointReachMarker>();
   const startSecond = Math.floor(taskStartMs / 1000);
@@ -314,7 +233,7 @@ export function computeTurnpointReachTimes(
 
   for (let second = startSecond; second <= endSecond; second += 1) {
     const time = new Date(second * 1000);
-    const runningMax = updateRunningMaxProgress(tracks, route, taskStart, time, cacheRef, trackKey);
+    const runningMax = fieldRunningMaxPercentAt(timeline, second * 1000);
     const tagged = getTaggedTurnpointProgressIndices(route, runningMax);
 
     for (const index of tagged) {

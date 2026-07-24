@@ -22,6 +22,8 @@ function clampChartHeight(height: number): number {
 interface TaskProgressPanelProps extends AltitudeChartProps {
   mobileOpen: boolean;
   minimized: boolean;
+  panelHeight: number;
+  onPanelHeightChange: (height: number) => void;
   onToggleMinimized: () => void;
   onHeightPreview?: (height: number) => void;
   onMobileDismiss?: () => void;
@@ -30,17 +32,26 @@ interface TaskProgressPanelProps extends AltitudeChartProps {
 export function TaskProgressPanel({
   mobileOpen,
   minimized,
+  panelHeight,
+  onPanelHeightChange,
   onToggleMinimized,
   onHeightPreview,
   onMobileDismiss,
   preferences,
   ...chartProps
 }: TaskProgressPanelProps) {
-  const [panelHeight, setPanelHeight] = useState(() => defaultTaskProgressHeight());
   const [isResizing, setIsResizing] = useState(false);
   const resizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
 
   const title = `Task Progress (alt [${preferences.altitudeUnit}] vs. dist [${preferences.distanceUnit}])`;
+
+  const handleToggleMinimized = useCallback(() => {
+    if (mobileOpen && onMobileDismiss && !minimized) {
+      onMobileDismiss();
+      return;
+    }
+    onToggleMinimized();
+  }, [mobileOpen, minimized, onMobileDismiss, onToggleMinimized]);
 
   useEffect(() => {
     if (!minimized) {
@@ -62,7 +73,7 @@ export function TaskProgressPanel({
         if (!start) return;
         const delta = start.startY - moveEvent.clientY;
         const nextHeight = clampChartHeight(start.startHeight + delta);
-        setPanelHeight(nextHeight);
+        onPanelHeightChange(nextHeight);
         onHeightPreview?.(nextHeight);
       };
 
@@ -81,7 +92,7 @@ export function TaskProgressPanel({
       handle.addEventListener('pointerup', endResize);
       handle.addEventListener('pointercancel', endResize);
     },
-    [minimized, onHeightPreview, panelHeight],
+    [minimized, onHeightPreview, onPanelHeightChange, panelHeight],
   );
 
   return (
@@ -98,23 +109,23 @@ export function TaskProgressPanel({
     >
       <div className={`chart-panel${minimized ? ' minimized' : ''}`}>
         <div className="chart-panel-header">
-          <div className="chart-panel-title map-data-panel-toggle-text">
+          <button
+            type="button"
+            className="chart-panel-title map-data-panel-toggle-text chart-panel-title-button"
+            aria-expanded={!minimized}
+            aria-label={minimized ? 'Restore task progress graph' : 'Minimize task progress graph'}
+            onClick={handleToggleMinimized}
+          >
             <Icon icon={LineChart} size="sm" />
             <span className="chart-panel-title-text">{title}</span>
-          </div>
+          </button>
           <div className="chart-panel-header-actions">
             <button
               type="button"
               className="chart-panel-icon-button"
               aria-expanded={!minimized}
               aria-label={minimized ? 'Restore task progress graph' : 'Minimize task progress graph'}
-              onClick={() => {
-                if (mobileOpen && onMobileDismiss && !minimized) {
-                  onMobileDismiss();
-                  return;
-                }
-                onToggleMinimized();
-              }}
+              onClick={handleToggleMinimized}
             >
               <Icon icon={minimized ? ChevronUp : ChevronDown} size="sm" />
             </button>
@@ -141,4 +152,8 @@ export function TaskProgressPanel({
 
 export function defaultTaskProgressHeight(): number {
   return clampChartHeight(Math.min(268, Math.round(window.innerHeight * 0.32)));
+}
+
+export function normalizeTaskProgressPanelHeight(value: number): number {
+  return clampChartHeight(value);
 }

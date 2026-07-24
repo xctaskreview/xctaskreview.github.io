@@ -2,7 +2,6 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { clampDisplayAltitudeMeters, LANDED_COLOR } from '../lib/geo';
-import { pilotFirstName } from '../lib/igc';
 import { formatAltitude, formatDistance, normalizePilotTrailLengthM, type AppPreferences } from '../lib/preferences';
 import {
   buildCompletedRouteSegments,
@@ -21,14 +20,26 @@ import {
 } from '../lib/taskMapStyle';
 import { getTrackColor, getTrackSnapshotAtTime } from '../lib/tracks';
 import { computeCompetitorPositions } from '../lib/competitors';
-import { buildPilotTrailLatLngs } from '../lib/pilotTrail';
-import { findLeaderAtTime, type EnrichedFlightTrack } from '../lib/taskProgress';
+import {
+  buildPilotFullPathGeometry,
+  buildPilotFutureTrailLatLngs,
+  buildPilotTrailLatLngs,
+  findPathIndexAtOrBefore,
+  pathChunkCount,
+  pathChunkEndIndex,
+  pathChunkIndexForPoint,
+  pathChunkStartIndex,
+  PILOT_PATH_FUTURE_OPACITY,
+  PILOT_PATH_PAST_OPACITY,
+  type PilotFullPathGeometry,
+} from '../lib/pilotTrail';
+import { type EnrichedFlightTrack } from '../lib/taskProgress';
+import { fieldLeaderIdAt, type TaskFieldTimeline } from '../lib/taskTimeline';
 import {
   computeTaskProgressMarker,
   getProgressLabelAnchor,
   getTaskCenter,
   type TaskProgressMarker,
-  type TaskProgressMarkerCache,
 } from '../lib/taskProgressMarker';
 import type { OptimizedRoute, RoutePoint } from '../lib/types';
 import { trophyIconHtml } from '../lib/trophyIcon';
@@ -61,21 +72,46 @@ function getProgressLabelClassName(direction: L.Direction): string {
 }
 
 const PILOT_MARKER_SIZE_PX = 16;
-const PILOT_MARKER_ANCHOR_PX = PILOT_MARKER_SIZE_PX / 2;
+const FOCUSED_PILOT_MARKER_SCALE = 1.5;
+const MARKER_Z_INDEX_BASE = 1000;
+const MARKER_Z_INDEX_FOCUS_BOOST = 500;
 const PILOT_LABEL_UPDATE_INTERVAL_MS = 1000;
+
+function markerSizePx(scale: number): number {
+  return Math.round(PILOT_MARKER_SIZE_PX * scale);
+}
+
+function markerZIndexOffset(
+  trackId: string,
+  rank: number | undefined,
+  competitorCount: number,
+  focusTrackId: string | null,
+): number {
+  if (trackId === focusTrackId) {
+    return MARKER_Z_INDEX_BASE + competitorCount * 10 + MARKER_Z_INDEX_FOCUS_BOOST;
+  }
+
+  const safeCount = Math.max(competitorCount, 1);
+  const safeRank = rank ?? safeCount;
+  return MARKER_Z_INDEX_BASE + (safeCount - safeRank) * 10;
+}
 
 function createCompetitorIcon(
   color: string,
   firstName: string,
   altitudeLabel: string,
   landed: boolean,
+  scale = 1,
 ): L.DivIcon {
   const markerColor = landed ? LANDED_COLOR : color;
   const labelBoxClass = landed ? 'competitor-label-box landed' : 'competitor-label-box';
+  const sizePx = markerSizePx(scale);
+  const anchorPx = sizePx / 2;
+  const focusedClass = scale > 1 ? ' competitor-marker-column--focused' : '';
 
   return L.divIcon({
     className: 'competitor-marker-container',
-    html: `<div class="competitor-marker-column${landed ? ' landed' : ''}">
+    html: `<div class="competitor-marker-column${landed ? ' landed' : ''}${focusedClass}">
       <div class="competitor-marker" style="background:${markerColor}"></div>
       <div class="${labelBoxClass}">
         <span class="competitor-label">${escapeHtml(firstName)}</span>
@@ -83,8 +119,22 @@ function createCompetitorIcon(
       </div>
     </div>`,
     iconSize: [0, 0],
-    iconAnchor: [PILOT_MARKER_ANCHOR_PX, PILOT_MARKER_ANCHOR_PX],
+    iconAnchor: [anchorPx, anchorPx],
   });
+}
+
+function readMarkerDomRefs(marker: L.Marker): Pick<
+  MarkerEntry,
+  'labelBoxEl' | 'labelEl' | 'altEl' | 'markerEl' | 'columnEl'
+> {
+  const element = marker.getElement();
+  return {
+    columnEl: element?.querySelector<HTMLDivElement>('.competitor-marker-column') ?? null,
+    markerEl: element?.querySelector<HTMLDivElement>('.competitor-marker') ?? null,
+    labelBoxEl: element?.querySelector<HTMLDivElement>('.competitor-label-box') ?? null,
+    labelEl: element?.querySelector<HTMLSpanElement>('.competitor-label') ?? null,
+    altEl: element?.querySelector<HTMLSpanElement>('.competitor-alt') ?? null,
+  };
 }
 
 interface MarkerEntry {
@@ -97,11 +147,40 @@ interface MarkerEntry {
   color: string;
   firstName: string;
   landed: boolean;
+  markerScale: number;
+  isFocused: boolean;
 }
 
 interface TrailEntry {
   polyline: L.Polyline;
+  futurePolyline: L.Polyline | null;
+  geometry: PilotFullPathGeometry;
+  futureCursor: number;
   color: string;
+}
+
+const SELECTED_PATH_WEIGHT = 4;
+const CHUNK_HIDDEN_OPACITY = 0;
+/** Sentinel meaning no chunk styling has been applied yet. */
+const BOUNDARY_CHUNK_UNSET = -2;
+
+/**
+ * Full path of the selected pilot, drawn as fixed-size chunks of the raw track. Chunk
+ * geometry never changes; a frame only restyles chunks the boundary crossed and rebuilds
+ * the two halves of the chunk the pilot is currently inside.
+ */
+interface SelectedPathEntry {
+  trackId: string;
+  geometry: PilotFullPathGeometry;
+  chunkLines: L.Polyline[];
+  chunkOpacity: number[];
+  boundaryPastLine: L.Polyline;
+  boundaryFutureLine: L.Polyline;
+  boundaryChunk: number;
+  cursorIndex: number;
+  color: string;
+  pastBuffer: [number, number][];
+  futureBuffer: [number, number][];
 }
 
 interface LiveCompetitorLayerProps {
@@ -116,11 +195,12 @@ interface LiveCompetitorLayerProps {
   playing: boolean;
   pausedTime: Date;
   taskStart?: Date;
-  trackKey: string;
+  fieldTimeline: TaskFieldTimeline;
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
   leadPercentages: Map<string, number>;
   progressFocusTrackId: string | null;
   progressFocusColor: string | null;
+  selectedPilotTrackId: string | null;
   onPilotMarkerClick: (trackId: string) => void;
 }
 
@@ -136,22 +216,23 @@ export function LiveCompetitorLayer({
   playing,
   pausedTime,
   taskStart,
-  trackKey,
+  fieldTimeline,
   taskProgressMarkerRef,
   leadPercentages,
   progressFocusTrackId,
   progressFocusColor,
+  selectedPilotTrackId,
   onPilotMarkerClick,
 }: LiveCompetitorLayerProps) {
   const map = useMap();
   const markersRef = useRef<Map<string, MarkerEntry>>(new Map());
   const trailsRef = useRef<Map<string, TrailEntry>>(new Map());
+  const selectedPathRef = useRef<SelectedPathEntry | null>(null);
   const progressLineRef = useRef<L.Polyline | null>(null);
   const completedRouteRef = useRef<L.Polyline | null>(null);
   const leaderNextLegLineRef = useRef<L.Polyline | null>(null);
   const leaderNextTpKeyRef = useRef<string | null>(null);
   const progressLabelRef = useRef<{ marker: L.Marker; labelEl: HTMLDivElement | null } | null>(null);
-  const progressCacheRef = useRef<TaskProgressMarkerCache | null>(null);
   const taggedTurnpointStateRef = useRef<Map<string, boolean>>(new Map());
   const tracksRef = useRef(tracks);
   const allEnrichedTracksRef = useRef(allEnrichedTracks);
@@ -160,10 +241,11 @@ export function LiveCompetitorLayer({
   const trackColorsRef = useRef(trackColors);
   const preferencesRef = useRef(preferences);
   const taskStartRef = useRef(taskStart);
-  const trackKeyRef = useRef(trackKey);
+  const fieldTimelineRef = useRef(fieldTimeline);
   const leadPercentagesRef = useRef(leadPercentages);
   const progressFocusTrackIdRef = useRef(progressFocusTrackId);
   const progressFocusColorRef = useRef(progressFocusColor);
+  const selectedPilotTrackIdRef = useRef(selectedPilotTrackId);
   const onPilotMarkerClickRef = useRef(onPilotMarkerClick);
   const taskCenterRef = useRef(getTaskCenter(route));
 
@@ -174,15 +256,15 @@ export function LiveCompetitorLayer({
   trackColorsRef.current = trackColors;
   preferencesRef.current = preferences;
   taskStartRef.current = taskStart;
-  trackKeyRef.current = trackKey;
+  fieldTimelineRef.current = fieldTimeline;
   leadPercentagesRef.current = leadPercentages;
   progressFocusTrackIdRef.current = progressFocusTrackId;
   progressFocusColorRef.current = progressFocusColor;
+  selectedPilotTrackIdRef.current = selectedPilotTrackId;
   onPilotMarkerClickRef.current = onPilotMarkerClick;
   taskCenterRef.current = getTaskCenter(route);
 
   useEffect(() => {
-    progressCacheRef.current = null;
     taggedTurnpointStateRef.current.clear();
   }, [progressFocusTrackId]);
 
@@ -247,6 +329,78 @@ export function LiveCompetitorLayer({
   }, [map]);
 
   useEffect(() => {
+    const track = selectedPilotTrackId
+      ? allEnrichedTracks.find((entry) => entry.id === selectedPilotTrackId)
+      : undefined;
+
+    if (!track || track.points.length < 2) {
+      selectedPathRef.current = null;
+      return;
+    }
+
+    const geometry = buildPilotFullPathGeometry(track);
+    const color = trackColors[track.id] ?? TASK_PROGRESS_LINE_COLOR;
+    const pathStyle = {
+      color,
+      weight: SELECTED_PATH_WEIGHT,
+      interactive: false,
+    } as const;
+
+    const chunkLines: L.Polyline[] = [];
+    const chunkOpacity: number[] = [];
+    const chunkTotal = pathChunkCount(geometry.pointCount);
+
+    for (let chunkIndex = 0; chunkIndex < chunkTotal; chunkIndex += 1) {
+      const start = pathChunkStartIndex(chunkIndex);
+      const end = pathChunkEndIndex(chunkIndex, geometry.pointCount);
+      const line = L.polyline(geometry.latLngs.slice(start, end + 1), {
+        ...pathStyle,
+        opacity: PILOT_PATH_FUTURE_OPACITY,
+      });
+      line.addTo(map);
+      line.bringToBack();
+      chunkLines.push(line);
+      chunkOpacity.push(PILOT_PATH_FUTURE_OPACITY);
+    }
+
+    const boundaryFutureLine = L.polyline([], {
+      ...pathStyle,
+      opacity: PILOT_PATH_FUTURE_OPACITY,
+    });
+    const boundaryPastLine = L.polyline([], {
+      ...pathStyle,
+      opacity: PILOT_PATH_PAST_OPACITY,
+    });
+    boundaryFutureLine.addTo(map);
+    boundaryFutureLine.bringToBack();
+    boundaryPastLine.addTo(map);
+    boundaryPastLine.bringToBack();
+
+    selectedPathRef.current = {
+      trackId: track.id,
+      geometry,
+      chunkLines,
+      chunkOpacity,
+      boundaryPastLine,
+      boundaryFutureLine,
+      boundaryChunk: BOUNDARY_CHUNK_UNSET,
+      cursorIndex: -1,
+      color,
+      pastBuffer: [],
+      futureBuffer: [],
+    };
+
+    return () => {
+      for (const line of chunkLines) {
+        line.remove();
+      }
+      boundaryPastLine.remove();
+      boundaryFutureLine.remove();
+      selectedPathRef.current = null;
+    };
+  }, [map, selectedPilotTrackId, allEnrichedTracks, trackColors]);
+
+  useEffect(() => {
     const markers = markersRef.current;
     const trails = trailsRef.current;
     const activeIds = new Set(tracks.map((track) => track.id));
@@ -261,9 +415,12 @@ export function LiveCompetitorLayer({
     for (const id of [...trails.keys()]) {
       if (!activeIds.has(id)) {
         trails.get(id)?.polyline.remove();
+        trails.get(id)?.futurePolyline?.remove();
         trails.delete(id);
       }
     }
+
+    const showFutureTrail = preferencesRef.current.showFutureTrail;
 
     for (const [index, track] of tracks.entries()) {
       const color = getTrackColor(track.id, trackColors, index);
@@ -276,14 +433,38 @@ export function LiveCompetitorLayer({
           interactive: false,
         });
         polyline.addTo(map);
-        trails.set(track.id, { polyline, color });
+        trails.set(track.id, {
+          polyline,
+          futurePolyline: null,
+          geometry: buildPilotFullPathGeometry(track),
+          futureCursor: -1,
+          color,
+        });
+      } else {
+        trails.get(track.id)!.geometry = buildPilotFullPathGeometry(track);
+      }
+
+      const trailEntry = trails.get(track.id)!;
+      if (showFutureTrail && !trailEntry.futurePolyline) {
+        const futurePolyline = L.polyline([], {
+          color,
+          weight: 3,
+          opacity: PILOT_PATH_FUTURE_OPACITY,
+          interactive: false,
+        });
+        futurePolyline.addTo(map);
+        futurePolyline.bringToBack();
+        trailEntry.futurePolyline = futurePolyline;
+      } else if (!showFutureTrail && trailEntry.futurePolyline) {
+        trailEntry.futurePolyline.remove();
+        trailEntry.futurePolyline = null;
       }
 
       if (markers.has(track.id)) continue;
 
-      const firstName = pilotFirstName(track.pilotName);
+      const firstName = track.firstName;
       const icon = createCompetitorIcon(color, firstName, '—', false);
-      const marker = L.marker([0, 0], { icon, zIndexOffset: 1000 });
+      const marker = L.marker([0, 0], { icon, zIndexOffset: MARKER_Z_INDEX_BASE });
       marker.on('click', () => {
         onPilotMarkerClickRef.current?.(track.id);
       });
@@ -306,9 +487,11 @@ export function LiveCompetitorLayer({
         color,
         firstName,
         landed: false,
+        markerScale: 1,
+        isFocused: false,
       });
     }
-  }, [tracks, trackColors, map]);
+  }, [tracks, trackColors, map, preferences.showFutureTrail]);
 
   useEffect(() => {
     return () => {
@@ -318,9 +501,9 @@ export function LiveCompetitorLayer({
       markersRef.current.clear();
       for (const entry of trailsRef.current.values()) {
         entry.polyline.remove();
+        entry.futurePolyline?.remove();
       }
       trailsRef.current.clear();
-      progressCacheRef.current = null;
       taskProgressMarkerRef.current = null;
     };
   }, [map, taskProgressMarkerRef]);
@@ -330,20 +513,126 @@ export function LiveCompetitorLayer({
       const trailEntry = trailsRef.current.get(track.id);
       if (!trailEntry) return;
 
-      const trailLengthM = normalizePilotTrailLengthM(preferencesRef.current.pilotTrailLengthM);
-      if (trailLengthM <= 0) {
+      if (track.id === selectedPilotTrackIdRef.current) {
         trailEntry.polyline.setLatLngs([]);
+        trailEntry.futurePolyline?.setLatLngs([]);
         return;
       }
 
-      const latLngs = buildPilotTrailLatLngs(track, time, trailLengthM, routeRef.current);
-      trailEntry.polyline.setLatLngs(latLngs);
+      const trailLengthM = normalizePilotTrailLengthM(preferencesRef.current.pilotTrailLengthM);
+      if (trailLengthM <= 0) {
+        trailEntry.polyline.setLatLngs([]);
+      } else {
+        const latLngs = buildPilotTrailLatLngs(track, time, trailLengthM, routeRef.current);
+        trailEntry.polyline.setLatLngs(latLngs);
+      }
 
       const trailColor = landed ? LANDED_COLOR : (trackColorsRef.current[track.id] ?? trailEntry.color);
       if (trailEntry.color !== trailColor) {
         trailEntry.polyline.setStyle({ color: trailColor });
         trailEntry.color = trailColor;
       }
+      trailEntry.polyline.setStyle({ opacity: landed ? 0.55 : 0.85 });
+
+      if (trailEntry.futurePolyline) {
+        const futureLatLngs = buildPilotFutureTrailLatLngs(
+          trailEntry.geometry,
+          track,
+          time,
+          routeRef.current,
+          { index: trailEntry.futureCursor },
+        );
+        trailEntry.futurePolyline.setLatLngs(futureLatLngs);
+        trailEntry.futurePolyline.setStyle({
+          color: trailColor,
+          opacity: PILOT_PATH_FUTURE_OPACITY,
+        });
+      }
+    };
+
+    const setChunkOpacity = (entry: SelectedPathEntry, chunkIndex: number, opacity: number) => {
+      if (entry.chunkOpacity[chunkIndex] === opacity) return;
+      entry.chunkOpacity[chunkIndex] = opacity;
+      entry.chunkLines[chunkIndex].setStyle({ opacity });
+    };
+
+    /** Restyle only the chunks the boundary moved across since the last frame. */
+    const applyChunkStyles = (entry: SelectedPathEntry, boundaryChunk: number) => {
+      const total = entry.chunkLines.length;
+      const previous = entry.boundaryChunk;
+      const from = previous < 0 ? 0 : Math.min(previous, Math.max(boundaryChunk, 0));
+      const to = previous < 0 ? total - 1 : Math.max(previous, boundaryChunk);
+
+      for (let chunkIndex = from; chunkIndex <= to && chunkIndex < total; chunkIndex += 1) {
+        const opacity =
+          chunkIndex === boundaryChunk
+            ? CHUNK_HIDDEN_OPACITY
+            : chunkIndex < boundaryChunk
+              ? PILOT_PATH_PAST_OPACITY
+              : PILOT_PATH_FUTURE_OPACITY;
+        setChunkOpacity(entry, chunkIndex, opacity);
+      }
+    };
+
+    const syncSelectedFullPath = (time: Date) => {
+      const entry = selectedPathRef.current;
+      if (!entry) return;
+
+      const track = allEnrichedTracksRef.current.find((item) => item.id === entry.trackId);
+      if (!track) return;
+
+      const { geometry } = entry;
+      const index = findPathIndexAtOrBefore(geometry.timesMs, time.getTime(), entry.cursorIndex);
+      entry.cursorIndex = index;
+
+      const snapshot = getTrackSnapshotAtTime(track, time, routeRef.current);
+      const pathColor = snapshot?.landed
+        ? LANDED_COLOR
+        : (trackColorsRef.current[entry.trackId] ?? TASK_PROGRESS_LINE_COLOR);
+      if (pathColor !== entry.color) {
+        entry.color = pathColor;
+        for (const line of entry.chunkLines) {
+          line.setStyle({ color: pathColor });
+        }
+        entry.boundaryPastLine.setStyle({ color: pathColor });
+        entry.boundaryFutureLine.setStyle({ color: pathColor });
+      }
+
+      const boundaryChunk = index < 0 ? -1 : pathChunkIndexForPoint(index, geometry.pointCount);
+      if (boundaryChunk !== entry.boundaryChunk) {
+        applyChunkStyles(entry, boundaryChunk);
+        entry.boundaryChunk = boundaryChunk;
+      }
+
+      if (boundaryChunk < 0 || !snapshot) {
+        entry.boundaryPastLine.setLatLngs([]);
+        entry.boundaryFutureLine.setLatLngs([]);
+        return;
+      }
+
+      const chunkStart = pathChunkStartIndex(boundaryChunk);
+      const chunkEnd = pathChunkEndIndex(boundaryChunk, geometry.pointCount);
+      const head: [number, number] = [snapshot.lat, snapshot.lon];
+
+      const past = entry.pastBuffer;
+      past.length = 0;
+      for (let pointIndex = chunkStart; pointIndex <= index; pointIndex += 1) {
+        past.push(geometry.latLngs[pointIndex]);
+      }
+      if (index < geometry.pointCount - 1) {
+        past.push(head);
+      }
+      entry.boundaryPastLine.setLatLngs(past.length >= 2 ? past : []);
+
+      const future = entry.futureBuffer;
+      future.length = 0;
+      if (index < chunkEnd) {
+        future.push(head);
+        for (let pointIndex = index + 1; pointIndex <= chunkEnd; pointIndex += 1) {
+          future.push(geometry.latLngs[pointIndex]);
+        }
+      }
+      entry.boundaryFutureLine.setLatLngs(future.length >= 2 ? future : []);
     };
 
     const syncMarker = (
@@ -364,11 +653,38 @@ export function LiveCompetitorLayer({
 
       entry.marker.setOpacity(1);
       entry.marker.setLatLng([snapshot.lat, snapshot.lon]);
-      entry.marker.setZIndexOffset(snapshot.landed ? 900 : 1000);
+
+      const focusTrackId = progressFocusTrackIdRef.current;
+      const competitorCount = tracksRef.current.length;
+      const isFocused = track.id === focusTrackId;
+      const markerScale = isFocused ? FOCUSED_PILOT_MARKER_SCALE : 1;
+      entry.marker.setZIndexOffset(
+        markerZIndexOffset(track.id, position, competitorCount, focusTrackId),
+      );
 
       const prefs = preferencesRef.current;
       const altLabel = formatAltitude(clampDisplayAltitudeMeters(snapshot.alt), prefs.altitudeUnit);
       const markerColor = trackColorsRef.current[track.id] ?? entry.color;
+      const displayColor = snapshot.landed ? LANDED_COLOR : markerColor;
+
+      const needsIconRefresh =
+        entry.isFocused !== isFocused ||
+        entry.markerScale !== markerScale ||
+        entry.landed !== snapshot.landed ||
+        entry.color !== markerColor;
+
+      if (needsIconRefresh) {
+        entry.marker.setIcon(
+          createCompetitorIcon(displayColor, entry.firstName, altLabel, snapshot.landed, markerScale),
+        );
+        Object.assign(entry, readMarkerDomRefs(entry.marker));
+        entry.isFocused = isFocused;
+        entry.markerScale = markerScale;
+        entry.landed = snapshot.landed;
+        entry.color = markerColor;
+      } else if (entry.markerEl) {
+        entry.markerEl.style.background = displayColor;
+      }
 
       if (updateLabels) {
         if (entry.labelEl && position !== undefined) {
@@ -380,16 +696,8 @@ export function LiveCompetitorLayer({
         }
       }
 
-      if (entry.landed !== snapshot.landed || entry.color !== markerColor) {
-        entry.landed = snapshot.landed;
-        entry.color = markerColor;
-        const displayColor = snapshot.landed ? LANDED_COLOR : markerColor;
-        if (entry.markerEl) {
-          entry.markerEl.style.background = displayColor;
-        }
-        if (entry.columnEl) {
-          entry.columnEl.classList.toggle('landed', snapshot.landed);
-        }
+      if (entry.columnEl) {
+        entry.columnEl.classList.toggle('landed', snapshot.landed);
       }
 
       syncTrail(track, time, snapshot.landed);
@@ -409,11 +717,6 @@ export function LiveCompetitorLayer({
         return allEnrichedTracksRef.current.filter((track) => track.id === focusId);
       }
       return tracksRef.current;
-    };
-
-    const getProgressMarkerTrackKey = () => {
-      const focusId = progressFocusTrackIdRef.current;
-      return `${trackKeyRef.current}|progress:${focusId ?? 'overall'}`;
     };
 
     const applyProgressLabelTheme = (labelEl: HTMLDivElement, color: string) => {
@@ -454,7 +757,7 @@ export function LiveCompetitorLayer({
 
       const focusId = progressFocusTrackIdRef.current;
       const pilotId =
-        focusId ?? findLeaderAtTime(tracksRef.current, time.getTime(), routeRef.current);
+        focusId ?? fieldLeaderIdAt(fieldTimelineRef.current, time.getTime());
       if (!pilotId) {
         resetLeaderNextTurnpointHighlight();
         return;
@@ -599,10 +902,8 @@ export function LiveCompetitorLayer({
       const marker = computeTaskProgressMarker(
         progressTracks,
         routeRef.current,
-        currentTaskStart,
+        fieldTimelineRef.current,
         time,
-        progressCacheRef,
-        getProgressMarkerTrackKey(),
         focusId ? { focusTrackId: focusId } : undefined,
       );
 
@@ -649,16 +950,22 @@ export function LiveCompetitorLayer({
     };
 
     const syncAll = (time: Date, updateLabels = true) => {
-      const positions = computeCompetitorPositions(
-        tracksRef.current,
-        trackColorsRef.current,
-        routeRef.current,
-        time,
-      );
+      const positions = computeCompetitorPositions(tracksRef.current, routeRef.current, time);
 
-      for (const track of tracksRef.current) {
+      const focusTrackId = progressFocusTrackIdRef.current;
+      const orderedTracks = [...tracksRef.current].sort((a, b) => {
+        if (a.id === focusTrackId) return 1;
+        if (b.id === focusTrackId) return -1;
+        const rankA = positions.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+        const rankB = positions.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+        return rankB - rankA;
+      });
+
+      for (const track of orderedTracks) {
         syncMarker(track, time, positions.get(track.id), updateLabels);
       }
+
+      syncSelectedFullPath(time);
       updateProgressLine(time);
       updateLeaderNextTurnpointHighlight(time);
     };
@@ -709,6 +1016,8 @@ export function LiveCompetitorLayer({
     allEnrichedTracks,
     progressFocusTrackId,
     progressFocusColor,
+    selectedPilotTrackId,
+    fieldTimeline,
   ]);
 
   return null;

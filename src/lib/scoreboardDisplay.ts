@@ -9,6 +9,7 @@ import {
   speedUnitLabel,
 } from './preferences';
 import type { CompetitorSnapshot } from './types';
+import { formatNextTurnpointLabel } from './taskProgress';
 
 export interface ScoreboardEntry extends CompetitorSnapshot {
   position: number;
@@ -118,7 +119,7 @@ export function formatCompetitorLeaderboardPopupHtml(
     `<div><dt>Alt (${altitudeUnitLabel})</dt><dd>${formatAltitudeValue(entry.alt, preferences.altitudeUnit)}</dd></div>` +
     `<div><dt>Speed (${speedUnit})</dt><dd>${formatGroundSpeedValue(entry.groundSpeedMps, preferences.speedUnit)}</dd></div>` +
     `<div><dt>V/S (${varioUnitLabel})</dt><dd class="competitor-popup-vario${varioClass}">${formatVerticalSpeedValue(entry.verticalSpeedMps, preferences.verticalSpeedUnit)}</dd></div>` +
-    `<div><dt>Next TP</dt><dd>${escapeHtml(entry.nextTurnpointName || '—')}</dd></div>` +
+    `<div><dt>Next TP</dt><dd>${escapeHtml(formatNextTurnpointLabel(entry.nextTurnpointName, entry.nextTurnpointNumber))}</dd></div>` +
     `</dl>` +
     `</div>`
   );

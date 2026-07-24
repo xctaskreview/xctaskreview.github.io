@@ -7,7 +7,9 @@ import {
   type TaskHistoryEntry,
 } from '../lib/taskHistory';
 import { formatDistance, type AppPreferences } from '../lib/preferences';
+import { useStableCallbackRef } from '../lib/useStableCallbackRef';
 import { Icon, IconButtonContent } from './Icon';
+import { ModalDialogBackdrop } from './ModalDialogBackdrop';
 
 interface TaskHistoryDialogProps {
   open: boolean;
@@ -26,6 +28,7 @@ export function TaskHistoryDialog({
 }: TaskHistoryDialogProps) {
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState<TaskHistoryEntry[]>([]);
+  const onErrorRef = useStableCallbackRef(onError);
 
   useEffect(() => {
     if (!open) return;
@@ -39,8 +42,7 @@ export function TaskHistoryDialog({
       })
       .catch((err) => {
         if (cancelled) return;
-        onError(err instanceof Error ? err.message : 'Could not load task history.');
-        onClose();
+        onErrorRef.current(err instanceof Error ? err.message : 'Could not load task history.');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -49,7 +51,7 @@ export function TaskHistoryDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, onClose, onError]);
+  }, [open, onErrorRef]);
 
   const refresh = async () => {
     setEntries(await listTaskHistory());
@@ -73,16 +75,14 @@ export function TaskHistoryDialog({
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="xcdemon-dialog-backdrop" role="presentation" onClick={onClose}>
+    <ModalDialogBackdrop open={open} onClose={onClose}>
       <div
         className="xcdemon-dialog task-history-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="task-history-dialog-title"
-        onClick={(event) => event.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="xcdemon-dialog-header">
           <div>
@@ -176,6 +176,6 @@ export function TaskHistoryDialog({
           </button>
         </div>
       </div>
-    </div>
+    </ModalDialogBackdrop>
   );
 }

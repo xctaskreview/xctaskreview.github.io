@@ -10,8 +10,10 @@ import {
   type CivlTask,
   type CivlYearOption,
 } from '../lib/civl';
+import { useStableCallbackRef } from '../lib/useStableCallbackRef';
 import { CivlButtonContent, Icon, IconButtonContent } from './Icon';
 import { ImportCatalogPicker } from './ImportCatalogPicker';
+import { ModalDialogBackdrop } from './ModalDialogBackdrop';
 
 interface CivlImportDialogProps {
   open: boolean;
@@ -37,6 +39,7 @@ export function CivlImportDialog({
   const [eventName, setEventName] = useState('');
   const [tasks, setTasks] = useState<CivlTask[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState('');
+  const onErrorRef = useStableCallbackRef(onError);
 
   useEffect(() => {
     if (!open) return;
@@ -56,8 +59,7 @@ export function CivlImportDialog({
       })
       .catch((err) => {
         if (cancelled) return;
-        onError(err instanceof Error ? err.message : 'Could not load CIVL Comps years.');
-        onClose();
+        onErrorRef.current(err instanceof Error ? err.message : 'Could not load CIVL Comps years.');
       })
       .finally(() => {
         if (!cancelled) setLoadingYears(false);
@@ -66,7 +68,7 @@ export function CivlImportDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, onClose, onError]);
+  }, [open, onErrorRef]);
 
   const selectedYearOption = useMemo(
     () => yearOptions.find((option) => option.year === selectedYear) ?? null,
@@ -90,7 +92,7 @@ export function CivlImportDialog({
       })
       .catch((err) => {
         if (cancelled) return;
-        onError(err instanceof Error ? err.message : 'Could not load CIVL Comps events.');
+        onErrorRef.current(err instanceof Error ? err.message : 'Could not load CIVL Comps events.');
       })
       .finally(() => {
         if (!cancelled) setLoadingEvents(false);
@@ -99,7 +101,7 @@ export function CivlImportDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, loadingYears, selectedYearOption, onError]);
+  }, [open, loadingYears, selectedYearOption, onErrorRef]);
 
   const selectedEvent = useMemo(
     () => events.find((event) => event.id === selectedEventId) ?? null,
@@ -121,7 +123,7 @@ export function CivlImportDialog({
       })
       .catch((err) => {
         if (cancelled) return;
-        onError(err instanceof Error ? err.message : 'Could not load CIVL Comps tasks.');
+        onErrorRef.current(err instanceof Error ? err.message : 'Could not load CIVL Comps tasks.');
       })
       .finally(() => {
         if (!cancelled) setLoadingTasks(false);
@@ -130,7 +132,7 @@ export function CivlImportDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, selectedEvent, onError]);
+  }, [open, selectedEvent, onErrorRef]);
 
   const selectedTask = useMemo(
     () => tasks.find((task) => task.taskId === selectedTaskId) ?? null,
@@ -152,18 +154,16 @@ export function CivlImportDialog({
     }
   };
 
-  if (!open) return null;
-
   const busy = loadingYears || loadingEvents || loadingTasks || importing;
 
   return (
-    <div className="xcdemon-dialog-backdrop" role="presentation" onClick={onClose}>
+    <ModalDialogBackdrop open={open} onClose={onClose}>
       <div
         className="xcdemon-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="civl-dialog-title"
-        onClick={(event) => event.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="xcdemon-dialog-header">
           <div>
@@ -221,6 +221,7 @@ export function CivlImportDialog({
             label="Task with IGC zip"
             value={selectedTaskId}
             disabled={busy || !selectedEvent}
+            loading={loadingEvents || loadingTasks}
             placeholder="Select a task…"
             emptyHint="Select an event to load tasks."
             options={tasks.map((task) => ({
@@ -278,6 +279,6 @@ export function CivlImportDialog({
           </button>
         </div>
       </div>
-    </div>
+    </ModalDialogBackdrop>
   );
 }

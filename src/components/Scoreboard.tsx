@@ -33,7 +33,6 @@ interface ScoreboardProps {
   enabledTrackIds: Set<string>;
   onToggleTrack: (trackId: string, enabled: boolean) => void;
   progressFocusTrackId: string | null;
-  onProgressFocusTrack: (trackId: string) => void;
   selectedPilotTrackId: string | null;
   onSelectPilot: (trackId: string) => void;
   preferences: AppPreferences;
@@ -134,7 +133,6 @@ export function Scoreboard({
   enabledTrackIds,
   onToggleTrack,
   progressFocusTrackId,
-  onProgressFocusTrack,
   selectedPilotTrackId,
   onSelectPilot,
   preferences,
@@ -297,22 +295,11 @@ export function Scoreboard({
                     </button>
                     <span className="scoreboard-color" style={{ background: markerColor }} />
                     <span className="scoreboard-pilot-text">
-                      <button
-                        type="button"
+                      <span
                         className={`scoreboard-pilot-name-toggle${progressFocusTrackId === entry.id ? ' is-progress-focus' : ''}`}
-                        aria-pressed={progressFocusTrackId === entry.id}
-                        aria-label={
-                          progressFocusTrackId === entry.id
-                            ? `Show overall task progress on map`
-                            : `Show ${entry.pilotName} task progress on map`
-                        }
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onProgressFocusTrack(entry.id);
-                        }}
                       >
                         <ScoreboardPilotName pilotName={entry.pilotName} firstName={entry.firstName} />
-                      </button>
+                      </span>
                       {entry.gliderType && (
                         <span className="scoreboard-glider">{entry.gliderType}</span>
                       )}

@@ -1,4 +1,5 @@
-import { ChevronDown, ChevronUp, Route, Trophy, User } from 'lucide-react';
+import { ChevronDown, ChevronUp, Route, Trophy, X } from 'lucide-react';
+import { LANDED_COLOR } from '../lib/geo';
 import type { GlobalLegStatistics } from '../lib/legStatistics';
 import type { AppPreferences } from '../lib/preferences';
 import type { CompetitorSnapshot } from '../lib/types';
@@ -18,9 +19,9 @@ interface MapDataPanelsProps {
   enabledTrackIds: Set<string>;
   onToggleTrack: (trackId: string, enabled: boolean) => void;
   progressFocusTrackId: string | null;
-  onProgressFocusTrack: (trackId: string) => void;
   selectedPilotTrackId: string | null;
   onSelectPilot: (trackId: string) => void;
+  onClosePilotDetail: () => void;
   selectedPilotEntry: ScoreboardEntry | null;
   activePanel: ActivePanel | null;
   onActivePanelChange: (panel: ActivePanel | null) => void;
@@ -35,9 +36,9 @@ export function MapDataPanels({
   enabledTrackIds,
   onToggleTrack,
   progressFocusTrackId,
-  onProgressFocusTrack,
   selectedPilotTrackId,
   onSelectPilot,
+  onClosePilotDetail,
   selectedPilotEntry,
   activePanel,
   onActivePanelChange,
@@ -49,7 +50,11 @@ export function MapDataPanels({
   const showLegStatistics = legs.length > 0;
   const showPilotDetail = selectedPilotTrackId !== null;
 
-  const pilotTabLabel = selectedPilotEntry?.pilotName ?? 'Pilot';
+  const pilotMarkerColor = selectedPilotEntry
+    ? selectedPilotEntry.landed
+      ? LANDED_COLOR
+      : selectedPilotEntry.color
+    : null;
 
   if (!showLeaderboard && !showLegStatistics && !showPilotDetail) return null;
 
@@ -98,21 +103,45 @@ export function MapDataPanels({
             </span>
           </button>
         )}
-        {showPilotDetail && (
-          <button
-            type="button"
-            className={`map-data-panel-toggle map-data-panel-toggle-pilot${pilotDetailExpanded ? ' active' : ''}`}
-            aria-expanded={pilotDetailExpanded}
-            onClick={() => togglePanel('pilot-detail')}
+        {showPilotDetail && selectedPilotEntry && pilotMarkerColor && (
+          <div
+            className={`map-data-panel-pilot-tab${pilotDetailExpanded ? ' active' : ''}`}
           >
-            <span className="map-data-panel-toggle-text">
-              <Icon icon={User} size="sm" />
-              <span className="map-data-panel-pilot-name">{pilotTabLabel}</span>
-            </span>
-            <span className="map-data-panel-toggle-icon" aria-hidden="true">
-              <Icon icon={pilotDetailExpanded ? ChevronUp : ChevronDown} size="sm" />
-            </span>
-          </button>
+            <button
+              type="button"
+              className={`map-data-panel-toggle map-data-panel-toggle-pilot${pilotDetailExpanded ? ' active' : ''}`}
+              aria-expanded={pilotDetailExpanded}
+              onClick={() => togglePanel('pilot-detail')}
+            >
+              <span className="map-data-panel-toggle-text">
+                <span
+                  className="scoreboard-color map-data-panel-pilot-color"
+                  style={{ background: pilotMarkerColor }}
+                  aria-hidden="true"
+                />
+                <span className="map-data-panel-pilot-title">
+                  {selectedPilotEntry.position === 1 ? (
+                    <>
+                      <Icon icon={Trophy} size="xs" className="scoreboard-leader-trophy" />
+                      {selectedPilotEntry.pilotName}
+                    </>
+                  ) : selectedPilotEntry.position > 0 ? (
+                    `#${selectedPilotEntry.position} ${selectedPilotEntry.pilotName}`
+                  ) : (
+                    selectedPilotEntry.pilotName
+                  )}
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              className="pilot-detail-close map-data-panel-pilot-close"
+              aria-label="Close pilot stats and show overall task progress"
+              onClick={onClosePilotDetail}
+            >
+              <Icon icon={X} size="sm" />
+            </button>
+          </div>
         )}
       </div>
 
@@ -122,7 +151,6 @@ export function MapDataPanels({
         enabledTrackIds={enabledTrackIds}
         onToggleTrack={onToggleTrack}
         progressFocusTrackId={progressFocusTrackId}
-        onProgressFocusTrack={onProgressFocusTrack}
         selectedPilotTrackId={selectedPilotTrackId}
         onSelectPilot={onSelectPilot}
         preferences={preferences}

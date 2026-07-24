@@ -23,7 +23,7 @@ import { MapLegend } from './MapLegend';
 import type { GlobalLegStatistics } from '../lib/legStatistics';
 import type { TaskProgressMarker, TurnpointReachMarker } from '../lib/taskProgressMarker';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
-import { buildCompetitorSnapshots } from '../lib/competitors';
+import type { TaskFieldTimeline } from '../lib/taskTimeline';
 import { getScoreboardEntryForTrack } from '../lib/scoreboardDisplay';
 import { buildReachMarkerMap, buildTurnpointTooltipFromCircle } from '../lib/turnpointTooltip';
 import { TurnpointPopupContent } from './TurnpointHoverTooltip';
@@ -311,11 +311,13 @@ interface MapViewProps {
   onToggleTrack: (trackId: string, enabled: boolean) => void;
   progressFocusTrackId: string | null;
   progressFocusColor: string | null;
-  onProgressFocusTrack: (trackId: string) => void;
   onSetProgressFocusTrack: (trackId: string) => void;
+  selectedPilotTrackId: string | null;
+  onSelectPilotTrack: (trackId: string) => void;
+  onClosePilotDetail: () => void;
   legStatistics: GlobalLegStatistics[];
   taskStart?: Date;
-  trackKey: string;
+  fieldTimeline: TaskFieldTimeline;
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
   turnpointReachMarkers: TurnpointReachMarker[];
 }
@@ -338,25 +340,30 @@ export function MapView({
   onToggleTrack,
   progressFocusTrackId,
   progressFocusColor,
-  onProgressFocusTrack,
   onSetProgressFocusTrack,
+  selectedPilotTrackId,
+  onSelectPilotTrack,
+  onClosePilotDetail,
   legStatistics,
   taskStart,
-  trackKey,
+  fieldTimeline,
   taskProgressMarkerRef,
   turnpointReachMarkers,
 }: MapViewProps) {
   const tile = MAP_TILES[preferences.mapType];
   const [mapDataPanel, setMapDataPanel] = useState<MapDataActivePanel | null>(null);
-  const [selectedPilotTrackId, setSelectedPilotTrackId] = useState<string | null>(null);
   const handleSelectPilot = useCallback(
     (trackId: string) => {
-      setSelectedPilotTrackId(trackId);
+      onSelectPilotTrack(trackId);
       setMapDataPanel('pilot-detail');
       onSetProgressFocusTrack(trackId);
     },
-    [onSetProgressFocusTrack],
+    [onSelectPilotTrack, onSetProgressFocusTrack],
   );
+  const handleClosePilotDetail = useCallback(() => {
+    onClosePilotDetail();
+    setMapDataPanel((current) => (current === 'pilot-detail' ? null : current));
+  }, [onClosePilotDetail]);
   const layerRefs = useRef<TaskMapLayerRefs>({
     circles: new Map(),
     markers: new Map(),
@@ -366,30 +373,18 @@ export function MapView({
     [turnpointReachMarkers],
   );
 
-  const selectedPilotEntry = useMemo(() => {
-    if (!selectedPilotTrackId) return null;
-    const liveCompetitors = buildCompetitorSnapshots(
-      allEnrichedTracks,
-      trackColors,
-      optimizedRoute,
-      pausedTime,
-      true,
-    );
-    return getScoreboardEntryForTrack(
-      selectedPilotTrackId,
-      liveCompetitors,
-      leadPercentages,
-      enabledTrackIds,
-    );
-  }, [
-    selectedPilotTrackId,
-    allEnrichedTracks,
-    trackColors,
-    optimizedRoute,
-    pausedTime,
-    leadPercentages,
-    enabledTrackIds,
-  ]);
+  const selectedPilotEntry = useMemo(
+    () =>
+      selectedPilotTrackId
+        ? getScoreboardEntryForTrack(
+            selectedPilotTrackId,
+            scoreboardCompetitors,
+            leadPercentages,
+            enabledTrackIds,
+          )
+        : null,
+    [selectedPilotTrackId, scoreboardCompetitors, leadPercentages, enabledTrackIds],
+  );
 
   return (
     <div className="map-panel">
@@ -418,11 +413,12 @@ export function MapView({
           playing={playing}
           pausedTime={pausedTime}
           taskStart={taskStart}
-          trackKey={trackKey}
+          fieldTimeline={fieldTimeline}
           taskProgressMarkerRef={taskProgressMarkerRef}
           leadPercentages={leadPercentages}
           progressFocusTrackId={progressFocusTrackId}
           progressFocusColor={progressFocusColor}
+          selectedPilotTrackId={selectedPilotTrackId}
           onPilotMarkerClick={handleSelectPilot}
         />
       </MapContainer>
@@ -433,9 +429,9 @@ export function MapView({
         enabledTrackIds={enabledTrackIds}
         onToggleTrack={onToggleTrack}
         progressFocusTrackId={progressFocusTrackId}
-        onProgressFocusTrack={onProgressFocusTrack}
         selectedPilotTrackId={selectedPilotTrackId}
         onSelectPilot={handleSelectPilot}
+        onClosePilotDetail={handleClosePilotDetail}
         selectedPilotEntry={selectedPilotEntry}
         activePanel={mapDataPanel}
         onActivePanelChange={setMapDataPanel}

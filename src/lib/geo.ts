@@ -215,27 +215,6 @@ export function sanitizeTrackPointAltitudes(points: TrackPoint[]): TrackPoint[] 
   });
 }
 
-export function resolveDisplayAltitudeMeters(
-  points: TrackPoint[],
-  time: Date,
-  rawAlt: number,
-): number {
-  if (isFlyingAltitudeMeters(rawAlt)) {
-    return clampDisplayAltitudeMeters(rawAlt);
-  }
-
-  const t = time.getTime();
-  for (let i = points.length - 1; i >= 0; i--) {
-    const point = points[i];
-    if (point.time.getTime() > t) continue;
-    if (isFlyingAltitudeMeters(point.alt)) {
-      return clampDisplayAltitudeMeters(point.alt);
-    }
-  }
-
-  return clampDisplayAltitudeMeters(rawAlt);
-}
-
 export function clampChartAltitudeDisplay(
   displayAltitude: number,
   chartMin: number,

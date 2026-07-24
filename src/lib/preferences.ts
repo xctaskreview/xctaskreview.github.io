@@ -4,6 +4,15 @@ export type SpeedUnit = 'km/h' | 'mph' | 'kt';
 export type VerticalSpeedUnit = 'm/s' | 'ft/min';
 export type MapType = 'topo' | 'osm' | 'satellite';
 
+export const PLAYBACK_SPEEDS = [1, 2, 5, 10, 20, 50, 100] as const;
+export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];
+
+export function normalizePlaybackSpeed(value: number): PlaybackSpeed {
+  if (!Number.isFinite(value)) return 50;
+  const match = PLAYBACK_SPEEDS.find((speed) => speed === value);
+  return match ?? 50;
+}
+
 export interface AppPreferences {
   distanceUnit: DistanceUnit;
   altitudeUnit: AltitudeUnit;
@@ -12,6 +21,8 @@ export interface AppPreferences {
   timezone: string;
   mapType: MapType;
   pilotTrailLengthM: number;
+  showFutureTrail: boolean;
+  playbackSpeed: PlaybackSpeed;
 }
 
 export function normalizePilotTrailLengthM(value: number): number {
@@ -36,6 +47,8 @@ export function createDefaultPreferences(): AppPreferences {
     timezone: getDefaultTimezone(),
     mapType: 'topo',
     pilotTrailLengthM: 0,
+    showFutureTrail: false,
+    playbackSpeed: 50,
   };
 }
 
@@ -71,6 +84,10 @@ export function normalizePreferences(value: Partial<AppPreferences> | null | und
     mapType: MAP_TYPES.has(value.mapType as MapType) ? (value.mapType as MapType) : defaults.mapType,
     pilotTrailLengthM: normalizePilotTrailLengthM(
       typeof value.pilotTrailLengthM === 'number' ? value.pilotTrailLengthM : defaults.pilotTrailLengthM,
+    ),
+    showFutureTrail: value.showFutureTrail === true,
+    playbackSpeed: normalizePlaybackSpeed(
+      typeof value.playbackSpeed === 'number' ? value.playbackSpeed : defaults.playbackSpeed,
     ),
   };
 }

@@ -8,6 +8,8 @@ interface ImportCatalogPickerProps {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  loading?: boolean;
+  loadingHint?: string;
   placeholder: string;
   options: ImportCatalogOption[];
   emptyHint?: string;
@@ -18,6 +20,8 @@ export function ImportCatalogPicker({
   value,
   onChange,
   disabled = false,
+  loading = false,
+  loadingHint = 'Loading tasks…',
   placeholder,
   options,
   emptyHint,
@@ -48,7 +52,9 @@ export function ImportCatalogPicker({
         aria-label={label}
         aria-disabled={disabled || options.length === 0}
       >
-        {options.length === 0 ? (
+        {loading ? (
+          <p className="import-catalog-picker-empty import-catalog-picker-loading">{loadingHint}</p>
+        ) : options.length === 0 ? (
           <p className="import-catalog-picker-empty">{emptyHint ?? placeholder}</p>
         ) : (
           options.map((option) => {

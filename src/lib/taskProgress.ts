@@ -1,17 +1,41 @@
 import type { LatLon, OptimizedRoute, TrackPoint, XcTask } from './types';
-import { createLocalProjection, getTrackEndTime, haversine, interpolateReasonableAltitude, isLandedAtTime, resolveDisplayAltitudeMeters } from './geo';
+import {
+  clampDisplayAltitudeMeters,
+  createLocalProjection,
+  getTrackEndTime,
+  haversine,
+  isFlyingAltitudeMeters,
+  isLandedAtTime,
+} from './geo';
 import { attachLegTimingsToTracks, type PilotLegTiming } from './legStatistics';
+import { parseGliderTypeFromHeader, pilotFirstName } from './igc';
+import { findFirstTimeFieldReachedPercent, type TaskFieldTimeline } from './taskTimeline';
 
+/**
+ * Track point with every value playback needs already derived. Nothing here is recomputed
+ * while the review runs: frames only interpolate between neighbouring points.
+ */
 export interface EnrichedTrackPoint extends TrackPoint {
   legIndex: number;
   hasStarted: boolean;
   finished: boolean;
   taskPercent: number;
+  timeMs: number;
+  /** Altitude to draw, already sanitised and carried over gaps in the log. */
+  displayAlt: number;
+  /** Distance flown along the track up to this point, in meters. */
+  cumulativeDistanceM: number;
+  /** Max task % from track start through this point (inclusive). */
+  maxTaskPercentSoFar: number;
+  /** Display altitude at the point where `maxTaskPercentSoFar` was last updated. */
+  altAtMaxTaskPercentSoFar: number;
 }
 
 export interface EnrichedFlightTrack {
   id: string;
   pilotName: string;
+  /** Label shown on markers, split once at load rather than per frame. */
+  firstName: string;
   fileName: string;
   points: EnrichedTrackPoint[];
   date?: Date;
@@ -176,20 +200,80 @@ export function enrichTrackWithTaskProgress(
       hasStarted,
       finished,
       taskPercent,
+      timeMs: point.time.getTime(),
+      displayAlt: 0,
+      cumulativeDistanceM: 0,
+      maxTaskPercentSoFar: 0,
+      altAtMaxTaskPercentSoFar: 0,
     };
   });
+
+  attachPlaybackFieldsToPoints(enrichedPoints);
 
   return {
     id: track.id,
     pilotName: track.pilotName,
+    firstName: pilotFirstName(track.pilotName),
     fileName: track.fileName,
     points: enrichedPoints,
     date: track.date,
     finishTime,
     landingTime: track.landingTime ?? getTrackEndTime(track.points),
-    gliderType: track.gliderType,
+    gliderType: track.gliderType ?? parseGliderTypeFromHeader(track.igcHeader ?? ''),
     igcHeader: track.igcHeader,
   };
+}
+
+/**
+ * Single pass filling the values playback reads every frame. Display altitude carries the
+ * last usable reading forward, matching what a per-frame backward scan used to resolve.
+ */
+function attachPlaybackFieldsToPoints(points: EnrichedTrackPoint[]): void {
+  let lastFlyingDisplayAlt: number | null = null;
+  let cumulativeDistanceM = 0;
+  let maxTaskPercentSoFar = -1;
+  let altAtMaxTaskPercentSoFar = 0;
+
+  for (let index = 0; index < points.length; index += 1) {
+    const point = points[index];
+
+    if (isFlyingAltitudeMeters(point.alt)) {
+      lastFlyingDisplayAlt = clampDisplayAltitudeMeters(point.alt);
+      point.displayAlt = lastFlyingDisplayAlt;
+    } else {
+      point.displayAlt = lastFlyingDisplayAlt ?? clampDisplayAltitudeMeters(point.alt);
+    }
+
+    if (index > 0) {
+      cumulativeDistanceM += haversine(points[index - 1], point);
+    }
+    point.cumulativeDistanceM = cumulativeDistanceM;
+
+    if (point.taskPercent >= maxTaskPercentSoFar) {
+      maxTaskPercentSoFar = point.taskPercent;
+      altAtMaxTaskPercentSoFar = point.displayAlt;
+    }
+    point.maxTaskPercentSoFar = maxTaskPercentSoFar;
+    point.altAtMaxTaskPercentSoFar = altAtMaxTaskPercentSoFar;
+  }
+}
+
+export function getNextTurnpoint(
+  legIndex: number,
+  finished: boolean,
+  hasStarted: boolean,
+  route: OptimizedRoute,
+): { name: string; number: number | null } {
+  if (finished) return { name: 'Goal', number: null };
+
+  const turnpoints = route.progressTurnpoints;
+  if (turnpoints.length === 0) return { name: '—', number: null };
+
+  const nextIndex = hasStarted ? legIndex + 1 : 1;
+  if (nextIndex >= turnpoints.length) return { name: 'Goal', number: null };
+
+  const next = turnpoints[nextIndex];
+  return { name: next?.name ?? '—', number: next?.number ?? null };
 }
 
 export function getNextTurnpointName(
@@ -198,26 +282,25 @@ export function getNextTurnpointName(
   hasStarted: boolean,
   route: OptimizedRoute,
 ): string {
-  if (finished) return 'Goal';
-
-  const turnpoints = route.progressTurnpoints;
-  if (turnpoints.length === 0) return '—';
-
-  const nextIndex = hasStarted ? legIndex + 1 : 1;
-  if (nextIndex >= turnpoints.length) return 'Goal';
-
-  return turnpoints[nextIndex]?.name ?? '—';
+  return getNextTurnpoint(legIndex, finished, hasStarted, route).name;
 }
 
-function findLastPointIndexAtOrBefore(points: EnrichedTrackPoint[], timeMs: number): number {
+export function formatNextTurnpointLabel(name: string, number: number | null | undefined): string {
+  if (!name || name === '—') return '—';
+  if (name === 'Goal') return 'Goal';
+  if (number != null && Number.isFinite(number)) return `${number} ${name}`;
+  return name;
+}
+
+export function findLastPointIndexAtOrBefore(points: EnrichedTrackPoint[], timeMs: number): number {
   if (points.length === 0) return 0;
-  if (timeMs < points[0].time.getTime()) return 0;
+  if (timeMs < points[0].timeMs) return 0;
 
   let lo = 0;
   let hi = points.length - 1;
   while (lo < hi) {
     const mid = Math.ceil((lo + hi + 1) / 2);
-    if (points[mid].time.getTime() <= timeMs) lo = mid;
+    if (points[mid].timeMs <= timeMs) lo = mid;
     else hi = mid - 1;
   }
 
@@ -225,9 +308,9 @@ function findLastPointIndexAtOrBefore(points: EnrichedTrackPoint[], timeMs: numb
 }
 
 /**
- * Maximal task progress the pilot has achieved at or before `time`,
- * with altitude from the track point where that max was last reached.
- * Callers may still raise this with the live interpolated snapshot at `time`.
+ * Maximal task progress the pilot has achieved at or before `time`, with the display
+ * altitude from the point where that max was last reached. Both are prefix values derived
+ * at load, so this is a lookup rather than a scan.
  */
 export function getPilotMaxProgressAtTime(
   track: EnrichedFlightTrack,
@@ -236,24 +319,14 @@ export function getPilotMaxProgressAtTime(
   if (track.points.length === 0) return null;
 
   const timeMs = time.getTime();
-  let maxPercent = -1;
-  let altAtMax = 0;
-  let timeAtMax = time;
+  if (timeMs < track.points[0].timeMs) return null;
 
-  for (const point of track.points) {
-    if (point.time.getTime() > timeMs) break;
-    if (point.taskPercent >= maxPercent) {
-      maxPercent = point.taskPercent;
-      altAtMax = point.alt;
-      timeAtMax = point.time;
-    }
-  }
-
-  if (maxPercent < 0) return null;
+  const state = track.points[findLastPointIndexAtOrBefore(track.points, timeMs)];
+  if (state.maxTaskPercentSoFar < 0) return null;
 
   return {
-    taskPercent: maxPercent,
-    alt: resolveDisplayAltitudeMeters(track.points, timeAtMax, altAtMax),
+    taskPercent: state.maxTaskPercentSoFar,
+    alt: state.altAtMaxTaskPercentSoFar,
   };
 }
 
@@ -271,44 +344,32 @@ export function getTrackSnapshotAtTime(
   hasStarted: boolean;
   finished: boolean;
   nextTurnpointName: string;
+  nextTurnpointNumber: number | null;
 } | null {
   if (track.points.length === 0) return null;
 
+  const points = track.points;
   const t = time.getTime();
-  const stateIndex = findLastPointIndexAtOrBefore(track.points, t);
-  const state = track.points[stateIndex];
+  const stateIndex = findLastPointIndexAtOrBefore(points, t);
+  const state = points[stateIndex];
 
+  // Every value below is interpolated from data derived at load; playback does no geometry.
   let lat = state.lat;
   let lon = state.lon;
-  let alt = state.alt;
+  let alt = state.displayAlt;
+  let taskPercent = state.taskPercent;
 
-  if (t > track.points[0].time.getTime()) {
-    const nextIndex = stateIndex + 1;
-    if (nextIndex < track.points.length) {
-      const a = track.points[stateIndex];
-      const b = track.points[nextIndex];
-      const ta = a.time.getTime();
-      const tb = b.time.getTime();
-      if (t >= ta && t <= tb) {
-        const ratio = tb === ta ? 0 : (t - ta) / (tb - ta);
-        lat = a.lat + (b.lat - a.lat) * ratio;
-        lon = a.lon + (b.lon - a.lon) * ratio;
-        alt = interpolateReasonableAltitude(a.alt, b.alt, ratio);
-      }
-    }
-
-    const last = track.points[track.points.length - 1];
-    if (t >= last.time.getTime()) {
-      lat = last.lat;
-      lon = last.lon;
-      alt = last.alt;
-    }
+  const next = points[stateIndex + 1];
+  if (next !== undefined && t > state.timeMs && t <= next.timeMs) {
+    const span = next.timeMs - state.timeMs;
+    const ratio = span === 0 ? 0 : (t - state.timeMs) / span;
+    lat = state.lat + (next.lat - state.lat) * ratio;
+    lon = state.lon + (next.lon - state.lon) * ratio;
+    alt = state.displayAlt + (next.displayAlt - state.displayAlt) * ratio;
+    taskPercent = state.taskPercent + (next.taskPercent - state.taskPercent) * ratio;
   }
 
-  alt = resolveDisplayAltitudeMeters(track.points, time, alt);
-
-  const taskPercent = computeTaskPercentForLeg(
-    { lat, lon },
+  const nextTurnpoint = getNextTurnpoint(
     state.legIndex,
     state.finished,
     state.hasStarted,
@@ -324,153 +385,57 @@ export function getTrackSnapshotAtTime(
     landed: isLandedAtTime(track.landingTime ?? getTrackEndTime(track.points), time),
     hasStarted: state.hasStarted,
     finished: state.finished,
-    nextTurnpointName: getNextTurnpointName(
-      state.legIndex,
-      state.finished,
-      state.hasStarted,
-      route,
-    ),
+    nextTurnpointName: nextTurnpoint.name,
+    nextTurnpointNumber: nextTurnpoint.number,
   };
 }
 
-export function findLeaderAtTime(
-  tracks: EnrichedFlightTrack[],
-  timeMs: number,
-  route: OptimizedRoute,
-): string | null {
-  let leaderId: string | null = null;
-  let leaderPercent = -1;
+/**
+ * First track time at or after task start when the pilot reached `targetPercent`. Binary
+ * search over the prefix max derived at load.
+ */
+export function findFirstTimePilotReachedTaskPercent(
+  track: EnrichedFlightTrack,
+  taskStart: Date,
+  targetPercent: number,
+): Date | null {
+  const taskStartMs = taskStart.getTime();
+  const target = Math.min(100, Math.max(0, targetPercent));
+  if (target <= 0) return new Date(taskStartMs);
 
-  for (const track of tracks) {
-    if (track.points.length === 0 || track.points[0].time.getTime() > timeMs) {
-      continue;
-    }
+  const points = track.points;
+  if (points.length === 0) return null;
+  if (points[points.length - 1].maxTaskPercentSoFar < target - 0.001) return null;
 
-    const snapshot = getTrackSnapshotAtTime(track, new Date(timeMs), route);
-    if (!snapshot?.hasStarted) continue;
-
-    if (snapshot.taskPercent > leaderPercent) {
-      leaderPercent = snapshot.taskPercent;
-      leaderId = track.id;
-      continue;
-    }
-
-    if (
-      snapshot.taskPercent === leaderPercent &&
-      leaderId !== null &&
-      track.id.localeCompare(leaderId) < 0
-    ) {
-      leaderId = track.id;
+  let lo = 0;
+  let hi = points.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid].maxTaskPercentSoFar >= target - 0.001) {
+      hi = mid;
+    } else {
+      lo = mid + 1;
     }
   }
 
-  return leaderId;
+  const point = points[lo];
+  return point.timeMs < taskStartMs ? new Date(taskStartMs) : point.time;
 }
 
-function leadSecondsToPercentages(
-  tracks: EnrichedFlightTrack[],
-  leadSeconds: Map<string, number>,
-  totalSeconds: number,
-): Map<string, number> {
-  const leadPercentages = new Map<string, number>();
-  for (const track of tracks) {
-    const seconds = leadSeconds.get(track.id) ?? 0;
-    leadPercentages.set(track.id, totalSeconds > 0 ? (seconds / totalSeconds) * 100 : 0);
-  }
-  return leadPercentages;
-}
-
-const MAX_LEAD_SAMPLES = 4000;
-const MAX_INCREMENTAL_SECONDS = 8;
-
-function sampleLeadSeconds(
-  tracks: EnrichedFlightTrack[],
-  route: OptimizedRoute,
+export function resolveSeekTimeForTaskPercent(
+  targetPercent: number,
   taskStart: Date,
-  endTime: Date,
-): { leadSeconds: Map<string, number>; totalSeconds: number } {
-  const leadSeconds = new Map<string, number>(tracks.map((track) => [track.id, 0]));
-  const startMs = taskStart.getTime();
-  const endMs = endTime.getTime();
-  const totalSeconds = Math.floor((endMs - startMs) / 1000);
-
-  if (totalSeconds <= 0 || tracks.length === 0) {
-    return { leadSeconds, totalSeconds };
+  timeline: TaskFieldTimeline,
+  allTracks: EnrichedFlightTrack[],
+  focusTrackId: string | null,
+): Date | null {
+  if (focusTrackId) {
+    const track = allTracks.find((entry) => entry.id === focusTrackId);
+    if (!track) return null;
+    return findFirstTimePilotReachedTaskPercent(track, taskStart, targetPercent);
   }
 
-  const stepSeconds = Math.max(1, Math.ceil(totalSeconds / MAX_LEAD_SAMPLES));
-
-  for (let offset = 0; offset < totalSeconds; offset += stepSeconds) {
-    const chunkSeconds = Math.min(stepSeconds, totalSeconds - offset);
-    const leaderId = findLeaderAtTime(tracks, startMs + offset * 1000, route);
-    if (!leaderId) continue;
-
-    leadSeconds.set(leaderId, (leadSeconds.get(leaderId) ?? 0) + chunkSeconds);
-  }
-
-  return { leadSeconds, totalSeconds };
-}
-
-export function computeLeadPercentages(
-  tracks: EnrichedFlightTrack[],
-  route: OptimizedRoute,
-  taskStart: Date,
-  endTime: Date,
-): Map<string, number> {
-  const { leadSeconds, totalSeconds } = sampleLeadSeconds(tracks, route, taskStart, endTime);
-  return leadSecondsToPercentages(tracks, leadSeconds, totalSeconds);
-}
-
-export function advanceLeadPercentages(
-  tracks: EnrichedFlightTrack[],
-  route: OptimizedRoute,
-  taskStart: Date,
-  endTime: Date,
-  previousLeadSeconds: Map<string, number>,
-  previousEndSecond: number,
-): { leadSeconds: Map<string, number>; endSecond: number; leadPercentages: Map<string, number> } {
-  const startSecond = Math.floor(taskStart.getTime() / 1000);
-  const endSecond = Math.floor(endTime.getTime() / 1000);
-  const totalSeconds = endSecond - startSecond + 1;
-
-  if (totalSeconds <= 0 || tracks.length === 0) {
-    const empty = new Map<string, number>(tracks.map((track) => [track.id, 0]));
-    return {
-      leadSeconds: empty,
-      endSecond: startSecond - 1,
-      leadPercentages: leadSecondsToPercentages(tracks, empty, totalSeconds),
-    };
-  }
-
-  if (endSecond < previousEndSecond || endSecond - previousEndSecond > MAX_INCREMENTAL_SECONDS) {
-    const { leadSeconds } = sampleLeadSeconds(tracks, route, taskStart, endTime);
-    return {
-      leadSeconds,
-      endSecond,
-      leadPercentages: leadSecondsToPercentages(tracks, leadSeconds, totalSeconds),
-    };
-  }
-
-  if (endSecond === previousEndSecond) {
-    return {
-      leadSeconds: previousLeadSeconds,
-      endSecond,
-      leadPercentages: leadSecondsToPercentages(tracks, previousLeadSeconds, totalSeconds),
-    };
-  }
-
-  const leadSeconds = new Map(previousLeadSeconds);
-  for (let second = previousEndSecond + 1; second <= endSecond; second += 1) {
-    const leaderId = findLeaderAtTime(tracks, second * 1000, route);
-    if (!leaderId) continue;
-    leadSeconds.set(leaderId, (leadSeconds.get(leaderId) ?? 0) + 1);
-  }
-
-  return {
-    leadSeconds,
-    endSecond,
-    leadPercentages: leadSecondsToPercentages(tracks, leadSeconds, totalSeconds),
-  };
+  return findFirstTimeFieldReachedPercent(timeline, targetPercent);
 }
 
 export function enrichTracksWithTaskProgress(

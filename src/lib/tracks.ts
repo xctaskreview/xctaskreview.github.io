@@ -5,13 +5,11 @@ import { getTaskStartTime } from './xctask';
 import { COMPETITOR_COLORS } from './geo';
 import {
   enrichTracksWithTaskProgress,
-  computeLeadPercentages,
-  advanceLeadPercentages,
   getTrackSnapshotAtTime,
   type EnrichedFlightTrack,
 } from './taskProgress';
 
-export { enrichTracksWithTaskProgress, computeLeadPercentages, advanceLeadPercentages, getTrackSnapshotAtTime, type EnrichedFlightTrack };
+export { enrichTracksWithTaskProgress, getTrackSnapshotAtTime, type EnrichedFlightTrack };
 export {
   computeGlobalLegStatistics,
   computePilotLegTimings,

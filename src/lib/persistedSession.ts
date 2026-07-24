@@ -61,6 +61,8 @@ interface StoredSessionPayloadV1 {
   trackColors: Record<string, string>;
   preferences: AppPreferences;
   view?: PersistedView;
+  taskProgressMinimized?: boolean;
+  taskProgressHeightPx?: number;
 }
 
 interface StoredSessionPayloadV2Monolithic {
@@ -73,6 +75,8 @@ interface StoredSessionPayloadV2Monolithic {
   trackColors: Record<string, string>;
   preferences: AppPreferences;
   view?: PersistedView;
+  taskProgressMinimized?: boolean;
+  taskProgressHeightPx?: number;
 }
 
 interface StoredSessionPayloadV2Split {
@@ -85,6 +89,8 @@ interface StoredSessionPayloadV2Split {
   trackColors: Record<string, string>;
   preferences: AppPreferences;
   view?: PersistedView;
+  taskProgressMinimized?: boolean;
+  taskProgressHeightPx?: number;
 }
 
 type StoredSessionRecord =
@@ -100,6 +106,8 @@ export interface PersistedSession {
   trackColors: Record<string, string>;
   preferences: AppPreferences;
   view?: PersistedView;
+  taskProgressMinimized?: boolean;
+  taskProgressHeightPx?: number;
 }
 
 export type SaveSessionResult = 'saved' | 'partial' | 'failed';
@@ -347,6 +355,8 @@ function finalizeSession(
   trackColors: Record<string, string>,
   preferences: AppPreferences,
   view?: PersistedView,
+  taskProgressMinimized?: boolean,
+  taskProgressHeightPx?: number,
 ): PersistedSession {
   const trackIds = new Set(tracks.map((track) => track.id));
   const enabled = enabledTrackIds.filter((id) => trackIds.has(id));
@@ -360,7 +370,16 @@ function finalizeSession(
     trackColors,
     preferences: normalizePreferences(preferences),
     ...(view ? { view } : {}),
+    ...(taskProgressMinimized ? { taskProgressMinimized: true } : {}),
+    ...(typeof taskProgressHeightPx === 'number' && Number.isFinite(taskProgressHeightPx)
+      ? { taskProgressHeightPx: Math.round(taskProgressHeightPx) }
+      : {}),
   };
+}
+
+function readStoredTaskProgressHeightPx(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  return Math.round(value);
 }
 
 function deserializeMonolithicSession(
@@ -379,6 +398,8 @@ function deserializeMonolithicSession(
     payload.trackColors,
     payload.preferences,
     isValidView(payload.view) ? payload.view : undefined,
+    payload.taskProgressMinimized === true,
+    readStoredTaskProgressHeightPx(payload.taskProgressHeightPx),
   );
 }
 
@@ -549,6 +570,8 @@ async function loadSplitSession(
     meta.trackColors,
     meta.preferences,
     isValidView(meta.view) ? meta.view : undefined,
+    meta.taskProgressMinimized === true,
+    readStoredTaskProgressHeightPx(meta.taskProgressHeightPx),
   );
 }
 
@@ -579,6 +602,10 @@ function buildMonolithicPayload(session: PersistedSession): StoredSessionPayload
     trackColors: session.trackColors,
     preferences: session.preferences,
     view: session.view,
+    ...(session.taskProgressMinimized ? { taskProgressMinimized: true } : {}),
+    ...(session.taskProgressHeightPx !== undefined
+      ? { taskProgressHeightPx: session.taskProgressHeightPx }
+      : {}),
   };
 }
 
@@ -593,6 +620,10 @@ function buildSplitMeta(session: PersistedSession, trackIds: string[]): StoredSe
     trackColors: session.trackColors,
     preferences: session.preferences,
     view: session.view,
+    ...(session.taskProgressMinimized ? { taskProgressMinimized: true } : {}),
+    ...(session.taskProgressHeightPx !== undefined
+      ? { taskProgressHeightPx: session.taskProgressHeightPx }
+      : {}),
   };
 }
 

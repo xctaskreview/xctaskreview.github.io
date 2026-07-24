@@ -6,6 +6,7 @@ import {
   computeTaskTiming,
   enrichTracksWithTaskProgress,
 } from '../src/lib/tracks';
+import { buildTaskFieldTimeline } from '../src/lib/taskTimeline';
 import type { PersistedSession } from '../src/lib/persistedSession';
 import type { TaskTiming } from '../src/lib/types';
 import {
@@ -38,6 +39,8 @@ export function buildReviewMetricsFromSession(session: PersistedSession): Review
   const timing = computeTaskTiming(task, enrichedTracks);
   const circles = getUniqueTurnpointCircles(task);
 
+  const fieldTimeline = buildTaskFieldTimeline(enrichedTracks, timing.taskStart, timing.trackEnd);
+
   const turnpointReachMarkers =
     timing.taskStart && enrichedTracks.length > 0
       ? computeTurnpointReachTimes(
@@ -46,6 +49,7 @@ export function buildReviewMetricsFromSession(session: PersistedSession): Review
           timing.taskStart,
           timing.trackEnd,
           circles,
+          fieldTimeline,
         )
       : [];
 

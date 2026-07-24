@@ -87,6 +87,11 @@ async function fetchCivl(url: string, init?: RequestInit): Promise<Response> {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('Request to CIVL Comps timed out. Please try again.');
     }
+    if (error instanceof TypeError) {
+      throw new Error(
+        'Could not reach CIVL Comps. Check your network, disable ad blockers for this site, or run the app with npm run dev (local proxy).',
+      );
+    }
     throw error;
   } finally {
     window.clearTimeout(timeoutId);

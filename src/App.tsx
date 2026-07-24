@@ -5,7 +5,7 @@ import { AppHomeLink } from './components/AppHomeLink';
 import { Icon, IconButtonContent } from './components/Icon';
 import { MapView } from './components/MapView';
 import { TimeControls } from './components/TimeControls';
-import { defaultTaskProgressHeight, TaskProgressPanel } from './components/TaskProgressPanel';
+import { defaultTaskProgressHeight, normalizeTaskProgressPanelHeight, TaskProgressPanel } from './components/TaskProgressPanel';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { extractGliderType, mergeTrackMetadata } from './lib/igc';
 import { buildCompetitorSnapshots } from './lib/competitors';
@@ -13,6 +13,7 @@ import { computeChartAltitudeRange } from './lib/chartAltitude';
 import {
   createDefaultPreferences,
   loadPersistedPreferences,
+  normalizePlaybackSpeed,
   savePersistedPreferences,
   type AppPreferences,
 } from './lib/preferences';
@@ -20,11 +21,11 @@ import {
   assignUniqueTrackColors,
   computeGlobalLegStatistics,
   computeTaskTiming,
-  advanceLeadPercentages,
   enrichTracksWithTaskProgress,
   getTrackColor,
   loadIgcFiles,
 } from './lib/tracks';
+import { buildTaskFieldTimeline, computeLeadPercentagesFromTimeline } from './lib/taskTimeline';
 import type { CivlImportResult } from './lib/civl';
 import type { XcdemonImportResult } from './lib/xcdemon';
 import type { FlightTrack, TaskTiming, XcTask } from './lib/types';
@@ -101,13 +102,14 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState(50);
   const [taskFitKey, setTaskFitKey] = useState('');
   const [taskLocationLabel, setTaskLocationLabel] = useState<string | null>(null);
   const [taskLocationLoading, setTaskLocationLoading] = useState(false);
   const [mobileChartOpen, setMobileChartOpen] = useState(false);
   const [taskProgressMinimized, setTaskProgressMinimized] = useState(false);
+  const [taskProgressHeightPx, setTaskProgressHeightPx] = useState(() => defaultTaskProgressHeight());
   const [progressFocusTrackId, setProgressFocusTrackId] = useState<string | null>(null);
+  const [selectedPilotTrackId, setSelectedPilotTrackId] = useState<string | null>(null);
   const reviewStageRef = useRef<HTMLDivElement>(null);
   const [storageReady, setStorageReady] = useState(false);
   const currentTimeRef = useRef(currentTime);
@@ -135,6 +137,17 @@ export default function App() {
             setPreferences(persisted.preferences);
             savePersistedPreferences(persisted.preferences);
             hasStoredPreferencesRef.current = true;
+          } else {
+            setPreferences((current) => ({
+              ...current,
+              playbackSpeed: normalizePlaybackSpeed(persisted.preferences.playbackSpeed),
+            }));
+          }
+          setTaskProgressMinimized(persisted.taskProgressMinimized === true);
+          if (persisted.taskProgressHeightPx !== undefined) {
+            setTaskProgressHeightPx(
+              normalizeTaskProgressPanelHeight(persisted.taskProgressHeightPx),
+            );
           }
           if (persisted.view === 'review') {
             setView('review');
@@ -234,6 +247,12 @@ export default function App() {
     () => (task ? computeTaskTiming(task, enrichedTracks) : { trackStart: new Date(), trackEnd: new Date() }),
     [task, enrichedTracks],
   );
+  // Whole-field summary derived once per loaded review, then only read during playback.
+  const fieldTimeline = useMemo(
+    () => buildTaskFieldTimeline(enrichedTracks, timing.taskStart, timing.trackEnd),
+    [enrichedTracks, timing.taskStart, timing.trackEnd],
+  );
+
   const turnpointReachMarkers = useMemo(
     () =>
       timing.taskStart && enrichedTracks.length > 0 && route
@@ -243,9 +262,10 @@ export default function App() {
             timing.taskStart,
             timing.trackEnd,
             circles,
+            fieldTimeline,
           )
         : [],
-    [enrichedTracks, route, timing.taskStart, timing.trackEnd, circles],
+    [enrichedTracks, route, timing.taskStart, timing.trackEnd, circles, fieldTimeline],
   );
   const startTurnpointTooltip = useMemo(
     () =>
@@ -302,7 +322,7 @@ export default function App() {
       const deltaMs = now - lastFrameTime;
       lastFrameTime = now;
 
-      const nextMs = Math.min(currentTimeRef.current.getTime() + deltaMs * speed, endMs);
+      const nextMs = Math.min(currentTimeRef.current.getTime() + deltaMs * preferences.playbackSpeed, endMs);
       const next = new Date(nextMs);
       currentTimeRef.current = next;
 
@@ -326,104 +346,18 @@ export default function App() {
     });
 
     return () => cancelAnimationFrame(rafId);
-  }, [playing, speed, timing.trackEnd, enrichedTracks.length]);
+  }, [playing, preferences.playbackSpeed, timing.trackEnd, enrichedTracks.length]);
 
   const leadSecond = Math.floor(currentTime.getTime() / 1000);
-  const leadTrackKey = useMemo(
-    () => enrichedTracks.map((track) => track.id).join('|'),
-    [enrichedTracks],
+
+  // Counting whole seconds off the precomputed leader track, refreshed once per second.
+  const leadPercentages = useMemo(
+    () =>
+      showReview
+        ? computeLeadPercentagesFromTimeline(fieldTimeline, leadSecond * 1000)
+        : new Map<string, number>(),
+    [showReview, fieldTimeline, leadSecond],
   );
-
-  const leadCacheRef = useRef<{
-    trackKey: string;
-    taskStartMs: number;
-    endSecond: number;
-    leadSeconds: Map<string, number>;
-  } | null>(null);
-
-  const [leadPercentages, setLeadPercentages] = useState<Map<string, number>>(() => new Map());
-
-  const updateLeadPercentages = useCallback(
-    (endTime: Date) => {
-      if (!route || !timing.taskStart || enrichedTracks.length === 0) {
-        leadCacheRef.current = null;
-        setLeadPercentages(new Map());
-        return;
-      }
-
-      const taskStartMs = timing.taskStart.getTime();
-      const cache = leadCacheRef.current;
-      const needsReset =
-        !cache || cache.trackKey !== leadTrackKey || cache.taskStartMs !== taskStartMs;
-
-      if (needsReset) {
-        const startSecond = Math.floor(taskStartMs / 1000);
-        const { leadSeconds, endSecond, leadPercentages: result } = advanceLeadPercentages(
-          enrichedTracks,
-          route,
-          timing.taskStart,
-          endTime,
-          new Map(enrichedTracks.map((track) => [track.id, 0])),
-          startSecond - 1,
-        );
-        leadCacheRef.current = {
-          trackKey: leadTrackKey,
-          taskStartMs,
-          endSecond,
-          leadSeconds,
-        };
-        setLeadPercentages(result);
-        return;
-      }
-
-      const advanced = advanceLeadPercentages(
-        enrichedTracks,
-        route,
-        timing.taskStart,
-        endTime,
-        cache.leadSeconds,
-        cache.endSecond,
-      );
-
-      if (advanced.endSecond === cache.endSecond) return;
-
-      leadCacheRef.current = {
-        trackKey: leadTrackKey,
-        taskStartMs,
-        endSecond: advanced.endSecond,
-        leadSeconds: advanced.leadSeconds,
-      };
-      setLeadPercentages(advanced.leadPercentages);
-    },
-    [enrichedTracks, route, timing.taskStart, leadTrackKey],
-  );
-
-  useEffect(() => {
-    if (!showReview) {
-      leadCacheRef.current = null;
-      setLeadPercentages(new Map());
-      return;
-    }
-
-    if (playing) return;
-
-    const endTime = new Date(leadSecond * 1000);
-    const frame = window.requestAnimationFrame(() => updateLeadPercentages(endTime));
-    return () => window.cancelAnimationFrame(frame);
-  }, [showReview, playing, leadSecond, updateLeadPercentages]);
-
-  useEffect(() => {
-    if (!showReview || !playing) return;
-
-    const tick = () => {
-      const endTime = new Date(Math.floor(currentTimeRef.current.getTime() / 1000) * 1000);
-      updateLeadPercentages(endTime);
-    };
-
-    tick();
-    const interval = window.setInterval(tick, 5000);
-    return () => window.clearInterval(interval);
-  }, [showReview, playing, updateLeadPercentages]);
 
   const chartTime = useThrottledDate(currentTime, playing, 500);
 
@@ -498,6 +432,8 @@ export default function App() {
       trackColors,
       preferences,
       view,
+      taskProgressMinimized: taskProgressMinimized || undefined,
+      taskProgressHeightPx: normalizeTaskProgressPanelHeight(taskProgressHeightPx),
     }).then((result) => {
       if (result === 'failed') {
         setError('Could not save session to browser storage. The tracklogs may be too large.');
@@ -505,7 +441,7 @@ export default function App() {
         setError('Task saved locally, but the tracklogs were too large to store in this browser.');
       }
     });
-  }, [storageReady, task, taskFileName, tracks, enabledTrackIdsKey, trackColors, preferences, view]);
+  }, [storageReady, task, taskFileName, tracks, enabledTrackIdsKey, trackColors, preferences, view, taskProgressMinimized, taskProgressHeightPx]);
 
   const onSaveToHistory = useCallback(async () => {
     if (!task) return;
@@ -671,6 +607,32 @@ export default function App() {
     setProgressFocusTrackId(trackId);
   }, []);
 
+  const onSelectPilotTrack = useCallback((trackId: string) => {
+    setSelectedPilotTrackId(trackId);
+  }, []);
+
+  const onClosePilotDetail = useCallback(() => {
+    setSelectedPilotTrackId(null);
+    setProgressFocusTrackId(null);
+  }, []);
+
+  const onPlaybackSpeedChange = useCallback((playbackSpeed: number) => {
+    setPreferences((current) => ({
+      ...current,
+      playbackSpeed: normalizePlaybackSpeed(playbackSpeed),
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedPilotTrackId) return;
+    if (!tracks.some((track) => track.id === selectedPilotTrackId)) {
+      setSelectedPilotTrackId(null);
+      setProgressFocusTrackId((current) =>
+        current === selectedPilotTrackId ? null : current,
+      );
+    }
+  }, [tracks, selectedPilotTrackId]);
+
 
 const applyPersistedSession = useCallback((session: {
   task: XcTask;
@@ -680,6 +642,8 @@ const applyPersistedSession = useCallback((session: {
   trackColors: Record<string, string>;
   preferences: AppPreferences;
   view?: AppView;
+  taskProgressMinimized?: boolean;
+  taskProgressHeightPx?: number;
 }) => {
   hadTaskRef.current = true;
   syncAppDocumentTitle(session.task, session.taskFileName ?? '');
@@ -689,6 +653,12 @@ const applyPersistedSession = useCallback((session: {
   setEnabledTrackIds(new Set(session.enabledTrackIds));
   setTrackColors(assignUniqueTrackColors(session.tracks, session.trackColors));
   setPreferences(session.preferences);
+  savePersistedPreferences(session.preferences);
+  hasStoredPreferencesRef.current = true;
+  setTaskProgressMinimized(session.taskProgressMinimized === true);
+  if (session.taskProgressHeightPx !== undefined) {
+    setTaskProgressHeightPx(normalizeTaskProgressPanelHeight(session.taskProgressHeightPx));
+  }
   setView(session.view === 'review' ? 'review' : 'welcome');
   setTaskFitKey(`${session.taskFileName ?? 'task'}-${Date.now()}`);
 }, []);
@@ -731,11 +701,13 @@ const onSessionBundleExport = useCallback(async () => {
       trackColors,
       preferences,
       view,
+      taskProgressMinimized: taskProgressMinimized || undefined,
+      taskProgressHeightPx: normalizeTaskProgressPanelHeight(taskProgressHeightPx),
     });
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to export session bundle');
   }
-}, [task, taskFileName, tracks, enabledTrackIds, trackColors, preferences, view]);
+}, [task, taskFileName, tracks, enabledTrackIds, trackColors, preferences, view, taskProgressMinimized, taskProgressHeightPx]);
 
   const onXcdemonImport = useCallback((result: XcdemonImportResult) => {
     setError(null);
@@ -785,8 +757,10 @@ const onSessionBundleExport = useCallback(async () => {
 
   useEffect(() => {
     if (!showReview) return;
-    previewTaskProgressHeight(defaultTaskProgressHeight());
-  }, [showReview, previewTaskProgressHeight]);
+    previewTaskProgressHeight(
+      taskProgressMinimized ? defaultTaskProgressHeight() : taskProgressHeightPx,
+    );
+  }, [showReview, taskProgressMinimized, taskProgressHeightPx, previewTaskProgressHeight]);
 
   if (!showReview) {
     return (
@@ -866,11 +840,11 @@ const onSessionBundleExport = useCallback(async () => {
             finishTurnpointTooltip={finishTurnpointTooltip}
             distanceUnit={preferences.distanceUnit}
             playing={playing}
-            speed={speed}
+            speed={preferences.playbackSpeed}
             timezone={preferences.timezone}
             onTimeChange={setCurrentTime}
             onPlayingChange={setPlaying}
-            onSpeedChange={setSpeed}
+            onSpeedChange={onPlaybackSpeedChange}
           />
         )}
 
@@ -897,11 +871,13 @@ const onSessionBundleExport = useCallback(async () => {
               onToggleTrack={onToggleTrack}
               progressFocusTrackId={progressFocusTrackId}
               progressFocusColor={progressFocusColor}
-              onProgressFocusTrack={onProgressFocusTrack}
               onSetProgressFocusTrack={onSetProgressFocusTrack}
+              selectedPilotTrackId={selectedPilotTrackId}
+              onSelectPilotTrack={onSelectPilotTrack}
+              onClosePilotDetail={onClosePilotDetail}
               legStatistics={legStatistics}
               taskStart={timing.taskStart}
-              trackKey={leadTrackKey}
+              fieldTimeline={fieldTimeline}
               taskProgressMarkerRef={taskProgressMarkerRef}
               turnpointReachMarkers={turnpointReachMarkers}
             />
@@ -924,6 +900,7 @@ const onSessionBundleExport = useCallback(async () => {
               <TaskProgressPanel
                 mobileOpen={mobileChartOpen}
                 enrichedTracks={enrichedTracks}
+                allEnrichedTracks={allEnrichedTracks}
                 trackColors={trackColors}
                 route={route}
                 currentTimeRef={currentTimeRef}
@@ -931,8 +908,13 @@ const onSessionBundleExport = useCallback(async () => {
                 pausedTime={currentTime}
                 turnpoints={route.progressTurnpoints}
                 turnpointReachMarkers={turnpointReachMarkers}
+                fieldTimeline={fieldTimeline}
                 taskStart={timing.taskStart}
+                playbackEndTime={timing.trackEnd}
                 onTimeChange={setCurrentTime}
+                progressFocusTrackId={progressFocusTrackId}
+                onSetProgressFocusTrack={onSetProgressFocusTrack}
+                selectedPilotTrackId={selectedPilotTrackId}
                 altitudeMin={altitudeRange.min}
                 altitudeMax={altitudeRange.max}
                 altitudeStep={altitudeRange.step}
@@ -940,6 +922,8 @@ const onSessionBundleExport = useCallback(async () => {
                 preferences={preferences}
                 taskProgressMarkerRef={taskProgressMarkerRef}
                 minimized={taskProgressMinimized}
+                panelHeight={taskProgressHeightPx}
+                onPanelHeightChange={setTaskProgressHeightPx}
                 onToggleMinimized={() => setTaskProgressMinimized((value) => !value)}
                 onMobileDismiss={() => {
                   setMobileChartOpen(false);
