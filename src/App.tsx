@@ -420,6 +420,8 @@ export default function App() {
     });
   }, [storageReady, task, taskFileName, tracks, enabledTrackIdsKey, trackColors, preferences, view]);
 
+  const onTaskUpdate = useCallback((updatedTask: XcTask) => { setError(null); setTask(updatedTask); setTaskFitKey(`${taskFileName || 'task'}-${Date.now()}`); }, [taskFileName]);
+
   const onTaskFile = useCallback(async (file: File) => {
     try {
       setError(null);
@@ -566,6 +568,7 @@ export default function App() {
           onDismissError={() => setError(null)}
           onXcdemonImport={onXcdemonImport}
           onError={setError}
+          onTaskUpdate={onTaskUpdate}
         />
         <AppFooter />
       </div>

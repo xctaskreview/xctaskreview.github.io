@@ -24,6 +24,7 @@ import type { AppPreferences } from '../lib/preferences';
 import { getMapTypeOptions, getSpeedUnitOptions, getTimezoneOptions, getVerticalSpeedUnitOptions, normalizePilotTrailLengthM } from '../lib/preferences';
 import { AppHomeLink } from './AppHomeLink';
 import { Icon, IconButtonContent, IconLabel, XcdemonButtonContent } from './Icon';
+import { TaskEditForm } from './TaskEditForm';
 import { XcdemonImportDialog } from './XcdemonImportDialog';
 
 function getDistanceUnitOptions() {
@@ -62,6 +63,7 @@ interface WelcomeScreenProps {
   onContinue: () => void;
   onXcdemonImport: (result: XcdemonImportResult) => void;
   onError: (message: string) => void;
+  onTaskUpdate: (task: XcTask) => void;
 }
 
 export function WelcomeScreen({
@@ -86,6 +88,7 @@ export function WelcomeScreen({
   onContinue,
   onXcdemonImport,
   onError,
+  onTaskUpdate,
 }: WelcomeScreenProps) {
   const [xcdemonOpen, setXcdemonOpen] = useState(false);
 
@@ -150,6 +153,7 @@ export function WelcomeScreen({
                 {taskFileName && taskDisplay.name !== taskFileName.replace(/\.(xctsk|json)$/i, '') && (
                   <div className="welcome-task-file">{taskFileName}</div>
                 )}
+                <TaskEditForm task={task} onApply={onTaskUpdate} onError={onError} />
               </>
             ) : (
               <div className="welcome-task-empty">No task loaded yet</div>
