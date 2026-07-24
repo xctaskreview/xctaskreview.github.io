@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FlightTrack, XcTask } from '../lib/types';
 import {
   ArrowRight,
   Clock,
   Download,
+  Eye,
+  EyeOff,
   FileUp,
   FolderUp,
   Gauge,
@@ -119,8 +121,6 @@ export function WelcomeScreen({
   const [pilotSearch, setPilotSearch] = useState('');
   const [editingTaskField, setEditingTaskField] = useState<'name' | 'location' | null>(null);
   const [taskFieldDraft, setTaskFieldDraft] = useState('');
-  const selectAllRef = useRef<HTMLInputElement>(null);
-
   const updatePreference = <K extends keyof AppPreferences>(key: K, value: AppPreferences[K]) => {
     onPreferencesChange({ ...preferences, [key]: value });
   };
@@ -174,12 +174,6 @@ export function WelcomeScreen({
   const noneFilteredSelected =
     filteredTrackIds.length > 0 && filteredTrackIds.every((id) => !enabledTrackIds.has(id));
   const someFilteredSelected = !allFilteredSelected && !noneFilteredSelected;
-
-  useEffect(() => {
-    if (selectAllRef.current) {
-      selectAllRef.current.indeterminate = someFilteredSelected;
-    }
-  }, [someFilteredSelected]);
 
   return (
     <div className="welcome-screen">
@@ -384,16 +378,19 @@ export function WelcomeScreen({
               <div className="welcome-pilot-list-wrapper">
                 <div className="welcome-pilot-list-toolbar">
                   <div className="welcome-pilot-list-toolbar-main">
-                    <label className="welcome-pilot-select-all">
-                      <input
-                        ref={selectAllRef}
-                        type="checkbox"
-                        checked={allFilteredSelected}
-                        disabled={filteredTrackIds.length === 0}
-                        aria-label="Select all visible pilots"
-                        onChange={(e) => onSetTracksEnabled(filteredTrackIds, e.target.checked)}
+                    <button
+                      type="button"
+                      className={`welcome-pilot-visibility welcome-pilot-select-all${allFilteredSelected ? ' is-visible' : ''}${someFilteredSelected ? ' is-mixed' : ''}`}
+                      disabled={filteredTrackIds.length === 0}
+                      aria-label="Toggle visibility for filtered pilots"
+                      aria-pressed={allFilteredSelected}
+                      onClick={() => onSetTracksEnabled(filteredTrackIds, !allFilteredSelected)}
+                    >
+                      <Icon
+                        icon={allFilteredSelected || someFilteredSelected ? Eye : EyeOff}
+                        size="sm"
                       />
-                    </label>
+                    </button>
                     <label className="welcome-pilot-search">
                       <Icon icon={Search} size="sm" />
                       <input
@@ -416,13 +413,24 @@ export function WelcomeScreen({
                       const gliderType = extractGliderType(track);
 
                       return (
-                        <li key={track.id}>
-                          <label className="welcome-pilot-item">
-                            <input
-                              type="checkbox"
-                              checked={enabledTrackIds.has(track.id)}
-                              onChange={(e) => onToggleTrack(track.id, e.target.checked)}
-                            />
+                        <li key={track.id} className={enabledTrackIds.has(track.id) ? undefined : 'pilot-hidden'}>
+                          <div className="welcome-pilot-item">
+                            <button
+                              type="button"
+                              className={`welcome-pilot-visibility${enabledTrackIds.has(track.id) ? ' is-visible' : ''}`}
+                              aria-label={
+                                enabledTrackIds.has(track.id)
+                                  ? `Hide ${pilotName} on map`
+                                  : `Show ${pilotName} on map`
+                              }
+                              aria-pressed={enabledTrackIds.has(track.id)}
+                              onClick={() => onToggleTrack(track.id, !enabledTrackIds.has(track.id))}
+                            >
+                              <Icon
+                                icon={enabledTrackIds.has(track.id) ? Eye : EyeOff}
+                                size="sm"
+                              />
+                            </button>
                             <input
                               type="color"
                               className="welcome-pilot-color"
@@ -437,7 +445,7 @@ export function WelcomeScreen({
                               </span>
                               {gliderType && <span className="welcome-pilot-glider">{gliderType}</span>}
                             </span>
-                          </label>
+                          </div>
                           <button
                             type="button"
                             className="welcome-icon-button danger"

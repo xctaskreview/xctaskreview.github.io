@@ -22,17 +22,35 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
+function compareScoreboardCompetitors(a: CompetitorSnapshot, b: CompetitorSnapshot): number {
+  if (b.taskKm !== a.taskKm) return b.taskKm - a.taskKm;
+  if (b.taskPercent !== a.taskPercent) return b.taskPercent - a.taskPercent;
+  return a.pilotName.localeCompare(b.pilotName);
+}
+
 export function sortScoreboardEntries(competitors: CompetitorSnapshot[]): ScoreboardEntry[] {
   return [...competitors]
-    .sort((a, b) => {
-      if (b.taskKm !== a.taskKm) return b.taskKm - a.taskKm;
-      if (b.taskPercent !== a.taskPercent) return b.taskPercent - a.taskPercent;
-      return a.pilotName.localeCompare(b.pilotName);
-    })
+    .sort(compareScoreboardCompetitors)
     .map((entry, index) => ({
       ...entry,
       position: index + 1,
     }));
+}
+
+/** Ranks visible pilots normally; hidden pilots follow at the bottom (no rank number). */
+export function sortScoreboardEntriesForDisplay(
+  competitors: CompetitorSnapshot[],
+  visibleTrackIds: Set<string>,
+): ScoreboardEntry[] {
+  const visible = competitors.filter((entry) => visibleTrackIds.has(entry.id));
+  const hidden = competitors.filter((entry) => !visibleTrackIds.has(entry.id));
+
+  const visibleEntries = sortScoreboardEntries(visible);
+  const hiddenEntries = [...hidden]
+    .sort(compareScoreboardCompetitors)
+    .map((entry) => ({ ...entry, position: 0 }));
+
+  return [...visibleEntries, ...hiddenEntries];
 }
 
 export function formatCompetitorLeaderboardPopupHtml(
@@ -70,7 +88,7 @@ export function formatCompetitorLeaderboardPopupHtml(
     `</div>` +
     `<dl class="competitor-popup-stats">` +
     `<div><dt>Task (${distanceUnitLabel})</dt><dd>${formatDistanceValue(entry.taskKm, preferences.distanceUnit)}` +
-    `<span class="competitor-popup-muted"> (${entry.taskPercent.toFixed(1)}%)</span></dd></div>` +
+    `<span class="competitor-popup-muted"> (${Math.round(entry.taskPercent)}%)</span></dd></div>` +
     `<div><dt>Lead (%)</dt><dd>${entry.leadPercent.toFixed(1)}</dd></div>` +
     `<div><dt>Alt (${altitudeUnitLabel})</dt><dd>${formatAltitudeValue(entry.alt, preferences.altitudeUnit)}</dd></div>` +
     `<div><dt>Speed (${speedUnit})</dt><dd>${formatGroundSpeedValue(entry.groundSpeedMps, preferences.speedUnit)}</dd></div>` +

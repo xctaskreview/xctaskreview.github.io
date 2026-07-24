@@ -12,6 +12,8 @@ type ActivePanel = 'leaderboard' | 'leg-statistics';
 interface MapDataPanelsProps {
   competitors: CompetitorSnapshot[];
   leadPercentages: Map<string, number>;
+  enabledTrackIds: Set<string>;
+  onToggleTrack: (trackId: string, enabled: boolean) => void;
   legs: GlobalLegStatistics[];
   preferences: AppPreferences;
   playing: boolean;
@@ -20,6 +22,8 @@ interface MapDataPanelsProps {
 export function MapDataPanels({
   competitors,
   leadPercentages,
+  enabledTrackIds,
+  onToggleTrack,
   legs,
   preferences,
   playing,
@@ -80,6 +84,8 @@ export function MapDataPanels({
       <Scoreboard
         competitors={competitors}
         leadPercentages={leadPercentages}
+        enabledTrackIds={enabledTrackIds}
+        onToggleTrack={onToggleTrack}
         preferences={preferences}
         playing={playing}
         expanded={leaderboardExpanded}

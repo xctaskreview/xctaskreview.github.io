@@ -1124,19 +1124,57 @@ html.turnpoint-drag-active .welcome-scroll {
 }
 
 .welcome-pilot-select-all {
-  display: flex;
-  align-items: center;
   flex-shrink: 0;
+}
+
+.welcome-pilot-visibility {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
   cursor: pointer;
 }
 
-.welcome-pilot-select-all input[type='checkbox'],
-.welcome-pilot-item input[type='checkbox'] {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  flex-shrink: 0;
-  cursor: pointer;
+.welcome-pilot-visibility.is-visible {
+  color: #2563eb;
+}
+
+.welcome-pilot-visibility.is-mixed {
+  color: #64748b;
+  opacity: 0.7;
+}
+
+.welcome-pilot-visibility:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.welcome-pilot-visibility:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.welcome-pilot-list li.pilot-hidden,
+.welcome-pilot-item.pilot-hidden {
+  opacity: 0.55;
+}
+
+.welcome-pilot-item.pilot-hidden .welcome-pilot-name,
+.welcome-pilot-item.pilot-hidden .welcome-pilot-glider,
+.welcome-pilot-item.pilot-hidden .welcome-pilot-file {
+  color: #94a3b8;
+}
+
+.welcome-pilot-item.pilot-hidden .welcome-pilot-color {
+  opacity: 0.55;
+  filter: grayscale(0.85);
 }
 
 .welcome-pilot-search {
@@ -1553,7 +1591,6 @@ html.turnpoint-drag-active .welcome-scroll {
   flex: 1;
   min-width: 0;
   padding: 10px 12px;
-  cursor: pointer;
 }
 
 .welcome-pilot-name {
@@ -2607,7 +2644,7 @@ html.turnpoint-drag-active .welcome-scroll {
 .scoreboard-row {
   display: grid;
   grid-template-columns:
-    24px minmax(0, 1.1fr) minmax(53px, 0.6fr) 57px 53px 55px 51px minmax(79px, 0.94fr);
+    24px minmax(0, 1.32fr) minmax(53px, 0.6fr) 57px 53px 55px 51px minmax(79px, 0.94fr);
   align-items: center;
   gap: 6px;
   padding: 0 4px;
@@ -2640,6 +2677,34 @@ html.turnpoint-drag-active .welcome-scroll {
 
 .scoreboard-row.landed {
   opacity: 0.72;
+}
+
+.scoreboard-row.pilot-hidden {
+  opacity: 0.55;
+}
+
+.scoreboard-row.pilot-hidden.landed {
+  opacity: 0.45;
+}
+
+.scoreboard-row.pilot-hidden .scoreboard-cell {
+  color: #94a3b8;
+}
+
+.scoreboard-row.pilot-hidden .scoreboard-glider,
+.scoreboard-row.pilot-hidden .scoreboard-muted,
+.scoreboard-row.pilot-hidden .scoreboard-next-tp-name {
+  color: #cbd5e1;
+}
+
+.scoreboard-row.pilot-hidden .scoreboard-color {
+  filter: grayscale(0.85);
+  opacity: 0.65;
+}
+
+.scoreboard-pilot-visibility {
+  width: 28px;
+  height: 28px;
 }
 
 .scoreboard-cell {
@@ -2742,8 +2807,21 @@ html.turnpoint-drag-active .welcome-scroll {
 }
 
 .scoreboard-name-text {
+  position: relative;
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.scoreboard-name-measure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .scoreboard-leader-trophy {

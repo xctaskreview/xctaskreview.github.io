@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Crown,
+  Eye,
+  EyeOff,
   Gauge,
   Hash,
   MapPin,
@@ -20,7 +22,7 @@ import {
 } from '../lib/preferences';
 import type { CompetitorSnapshot } from '../lib/types';
 import { Icon } from './Icon';
-import { sortScoreboardEntries, type ScoreboardEntry } from '../lib/scoreboardDisplay';
+import { sortScoreboardEntriesForDisplay, type ScoreboardEntry } from '../lib/scoreboardDisplay';
 
 const UPDATE_INTERVAL_MS = 1000;
 const ROW_HEIGHT = 56;
@@ -28,6 +30,8 @@ const ROW_HEIGHT = 56;
 interface ScoreboardProps {
   competitors: CompetitorSnapshot[];
   leadPercentages: Map<string, number>;
+  enabledTrackIds: Set<string>;
+  onToggleTrack: (trackId: string, enabled: boolean) => void;
   preferences: AppPreferences;
   playing: boolean;
   expanded: boolean;
@@ -83,9 +87,48 @@ function buildScoreboardLayout(entries: ScoreboardEntry[]) {
   return { rankById, renderEntries };
 }
 
+function ScoreboardPilotName({ pilotName, firstName }: { pilotName: string; firstName: string }) {
+  const containerRef = useRef<HTMLSpanElement>(null);
+  const measureRef = useRef<HTMLSpanElement>(null);
+  const [displayName, setDisplayName] = useState(pilotName);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const measure = measureRef.current;
+    if (!container || !measure) return;
+
+    const update = () => {
+      if (container.clientWidth === 0) return;
+      measure.textContent = pilotName;
+      const overflows = measure.scrollWidth > container.clientWidth;
+      setDisplayName(overflows ? firstName || pilotName : pilotName);
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [pilotName, firstName]);
+
+  const shortened = displayName !== pilotName;
+
+  return (
+    <span
+      ref={containerRef}
+      className="scoreboard-name-text"
+      title={shortened ? pilotName : undefined}
+    >
+      {displayName}
+      <span ref={measureRef} className="scoreboard-name-measure" aria-hidden="true" />
+    </span>
+  );
+}
+
 export function Scoreboard({
   competitors,
   leadPercentages,
+  enabledTrackIds,
+  onToggleTrack,
   preferences,
   playing,
   expanded,
@@ -93,13 +136,14 @@ export function Scoreboard({
   const displayedCompetitors = useThrottledCompetitors(competitors, playing, UPDATE_INTERVAL_MS);
   const entries = useMemo(
     () =>
-      sortScoreboardEntries(
+      sortScoreboardEntriesForDisplay(
         displayedCompetitors.map((entry) => ({
           ...entry,
           leadPercent: leadPercentages.get(entry.id) ?? 0,
         })),
+        enabledTrackIds,
       ),
-    [displayedCompetitors, leadPercentages],
+    [displayedCompetitors, leadPercentages, enabledTrackIds],
   );
   const { rankById, renderEntries } = useMemo(() => buildScoreboardLayout(entries), [entries]);
 
@@ -188,11 +232,12 @@ export function Scoreboard({
           {renderEntries.map((entry) => {
             const markerColor = entry.landed ? LANDED_COLOR : entry.color;
             const rank = rankById.get(entry.id) ?? 0;
+            const visible = enabledTrackIds.has(entry.id);
 
             return (
               <div
                 key={entry.id}
-                className={`scoreboard-row${entry.landed ? ' landed' : ''}`}
+                className={`scoreboard-row${entry.landed ? ' landed' : ''}${visible ? '' : ' pilot-hidden'}`}
                 style={{
                   transform: `translateY(${rank * ROW_HEIGHT}px)`,
                   zIndex: entries.length - rank,
@@ -202,9 +247,13 @@ export function Scoreboard({
                 <span
                   className="scoreboard-cell scoreboard-pos"
                   role="cell"
-                  aria-label={entry.position === 1 ? '1' : undefined}
+                  aria-label={
+                    !visible ? 'Hidden from map' : entry.position === 1 ? '1' : undefined
+                  }
                 >
-                  {entry.position === 1 ? (
+                  {!visible ? (
+                    '—'
+                  ) : entry.position === 1 ? (
                     <Icon icon={Trophy} size="xs" className="scoreboard-leader-trophy" />
                   ) : (
                     entry.position
@@ -212,10 +261,23 @@ export function Scoreboard({
                 </span>
                 <span className="scoreboard-cell scoreboard-pilot" role="cell">
                   <span className="scoreboard-pilot-inner">
+                    <button
+                      type="button"
+                      className={`welcome-pilot-visibility scoreboard-pilot-visibility${visible ? ' is-visible' : ''}`}
+                      aria-label={
+                        visible
+                          ? `Hide ${entry.pilotName} on map`
+                          : `Show ${entry.pilotName} on map`
+                      }
+                      aria-pressed={visible}
+                      onClick={() => onToggleTrack(entry.id, !visible)}
+                    >
+                      <Icon icon={visible ? Eye : EyeOff} size="sm" />
+                    </button>
                     <span className="scoreboard-color" style={{ background: markerColor }} />
                     <span className="scoreboard-pilot-text">
                       <span className="scoreboard-name">
-                        <span className="scoreboard-name-text">{entry.pilotName}</span>
+                        <ScoreboardPilotName pilotName={entry.pilotName} firstName={entry.firstName} />
                       </span>
                       {entry.gliderType && (
                         <span className="scoreboard-glider">{entry.gliderType}</span>
@@ -226,7 +288,7 @@ export function Scoreboard({
                 <span className="scoreboard-cell scoreboard-task" role="cell">
                   <span className="scoreboard-task-inner">
                     <span>{formatDistanceValue(entry.taskKm, preferences.distanceUnit)}</span>
-                    <span className="scoreboard-muted">{entry.taskPercent.toFixed(1)}%</span>
+                    <span className="scoreboard-muted">{Math.round(entry.taskPercent)}%</span>
                   </span>
                 </span>
                 <span className="scoreboard-cell scoreboard-lead" role="cell">

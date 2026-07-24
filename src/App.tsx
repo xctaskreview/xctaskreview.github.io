@@ -211,10 +211,15 @@ export default function App() {
     return getTaskStartTime(task, referenceDate);
   }, [task, visibleTracks]);
 
-  const enrichedTracks = useMemo(() => {
+  const allEnrichedTracks = useMemo(() => {
     if (!showReview || !task || !route) return [];
-    return enrichTracksWithTaskProgress(visibleTracks, task, route, taskStart);
-  }, [showReview, visibleTracks, task, route, taskStart]);
+    return enrichTracksWithTaskProgress(tracks, task, route, taskStart);
+  }, [showReview, tracks, task, route, taskStart]);
+
+  const enrichedTracks = useMemo(
+    () => allEnrichedTracks.filter((track) => enabledTrackIds.has(track.id)),
+    [allEnrichedTracks, enabledTrackIds],
+  );
 
   const legStatistics = useMemo(
     () => (route && enrichedTracks.length > 0 ? computeGlobalLegStatistics(enrichedTracks, route) : []),
@@ -423,8 +428,8 @@ export default function App() {
   const scoreboardCompetitors = useMemo(() => {
     if (!route) return [];
     const time = playing ? chartTime : currentTime;
-    return buildCompetitorSnapshots(enrichedTracks, trackColors, route, time, true);
-  }, [enrichedTracks, trackColors, route, playing, chartTime, currentTime]);
+    return buildCompetitorSnapshots(allEnrichedTracks, trackColors, route, time, true);
+  }, [allEnrichedTracks, trackColors, route, playing, chartTime, currentTime]);
 
   const altitudeRange = useMemo(
     () => computeChartAltitudeRange(enrichedTracks, preferences.altitudeUnit),
@@ -867,6 +872,8 @@ const onSessionBundleExport = useCallback(async () => {
               playing={playing}
               pausedTime={currentTime}
               scoreboardCompetitors={scoreboardCompetitors}
+              enabledTrackIds={enabledTrackIds}
+              onToggleTrack={onToggleTrack}
               legStatistics={legStatistics}
               taskStart={timing.taskStart}
               trackKey={leadTrackKey}

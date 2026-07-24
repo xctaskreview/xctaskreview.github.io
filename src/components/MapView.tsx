@@ -304,6 +304,8 @@ interface MapViewProps {
   playing: boolean;
   pausedTime: Date;
   scoreboardCompetitors: CompetitorSnapshot[];
+  enabledTrackIds: Set<string>;
+  onToggleTrack: (trackId: string, enabled: boolean) => void;
   legStatistics: GlobalLegStatistics[];
   taskStart?: Date;
   trackKey: string;
@@ -324,6 +326,8 @@ export function MapView({
   playing,
   pausedTime,
   scoreboardCompetitors,
+  enabledTrackIds,
+  onToggleTrack,
   legStatistics,
   taskStart,
   trackKey,
@@ -375,6 +379,8 @@ export function MapView({
       <MapDataPanels
         competitors={scoreboardCompetitors}
         leadPercentages={leadPercentages}
+        enabledTrackIds={enabledTrackIds}
+        onToggleTrack={onToggleTrack}
         legs={legStatistics}
         preferences={preferences}
         playing={playing}
