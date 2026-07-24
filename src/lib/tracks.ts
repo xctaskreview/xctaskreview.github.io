@@ -12,6 +12,8 @@ import {
 } from './taskProgress';
 
 export { enrichTracksWithTaskProgress, computeLeadPercentages, advanceLeadPercentages, getTrackSnapshotAtTime, type EnrichedFlightTrack };
+export { computeGeneralAirStats, computeTrackAirStats } from './airStats';
+export type { GeneralAirStats, TrackAirStats } from './airStats';
 export {
   computeGlobalLegStatistics,
   computePilotLegTimings,
