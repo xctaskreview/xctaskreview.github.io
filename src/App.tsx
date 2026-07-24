@@ -4,7 +4,6 @@ import { AltitudeChart } from './components/AltitudeChart';
 import { AppFooter } from './components/AppFooter';
 import { AppHomeLink } from './components/AppHomeLink';
 import { Icon, IconButtonContent } from './components/Icon';
-import { LegStatisticsTable } from './components/LegStatisticsTable';
 import { MapView } from './components/MapView';
 import { TimeControls } from './components/TimeControls';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -624,6 +623,7 @@ export default function App() {
           playing={playing}
           pausedTime={currentTime}
           scoreboardCompetitors={scoreboardCompetitors}
+          legStatistics={legStatistics}
           taskStart={timing.taskStart}
           trackKey={leadTrackKey}
           taskProgressMarkerRef={taskProgressMarkerRef}
@@ -665,7 +665,6 @@ export default function App() {
             preferences={preferences}
             taskProgressMarkerRef={taskProgressMarkerRef}
           />
-          <LegStatisticsTable legs={legStatistics} preferences={preferences} />
         </>
       )}
       </div>

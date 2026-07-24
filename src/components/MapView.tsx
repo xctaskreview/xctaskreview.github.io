@@ -17,8 +17,9 @@ import {
 } from '../lib/taskMapStyle';
 import { getUniqueTurnpointMarkers } from '../lib/xctask';
 import { LiveCompetitorLayer } from './LiveCompetitorLayer';
+import { MapDataPanels } from './MapDataPanels';
 import { MapLegend } from './MapLegend';
-import { Scoreboard } from './Scoreboard';
+import type { GlobalLegStatistics } from '../lib/legStatistics';
 import type { TaskProgressMarker, TurnpointReachMarker } from '../lib/taskProgressMarker';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
 import { buildReachMarkerMap, buildTurnpointTooltipFromCircle } from '../lib/turnpointTooltip';
@@ -277,6 +278,7 @@ interface MapViewProps {
   playing: boolean;
   pausedTime: Date;
   scoreboardCompetitors: CompetitorSnapshot[];
+  legStatistics: GlobalLegStatistics[];
   taskStart?: Date;
   trackKey: string;
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
@@ -296,6 +298,7 @@ export function MapView({
   playing,
   pausedTime,
   scoreboardCompetitors,
+  legStatistics,
   taskStart,
   trackKey,
   taskProgressMarkerRef,
@@ -341,9 +344,10 @@ export function MapView({
         />
       </MapContainer>
       <MapLegend />
-      <Scoreboard
+      <MapDataPanels
         competitors={scoreboardCompetitors}
         leadPercentages={leadPercentages}
+        legs={legStatistics}
         preferences={preferences}
         playing={playing}
       />

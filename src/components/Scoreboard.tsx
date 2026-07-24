@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ChevronDown,
-  ChevronUp,
   Crown,
   Gauge,
   Hash,
@@ -9,7 +7,6 @@ import {
   Mountain,
   Route,
   TrendingUp,
-  Trophy,
   User,
 } from 'lucide-react';
 import { LANDED_COLOR } from '../lib/geo';
@@ -32,6 +29,7 @@ interface ScoreboardProps {
   leadPercentages: Map<string, number>;
   preferences: AppPreferences;
   playing: boolean;
+  expanded: boolean;
 }
 
 function useThrottledCompetitors(
@@ -84,8 +82,13 @@ function buildScoreboardLayout(entries: ScoreboardEntry[]) {
   return { rankById, renderEntries };
 }
 
-export function Scoreboard({ competitors, leadPercentages, preferences, playing }: ScoreboardProps) {
-  const [expanded, setExpanded] = useState(false);
+export function Scoreboard({
+  competitors,
+  leadPercentages,
+  preferences,
+  playing,
+  expanded,
+}: ScoreboardProps) {
   const displayedCompetitors = useThrottledCompetitors(competitors, playing, UPDATE_INTERVAL_MS);
   const entries = useMemo(
     () =>
@@ -99,7 +102,7 @@ export function Scoreboard({ competitors, leadPercentages, preferences, playing 
   );
   const { rankById, renderEntries } = useMemo(() => buildScoreboardLayout(entries), [entries]);
 
-  if (entries.length === 0) return null;
+  if (!expanded || entries.length === 0) return null;
 
   const distanceUnitLabel = preferences.distanceUnit === 'mi' ? 'mi' : 'km';
   const speedUnitLabel = preferences.speedUnit;
@@ -107,164 +110,145 @@ export function Scoreboard({ competitors, leadPercentages, preferences, playing 
   const varioUnitLabel = preferences.verticalSpeedUnit;
 
   return (
-    <div className={`scoreboard-overlay${expanded ? ' expanded' : ''}`}>
-      <button
-        type="button"
-        className="scoreboard-title"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((open) => !open)}
-      >
-        <span className="scoreboard-title-text">
-          <Icon icon={Trophy} size="sm" />
-          Leaderboard
-        </span>
-        <span className="scoreboard-toggle scoreboard-toggle-icon" aria-hidden="true">
-          <Icon icon={expanded ? ChevronUp : ChevronDown} size="sm" />
-        </span>
-      </button>
-
-      {expanded && (
-        <div className="scoreboard-table-scroll">
-          <div className="scoreboard-table" role="table" aria-label="Pilot leaderboard">
-            <div className="scoreboard-header-row" role="row">
-              <span className="scoreboard-cell scoreboard-pos" role="columnheader">
-                <Icon icon={Hash} size="xs" />
+    <div className="scoreboard-table-scroll">
+      <div className="scoreboard-table" role="table" aria-label="Pilot leaderboard">
+        <div className="scoreboard-header-row" role="row">
+          <span className="scoreboard-cell scoreboard-pos" role="columnheader">
+            <Icon icon={Hash} size="xs" />
+          </span>
+          <span className="scoreboard-cell scoreboard-pilot" role="columnheader">
+            <span className="scoreboard-header-stack">
+              <span className="scoreboard-header-label">
+                <Icon icon={User} size="xs" />
+                Pilot
               </span>
-              <span className="scoreboard-cell scoreboard-pilot" role="columnheader">
-                <span className="scoreboard-header-stack">
-                  <span className="scoreboard-header-label">
-                    <Icon icon={User} size="xs" />
-                    Pilot
-                  </span>
-                </span>
+            </span>
+          </span>
+          <span className="scoreboard-cell scoreboard-task" role="columnheader">
+            <span className="scoreboard-header-stack">
+              <span className="scoreboard-header-label">
+                <Icon icon={Route} size="xs" />
+                Task
               </span>
-              <span className="scoreboard-cell scoreboard-task" role="columnheader">
-                <span className="scoreboard-header-stack">
-                  <span className="scoreboard-header-label">
-                    <Icon icon={Route} size="xs" />
-                    Task
-                  </span>
-                  <span className="scoreboard-header-unit">{distanceUnitLabel}</span>
-                </span>
+              <span className="scoreboard-header-unit">{distanceUnitLabel}</span>
+            </span>
+          </span>
+          <span className="scoreboard-cell scoreboard-lead" role="columnheader">
+            <span className="scoreboard-header-stack">
+              <span className="scoreboard-header-label">
+                <Icon icon={Crown} size="xs" />
+                Lead
               </span>
-              <span className="scoreboard-cell scoreboard-lead" role="columnheader">
-                <span className="scoreboard-header-stack">
-                  <span className="scoreboard-header-label">
-                    <Icon icon={Crown} size="xs" />
-                    Lead
-                  </span>
-                  <span className="scoreboard-header-unit">%</span>
-                </span>
+              <span className="scoreboard-header-unit">%</span>
+            </span>
+          </span>
+          <span className="scoreboard-cell scoreboard-alt" role="columnheader">
+            <span className="scoreboard-header-stack">
+              <span className="scoreboard-header-label">
+                <Icon icon={Mountain} size="xs" />
+                Alt
               </span>
-              <span className="scoreboard-cell scoreboard-alt" role="columnheader">
-                <span className="scoreboard-header-stack">
-                  <span className="scoreboard-header-label">
-                    <Icon icon={Mountain} size="xs" />
-                    Alt
-                  </span>
-                  <span className="scoreboard-header-unit">{altitudeUnitLabel}</span>
-                </span>
+              <span className="scoreboard-header-unit">{altitudeUnitLabel}</span>
+            </span>
+          </span>
+          <span className="scoreboard-cell scoreboard-speed" role="columnheader">
+            <span className="scoreboard-header-stack">
+              <span className="scoreboard-header-label">
+                <Icon icon={Gauge} size="xs" />
+                Speed
               </span>
-              <span className="scoreboard-cell scoreboard-speed" role="columnheader">
-                <span className="scoreboard-header-stack">
-                  <span className="scoreboard-header-label">
-                    <Icon icon={Gauge} size="xs" />
-                    Speed
-                  </span>
-                  <span className="scoreboard-header-unit">{speedUnitLabel}</span>
-                </span>
+              <span className="scoreboard-header-unit">{speedUnitLabel}</span>
+            </span>
+          </span>
+          <span className="scoreboard-cell scoreboard-vario" role="columnheader">
+            <span className="scoreboard-header-stack">
+              <span className="scoreboard-header-label">
+                <Icon icon={TrendingUp} size="xs" />
+                V/S
               </span>
-              <span className="scoreboard-cell scoreboard-vario" role="columnheader">
-                <span className="scoreboard-header-stack">
-                  <span className="scoreboard-header-label">
-                    <Icon icon={TrendingUp} size="xs" />
-                    V/S
-                  </span>
-                  <span className="scoreboard-header-unit">{varioUnitLabel}</span>
-                </span>
+              <span className="scoreboard-header-unit">{varioUnitLabel}</span>
+            </span>
+          </span>
+          <span className="scoreboard-cell scoreboard-next-tp" role="columnheader">
+            <span className="scoreboard-header-stack">
+              <span className="scoreboard-header-label">
+                <Icon icon={MapPin} size="xs" />
+                Next TP
               </span>
-              <span className="scoreboard-cell scoreboard-next-tp" role="columnheader">
-                <span className="scoreboard-header-stack">
-                  <span className="scoreboard-header-label">
-                    <Icon icon={MapPin} size="xs" />
-                    Next TP
-                  </span>
-                </span>
-              </span>
-            </div>
-
-            <div
-              className="scoreboard-body"
-              style={{ height: entries.length * ROW_HEIGHT }}
-              role="rowgroup"
-            >
-              {renderEntries.map((entry) => {
-              const markerColor = entry.landed ? LANDED_COLOR : entry.color;
-              const rank = rankById.get(entry.id) ?? 0;
-
-              return (
-                <div
-                  key={entry.id}
-                  className={`scoreboard-row${entry.landed ? ' landed' : ''}`}
-                  style={{
-                    transform: `translateY(${rank * ROW_HEIGHT}px)`,
-                    zIndex: entries.length - rank,
-                  }}
-                  role="row"
-                >
-                  <span className="scoreboard-cell scoreboard-pos" role="cell">
-                    {entry.position}
-                  </span>
-                  <span className="scoreboard-cell scoreboard-pilot" role="cell">
-                    <span className="scoreboard-pilot-inner">
-                      <span className="scoreboard-color" style={{ background: markerColor }} />
-                      <span className="scoreboard-pilot-text">
-                        <span className="scoreboard-name">{entry.pilotName}</span>
-                        {entry.gliderType && (
-                          <span className="scoreboard-glider">{entry.gliderType}</span>
-                        )}
-                      </span>
-                    </span>
-                  </span>
-                  <span className="scoreboard-cell scoreboard-task" role="cell">
-                    <span className="scoreboard-task-inner">
-                      <span>{formatDistanceValue(entry.taskKm, preferences.distanceUnit)}</span>
-                      <span className="scoreboard-muted">{entry.taskPercent.toFixed(1)}%</span>
-                    </span>
-                  </span>
-                  <span className="scoreboard-cell scoreboard-lead" role="cell">
-                    {entry.leadPercent.toFixed(1)}%
-                  </span>
-                  <span className="scoreboard-cell scoreboard-alt" role="cell">
-                    {formatAltitudeValue(entry.alt, preferences.altitudeUnit)}
-                  </span>
-                  <span className="scoreboard-cell scoreboard-speed" role="cell">
-                    {formatGroundSpeedValue(entry.groundSpeedMps, preferences.speedUnit)}
-                  </span>
-                  <span
-                    className={`scoreboard-cell scoreboard-vario${
-                      entry.verticalSpeedMps > 0.2
-                        ? ' climbing'
-                        : entry.verticalSpeedMps < -0.2
-                          ? ' sinking'
-                          : ''
-                    }`}
-                    role="cell"
-                  >
-                    {formatVerticalSpeedValue(entry.verticalSpeedMps, preferences.verticalSpeedUnit)}
-                  </span>
-                  <span className="scoreboard-cell scoreboard-next-tp" role="cell">
-                    <span className="scoreboard-next-tp-name">
-                      {entry.nextTurnpointName ?? '—'}
-                    </span>
-                  </span>
-                </div>
-              );
-            })}
-            </div>
-          </div>
+            </span>
+          </span>
         </div>
-      )}
+
+        <div
+          className="scoreboard-body"
+          style={{ height: entries.length * ROW_HEIGHT }}
+          role="rowgroup"
+        >
+          {renderEntries.map((entry) => {
+            const markerColor = entry.landed ? LANDED_COLOR : entry.color;
+            const rank = rankById.get(entry.id) ?? 0;
+
+            return (
+              <div
+                key={entry.id}
+                className={`scoreboard-row${entry.landed ? ' landed' : ''}`}
+                style={{
+                  transform: `translateY(${rank * ROW_HEIGHT}px)`,
+                  zIndex: entries.length - rank,
+                }}
+                role="row"
+              >
+                <span className="scoreboard-cell scoreboard-pos" role="cell">
+                  {entry.position}
+                </span>
+                <span className="scoreboard-cell scoreboard-pilot" role="cell">
+                  <span className="scoreboard-pilot-inner">
+                    <span className="scoreboard-color" style={{ background: markerColor }} />
+                    <span className="scoreboard-pilot-text">
+                      <span className="scoreboard-name">{entry.pilotName}</span>
+                      {entry.gliderType && (
+                        <span className="scoreboard-glider">{entry.gliderType}</span>
+                      )}
+                    </span>
+                  </span>
+                </span>
+                <span className="scoreboard-cell scoreboard-task" role="cell">
+                  <span className="scoreboard-task-inner">
+                    <span>{formatDistanceValue(entry.taskKm, preferences.distanceUnit)}</span>
+                    <span className="scoreboard-muted">{entry.taskPercent.toFixed(1)}%</span>
+                  </span>
+                </span>
+                <span className="scoreboard-cell scoreboard-lead" role="cell">
+                  {entry.leadPercent.toFixed(1)}%
+                </span>
+                <span className="scoreboard-cell scoreboard-alt" role="cell">
+                  {formatAltitudeValue(entry.alt, preferences.altitudeUnit)}
+                </span>
+                <span className="scoreboard-cell scoreboard-speed" role="cell">
+                  {formatGroundSpeedValue(entry.groundSpeedMps, preferences.speedUnit)}
+                </span>
+                <span
+                  className={`scoreboard-cell scoreboard-vario${
+                    entry.verticalSpeedMps > 0.2
+                      ? ' climbing'
+                      : entry.verticalSpeedMps < -0.2
+                        ? ' sinking'
+                        : ''
+                  }`}
+                  role="cell"
+                >
+                  {formatVerticalSpeedValue(entry.verticalSpeedMps, preferences.verticalSpeedUnit)}
+                </span>
+                <span className="scoreboard-cell scoreboard-next-tp" role="cell">
+                  <span className="scoreboard-next-tp-name">
+                    {entry.nextTurnpointName ?? '—'}
+                  </span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
