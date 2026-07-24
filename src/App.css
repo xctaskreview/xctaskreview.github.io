@@ -1502,6 +1502,26 @@ html.turnpoint-drag-active .welcome-scroll {
   color: #334155;
 }
 
+.import-catalog-picker-filter {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.import-catalog-picker-filterable .import-catalog-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-height: min(36vh, 280px);
+  overflow-y: auto;
+  margin-top: 8px;
+  padding: 2px;
+}
+
+.import-catalog-picker-filterable .import-catalog-picker-native {
+  display: none;
+}
+
 .import-catalog-picker-list {
   display: none;
 }

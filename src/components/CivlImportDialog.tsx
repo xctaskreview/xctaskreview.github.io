@@ -139,6 +139,15 @@ export function CivlImportDialog({
     [tasks, selectedTaskId],
   );
 
+  const eventOptions = useMemo(
+    () =>
+      events.map((event) => ({
+        value: String(event.id),
+        label: event.label,
+      })),
+    [events],
+  );
+
   const handleImport = async () => {
     if (!selectedTask) return;
 
@@ -197,25 +206,23 @@ export function CivlImportDialog({
             </select>
           </label>
 
-          <label className="welcome-pref-field">
-            Event with results
-            <select
-              value={selectedEventId}
-              disabled={busy || events.length === 0}
-              onChange={(event) => {
-                const value = event.target.value;
-                setSelectedEventId(value ? Number(value) : '');
-                setSelectedTaskId('');
-              }}
-            >
-              <option value="">Select an event…</option>
-              {events.map((event) => (
-                <option key={event.id} value={event.id}>
-                  {event.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ImportCatalogPicker
+            label="Event with results"
+            value={selectedEventId === '' ? '' : String(selectedEventId)}
+            disabled={busy || events.length === 0}
+            loading={loadingEvents}
+            loadingHint="Loading events…"
+            placeholder="Select an event…"
+            emptyHint="No events with results were found for this year."
+            filterable
+            searchPlaceholder="Filter events…"
+            noMatchesHint="No events match your filter."
+            options={eventOptions}
+            onChange={(nextValue) => {
+              setSelectedEventId(nextValue ? Number(nextValue) : '');
+              setSelectedTaskId('');
+            }}
+          />
 
           <ImportCatalogPicker
             label="Task with IGC zip"

@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 export interface ImportCatalogOption {
   value: string;
   label: string;
@@ -13,6 +15,22 @@ interface ImportCatalogPickerProps {
   placeholder: string;
   options: ImportCatalogOption[];
   emptyHint?: string;
+  filterable?: boolean;
+  searchPlaceholder?: string;
+  noMatchesHint?: string;
+}
+
+function filterCatalogOptions(
+  options: ImportCatalogOption[],
+  query: string,
+  selectedValue: string,
+): ImportCatalogOption[] {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return options;
+  return options.filter(
+    (option) =>
+      option.value === selectedValue || option.label.toLowerCase().includes(normalized),
+  );
 }
 
 export function ImportCatalogPicker({
@@ -25,12 +43,39 @@ export function ImportCatalogPicker({
   placeholder,
   options,
   emptyHint,
+  filterable = false,
+  searchPlaceholder = 'Type to filter…',
+  noMatchesHint = 'No matches.',
 }: ImportCatalogPickerProps) {
   const listId = `${label.replace(/\s+/g, '-').toLowerCase()}-list`;
+  const [filterText, setFilterText] = useState('');
+
+  useEffect(() => {
+    if (!loading) {
+      setFilterText('');
+    }
+  }, [loading, options.length]);
+
+  const filteredOptions = filterable
+    ? filterCatalogOptions(options, filterText, value)
+    : options;
 
   return (
-    <div className="welcome-pref-field import-catalog-picker">
+    <div
+      className={`welcome-pref-field import-catalog-picker${filterable ? ' import-catalog-picker-filterable' : ''}`}
+    >
       <span className="import-catalog-picker-label">{label}</span>
+      {filterable && !loading && options.length > 0 && (
+        <input
+          type="search"
+          className="import-catalog-picker-filter"
+          value={filterText}
+          disabled={disabled}
+          placeholder={searchPlaceholder}
+          aria-label={`${label} filter`}
+          onChange={(event) => setFilterText(event.target.value)}
+        />
+      )}
       <select
         className="import-catalog-picker-native"
         value={value}
@@ -39,7 +84,7 @@ export function ImportCatalogPicker({
         onChange={(event) => onChange(event.target.value)}
       >
         <option value="">{placeholder}</option>
-        {options.map((option) => (
+        {filteredOptions.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
@@ -56,8 +101,10 @@ export function ImportCatalogPicker({
           <p className="import-catalog-picker-empty import-catalog-picker-loading">{loadingHint}</p>
         ) : options.length === 0 ? (
           <p className="import-catalog-picker-empty">{emptyHint ?? placeholder}</p>
+        ) : filteredOptions.length === 0 ? (
+          <p className="import-catalog-picker-empty">{noMatchesHint}</p>
         ) : (
-          options.map((option) => {
+          filteredOptions.map((option) => {
             const selected = value === option.value;
             return (
               <button
