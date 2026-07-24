@@ -13,7 +13,8 @@
   flex-shrink: 0;
 }
 
-.xcdemon-icon {
+.xcdemon-icon,
+.civl-icon {
   display: block;
   object-fit: contain;
 }

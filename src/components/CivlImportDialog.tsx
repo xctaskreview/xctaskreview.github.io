@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Globe, LoaderCircle, X } from 'lucide-react';
+import { LoaderCircle, X } from 'lucide-react';
 import {
   fetchCivlEvents,
   fetchCivlResults,
@@ -10,7 +10,7 @@ import {
   type CivlTask,
   type CivlYearOption,
 } from '../lib/civl';
-import { Icon, IconButtonContent } from './Icon';
+import { CivlButtonContent, Icon, IconButtonContent } from './Icon';
 
 interface CivlImportDialogProps {
   open: boolean;
@@ -276,10 +276,7 @@ export function CivlImportDialog({
             {importing ? (
               <IconButtonContent icon={LoaderCircle}>Importing…</IconButtonContent>
             ) : (
-              <span className="icon-label icon-button-content">
-                <Icon icon={Globe} size="sm" />
-                <span>Import task</span>
-              </span>
+              <CivlButtonContent>Import task</CivlButtonContent>
             )}
           </button>
         </div>

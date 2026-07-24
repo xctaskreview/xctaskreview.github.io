@@ -26,7 +26,7 @@ import { getMapTypeOptions, getSpeedUnitOptions, getTimezoneOptions, getVertical
 import { AppHomeLink } from './AppHomeLink';
 import { CivlImportDialog } from './CivlImportDialog';
 import { FileDropZone } from './FileDropZone';
-import { Icon, IconButtonContent, IconLabel, XcdemonButtonContent } from './Icon';
+import { CivlButtonContent, Icon, IconButtonContent, IconLabel, XcdemonButtonContent } from './Icon';
 import { TaskEditForm } from './TaskEditForm';
 import { XcdemonImportDialog } from './XcdemonImportDialog';
 
@@ -129,7 +129,7 @@ export function WelcomeScreen({
               className="welcome-inline-button civl-import-button"
               onClick={() => setCivlOpen(true)}
             >
-              CIVL Comps
+              <CivlButtonContent>CIVL Comps</CivlButtonContent>
             </button>
           </div>
         </div>
