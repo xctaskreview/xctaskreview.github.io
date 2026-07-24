@@ -109,7 +109,7 @@ export function TaskHistoryDialog({
 
           {!loading && entries.length === 0 && (
             <p className="xcdemon-dialog-hint">
-              No tasks in history yet. Use “Save to history” on the welcome screen to add one.
+              No tasks in history yet. Use “Save” on the welcome screen to add one.
             </p>
           )}
 

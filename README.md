@@ -25,7 +25,7 @@ A static web app for reviewing paragliding competition tasks and competitor trac
 1. Open the app and load a task file (`.xctsk` or `.json`).
 2. Add one or more IGC files, or a zip of IGC files.
 3. Adjust preferences if needed (units, map type, pilot trails, etc.).
-4. Click **Continue to review**.
+4. Click **Review**.
 5. Scrub the timeline or press Play to replay the race. Expand the **Leaderboard** on the map for live standings.
 
 Your session is saved locally in the browser. Reloading the page restores the task and tracklogs without re-uploading.

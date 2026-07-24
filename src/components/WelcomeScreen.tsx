@@ -593,12 +593,12 @@ export function WelcomeScreen({
       <div className="welcome-action-panel">
         {task && (
           <button type="button" className="welcome-export-button" onClick={onSessionBundleExport}>
-            <IconButtonContent icon={Download}>Export task and tracks</IconButtonContent>
+            <IconButtonContent icon={Download}>Download</IconButtonContent>
           </button>
         )}
         {task && (
           <button type="button" className="welcome-export-button" onClick={onSaveToHistory}>
-            <IconButtonContent icon={Save}>Save to history</IconButtonContent>
+            <IconButtonContent icon={Save}>Save</IconButtonContent>
           </button>
         )}
         <button
@@ -607,7 +607,7 @@ export function WelcomeScreen({
           disabled={!canContinue}
           onClick={onContinue}
         >
-          <IconButtonContent icon={ArrowRight}>Continue to review</IconButtonContent>
+          <IconButtonContent icon={ArrowRight}>Review</IconButtonContent>
         </button>
       </div>
 
