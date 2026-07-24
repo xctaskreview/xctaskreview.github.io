@@ -1438,6 +1438,10 @@ body {
   cursor: pointer;
 }
 
+.chart-max-progress-marker {
+  pointer-events: none;
+}
+
 .turnpoint-hover-target {
   position: relative;
   display: flex;

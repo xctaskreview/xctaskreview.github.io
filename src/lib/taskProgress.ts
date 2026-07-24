@@ -223,6 +223,39 @@ function findLastPointIndexAtOrBefore(points: EnrichedTrackPoint[], timeMs: numb
   return lo;
 }
 
+/**
+ * Maximal task progress the pilot has achieved at or before `time`,
+ * with altitude from the track point where that max was last reached.
+ * Callers may still raise this with the live interpolated snapshot at `time`.
+ */
+export function getPilotMaxProgressAtTime(
+  track: EnrichedFlightTrack,
+  time: Date,
+): { taskPercent: number; alt: number } | null {
+  if (track.points.length === 0) return null;
+
+  const timeMs = time.getTime();
+  let maxPercent = -1;
+  let altAtMax = 0;
+  let timeAtMax = time;
+
+  for (const point of track.points) {
+    if (point.time.getTime() > timeMs) break;
+    if (point.taskPercent >= maxPercent) {
+      maxPercent = point.taskPercent;
+      altAtMax = point.alt;
+      timeAtMax = point.time;
+    }
+  }
+
+  if (maxPercent < 0) return null;
+
+  return {
+    taskPercent: maxPercent,
+    alt: resolveDisplayAltitudeMeters(track.points, timeAtMax, altAtMax),
+  };
+}
+
 export function getTrackSnapshotAtTime(
   track: EnrichedFlightTrack,
   time: Date,
