@@ -17,6 +17,7 @@ import {
 } from '../lib/taskMapStyle';
 import { getUniqueTurnpointMarkers } from '../lib/xctask';
 import { LiveCompetitorLayer } from './LiveCompetitorLayer';
+import { LegStatisticsPopupContent } from './LegStatisticsPopupContent';
 import { MapDataPanels } from './MapDataPanels';
 import { MapLegend } from './MapLegend';
 import type { GlobalLegStatistics } from '../lib/legStatistics';
@@ -58,11 +59,15 @@ function RouteLegPolyline({
   fromLabel,
   toLabel,
   positions,
+  leg,
+  preferences,
 }: {
   legNumber: number;
   fromLabel: string;
   toLabel: string;
   positions: [[number, number], [number, number]];
+  leg?: GlobalLegStatistics;
+  preferences: AppPreferences;
 }) {
   return (
     <>
@@ -84,7 +89,13 @@ function RouteLegPolyline({
           opacity: 0.01,
         }}
       >
-        <Popup>{formatRouteLegPopup(legNumber, fromLabel, toLabel)}</Popup>
+        <Popup>
+          {leg ? (
+            <LegStatisticsPopupContent leg={leg} preferences={preferences} />
+          ) : (
+            formatRouteLegPopup(legNumber, fromLabel, toLabel)
+          )}
+        </Popup>
       </Polyline>
     </>
   );
@@ -186,6 +197,8 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
   reachMarkerByNumber,
   taskStart,
   distanceUnit,
+  legStatistics,
+  preferences,
 }: {
   circles: RoutePoint[];
   optimizedRoute: OptimizedRoute;
@@ -193,9 +206,15 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
   reachMarkerByNumber: Map<number, TurnpointReachMarker>;
   taskStart?: Date;
   distanceUnit: DistanceUnit;
+  legStatistics: GlobalLegStatistics[];
+  preferences: AppPreferences;
 }) {
   const turnpointMarkers = useMemo(() => getUniqueTurnpointMarkers(circles), [circles]);
   const routeLegs = useMemo(() => getProgressRouteLegs(optimizedRoute), [optimizedRoute]);
+  const legStatsByNumber = useMemo(
+    () => new Map(legStatistics.map((leg) => [leg.legNumber, leg])),
+    [legStatistics],
+  );
   const postGoalLegs = useMemo(() => getPostGoalRouteSegments(optimizedRoute), [optimizedRoute]);
   const preRacePoints =
     optimizedRoute.sssIndex > 0 ? optimizedRoute.points.slice(0, optimizedRoute.sssIndex + 1) : [];
@@ -227,6 +246,8 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
           legNumber={leg.legNumber}
           fromLabel={formatProgressTurnpointLabel(leg.from)}
           toLabel={formatProgressTurnpointLabel(leg.to)}
+          leg={legStatsByNumber.get(leg.legNumber)}
+          preferences={preferences}
           positions={[
             [leg.points[0].lat, leg.points[0].lon],
             [leg.points[1].lat, leg.points[1].lon],
@@ -326,6 +347,8 @@ export function MapView({
           reachMarkerByNumber={reachMarkerByNumber}
           taskStart={taskStart}
           distanceUnit={preferences.distanceUnit}
+          legStatistics={legStatistics}
+          preferences={preferences}
         />
         <LiveCompetitorLayer
           tracks={enrichedTracks}

@@ -1464,7 +1464,7 @@ body {
 }
 
 .map-data-panels.expanded-leg-statistics {
-  width: min(1100px, calc(100% - 24px));
+  width: min(880px, calc(100% - 24px));
 }
 
 .map-data-panels-toggles {
@@ -1768,7 +1768,7 @@ body {
 }
 
 .leg-statistics-table {
-  min-width: 960px;
+  min-width: 768px;
   width: 100%;
 }
 
@@ -1777,11 +1777,12 @@ body {
   display: grid;
   grid-template-columns:
     40px
-    minmax(180px, 1.6fr)
-    72px
+    minmax(35px, 0.34fr)
+    minmax(35px, 0.34fr)
     56px
     56px
     56px
+    minmax(47px, 0.46fr)
     96px
     96px
     minmax(120px, 1fr);
@@ -1836,6 +1837,7 @@ body {
   white-space: normal;
 }
 
+.leg-statistics-leg .leg-statistics-header-stack,
 .leg-statistics-distance .leg-statistics-header-stack,
 .leg-statistics-speed .leg-statistics-header-stack {
   align-items: center;
@@ -1854,9 +1856,8 @@ body {
   text-align: center;
 }
 
-.leg-statistics-turnpoints {
+.leg-statistics-turnpoint {
   min-width: 0;
-  white-space: normal;
   text-align: left;
 }
 
@@ -1868,6 +1869,7 @@ body {
 
 .leg-statistics-fastest {
   white-space: normal;
+  min-width: 47px;
 }
 
 .leg-statistics-fastest-inner {
@@ -1886,23 +1888,11 @@ body {
   color: #334155;
 }
 
-.leg-statistics-turnpoint-route {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  flex-wrap: wrap;
-}
-
 .leg-statistics-turnpoint-name {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.leg-statistics-turnpoint-arrow {
-  flex-shrink: 0;
-  color: #94a3b8;
 }
 
 .leg-statistics-first-finish {

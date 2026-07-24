@@ -68,7 +68,7 @@ export function MapDataPanels({
           >
             <span className="map-data-panel-toggle-text">
               <Icon icon={Route} size="sm" />
-              Leg statistics
+              Legs stats
             </span>
             <span className="map-data-panel-toggle-icon" aria-hidden="true">
               <Icon icon={legStatisticsExpanded ? ChevronUp : ChevronDown} size="sm" />
