@@ -72,8 +72,8 @@ export function IconButtonContent({
   );
 }
 
-export const XCDEMON_ICON_URL = '/xcdemon-icon.png';
-export const CIVL_ICON_URL = '/civl-icon.png';
+export const XCDEMON_ICON_URL = `${import.meta.env.BASE_URL}xcdemon-icon.png`;
+export const CIVL_ICON_URL = `${import.meta.env.BASE_URL}civl-icon.png`;
 
 export function XcdemonIcon({ size = 'sm', className }: { size?: IconSize; className?: string }) {
   const px = SIZE_PX[size];
