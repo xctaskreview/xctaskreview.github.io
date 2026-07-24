@@ -16,6 +16,7 @@ import {
 } from './lib/preferences';
 import {
   assignUniqueTrackColors,
+  computeGlobalLegStatistics,
   computeTaskTiming,
   advanceLeadPercentages,
   enrichTracksWithTaskProgress,
@@ -153,6 +154,11 @@ export default function App() {
     if (!showReview || !task || !route) return [];
     return enrichTracksWithTaskProgress(visibleTracks, task, route, taskStart);
   }, [showReview, visibleTracks, task, route, taskStart]);
+
+  const legStatistics = useMemo(
+    () => (route && enrichedTracks.length > 0 ? computeGlobalLegStatistics(enrichedTracks, route) : []),
+    [enrichedTracks, route],
+  );
 
   const circles = useMemo(() => (task ? getUniqueTurnpointCircles(task) : []), [task]);
   const bounds = useMemo(() => (task ? getTaskBounds(task) : null), [task]);
@@ -617,6 +623,7 @@ export default function App() {
           playing={playing}
           pausedTime={currentTime}
           scoreboardCompetitors={scoreboardCompetitors}
+          legStatistics={legStatistics}
           taskStart={timing.taskStart}
           trackKey={leadTrackKey}
           taskProgressMarkerRef={taskProgressMarkerRef}

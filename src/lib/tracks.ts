@@ -3,9 +3,21 @@ import type { FlightTrack, TaskTiming, XcTask } from './types';
 import { parseIgc, extractPilotDisplayName } from './igc';
 import { getTaskStartTime } from './xctask';
 import { COMPETITOR_COLORS } from './geo';
-import type { EnrichedFlightTrack } from './taskProgress';
+import {
+  enrichTracksWithTaskProgress,
+  computeLeadPercentages,
+  advanceLeadPercentages,
+  getTrackSnapshotAtTime,
+  type EnrichedFlightTrack,
+} from './taskProgress';
 
-export { enrichTracksWithTaskProgress, computeLeadPercentages, advanceLeadPercentages, getTrackSnapshotAtTime, type EnrichedFlightTrack } from './taskProgress';
+export { enrichTracksWithTaskProgress, computeLeadPercentages, advanceLeadPercentages, getTrackSnapshotAtTime, type EnrichedFlightTrack };
+export {
+  computeGlobalLegStatistics,
+  computePilotLegTimings,
+  type GlobalLegStatistics,
+  type PilotLegTiming,
+} from './legStatistics';
 
 export interface LoadIgcResult {
   tracks: FlightTrack[];
