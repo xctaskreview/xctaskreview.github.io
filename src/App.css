@@ -344,6 +344,19 @@ body {
   font-size: 0.85rem;
 }
 
+.welcome-task-edit { margin-top:16px;display:flex;flex-direction:column;gap:12px; }
+.welcome-task-edit-table-wrap { overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px; }
+.welcome-task-edit-table { width:100%;min-width:520px;border-collapse:collapse;font-size:0.85rem; }
+.welcome-task-edit-table th,.welcome-task-edit-table td { padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:left;vertical-align:middle; }
+.welcome-task-edit-table th { color:#64748b;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.02em;background:#f8fafc; }
+.welcome-task-edit-table tbody tr:last-child td { border-bottom:0; }
+.welcome-task-edit-table td:first-child,.welcome-task-edit-table th:first-child { width:32px;color:#64748b;font-weight:600;text-align:center; }
+.welcome-task-edit-table input,.welcome-task-edit-table select { width:100%;min-width:0;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:white;font:inherit;font-weight:500;color:#0f172a; }
+.welcome-task-edit-start { display:flex;flex-direction:column;gap:6px;font-size:0.9rem;font-weight:600;color:#334155; }
+.welcome-task-edit-start input { padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;background:white;font-weight:500;color:#0f172a; }
+.welcome-task-edit-actions { display:flex;justify-content:flex-end; }
+.welcome-inline-button:disabled { background:#94a3b8;cursor:not-allowed; }
+
 .welcome-task-empty,
 .welcome-tracks-empty {
   color: #94a3b8;
