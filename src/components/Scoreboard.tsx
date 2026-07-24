@@ -7,6 +7,7 @@ import {
   Mountain,
   Route,
   TrendingUp,
+  Trophy,
   User,
 } from 'lucide-react';
 import { LANDED_COLOR } from '../lib/geo';
@@ -205,7 +206,12 @@ export function Scoreboard({
                   <span className="scoreboard-pilot-inner">
                     <span className="scoreboard-color" style={{ background: markerColor }} />
                     <span className="scoreboard-pilot-text">
-                      <span className="scoreboard-name">{entry.pilotName}</span>
+                      <span className="scoreboard-name">
+                        {entry.position === 1 && (
+                          <Icon icon={Trophy} size="xs" className="scoreboard-leader-trophy" />
+                        )}
+                        <span className="scoreboard-name-text">{entry.pilotName}</span>
+                      </span>
                       {entry.gliderType && (
                         <span className="scoreboard-glider">{entry.gliderType}</span>
                       )}
