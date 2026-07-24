@@ -24,7 +24,6 @@ const SWATCH_CENTER = SWATCH_SIZE / 2;
 const SWATCH_LINE_INSET = 4;
 const SWATCH_LINE_X1 = SWATCH_LINE_INSET;
 const SWATCH_LINE_X2 = SWATCH_SIZE - SWATCH_LINE_INSET;
-const SWATCH_LINE_LENGTH = SWATCH_LINE_X2 - SWATCH_LINE_X1;
 
 function parseDashArray(dashArray: string): number[] {
   return dashArray.split(/\s+/).map(Number);
@@ -185,7 +184,7 @@ function ProgressIndicatorSwatch() {
         y2={junctionY + verticalHalf}
         stroke={TASK_PROGRESS_LINE_COLOR}
         strokeWidth={PROGRESS_INDICATOR_WEIGHT}
-        strokeOpacity={1}
+        strokeOpacity={PROGRESS_INDICATOR_OPACITY}
         strokeLinecap="round"
       />
     </svg>
