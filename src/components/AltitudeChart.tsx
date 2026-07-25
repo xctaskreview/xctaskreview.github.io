@@ -3,13 +3,14 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type MouseEvent,
   type RefObject,
 } from 'react';
-import { CartesianGrid, ComposedChart, Customized, ReferenceLine, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, ComposedChart, Customized, Line, ReferenceLine, XAxis, YAxis } from 'recharts';
 import {
   buildChartDistanceTicks,
   buildChartPathPixels,
@@ -26,10 +27,14 @@ import {
   countTaggedTurnpoints,
   formatChartDistanceTick,
   hasChartMaxProgressLink,
+  isFullChartDistanceDomain,
   isLeadingChartPilot,
   isTurnpointTagged,
+  panChartDistanceDomain,
+  chartPlotInnerWidth,
   roundChartPixel,
   taskDistanceDisplayToPercent,
+  zoomChartDistanceDomain,
   type ChartPathPixels,
   type ChartPlotRect,
 } from '../lib/chartAltitude';
@@ -67,10 +72,13 @@ const MAX_PROGRESS_LINK_OPACITY = 0.45;
 const PILOT_MARKER_LANDED_OPACITY = 0.7;
 const TRAIL_OPACITY = 0.8;
 const TRAIL_LANDED_OPACITY = 0.55;
+const CHART_PILOT_LABEL_COLOR = '#000000';
 
 /** Fixed layout so vertical resize does not shift the plot area horizontally. */
 const CHART_Y_AXIS_WIDTH = 56;
 const CHART_MARGIN = { top: 12, right: 12, bottom: 6, left: 8 } as const;
+const CHART_PAN_CLICK_THRESHOLD_PX = 5;
+const CHART_SEEK_CLICK_DELAY_MS = 250;
 
 const CHART_TICK_FONT =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
@@ -145,7 +153,7 @@ export interface AltitudeChartProps {
   playbackEndTime: Date;
   onTimeChange: (time: Date) => void;
   progressFocusTrackId: string | null;
-  onSetProgressFocusTrack: (trackId: string) => void;
+  onSelectPilotTrack: (trackId: string) => void;
   selectedPilotTrackId: string | null;
   altitudeMin: number;
   altitudeMax: number;
@@ -333,6 +341,7 @@ function createPilotNodes(
   pilotLabel.setAttribute('y', '4');
   pilotLabel.setAttribute('font-size', '11');
   pilotLabel.setAttribute('font-weight', '600');
+  pilotLabel.setAttribute('fill', CHART_PILOT_LABEL_COLOR);
   pilotLabel.setAttribute('stroke', 'none');
   pilotLabel.setAttribute('paint-order', 'fill');
   pilotLabel.textContent = track.firstName;
@@ -367,6 +376,7 @@ function createPilotNodes(
 
   const select = (event: Event) => {
     event.stopPropagation();
+    event.preventDefault();
     onSelect(track.id);
   };
   pilotGroup.addEventListener('click', select);
@@ -801,7 +811,6 @@ function ChartLiveLayer({
         if (entry.writtenColor !== color) {
           entry.writtenColor = color;
           entry.pilotCircle.setAttribute('fill', color);
-          entry.pilotLabel.setAttribute('fill', color);
           entry.pilotTrophy.style.color = color;
           entry.maxCircle.setAttribute('fill', color);
           entry.linkPath.setAttribute('stroke', color);
@@ -1259,7 +1268,7 @@ export const AltitudeChart = memo(function AltitudeChart({
   playbackEndTime,
   onTimeChange,
   progressFocusTrackId,
-  onSetProgressFocusTrack,
+  onSelectPilotTrack,
   selectedPilotTrackId,
   altitudeMin,
   altitudeMax,
@@ -1292,6 +1301,15 @@ export const AltitudeChart = memo(function AltitudeChart({
 
   const taskDistanceDisplay = kmToDistanceUnit(taskDistanceKm, preferences.distanceUnit);
 
+  const [xZoomDomain, setXZoomDomain] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    setXZoomDomain(null);
+  }, [taskDistanceDisplay]);
+
+  const xDomainMin = xZoomDomain?.[0] ?? 0;
+  const xDomainMax = xZoomDomain?.[1] ?? taskDistanceDisplay;
+
   const xAxisTick = useMemo(
     () => renderFixedXAxisTick(taskDistanceDisplay, preferences.distanceUnit),
     [taskDistanceDisplay, preferences.distanceUnit],
@@ -1311,9 +1329,66 @@ export const AltitudeChart = memo(function AltitudeChart({
   );
 
   const xTicks = useMemo(
-    () => buildChartDistanceTicks(taskDistanceDisplay),
-    [taskDistanceDisplay],
+    () => buildChartDistanceTicks(xDomainMax, 5, xDomainMin),
+    [xDomainMin, xDomainMax],
   );
+
+  const chartScaleData = useMemo(
+    () => [
+      { taskDistance: xDomainMin, altitude: altitudeMin },
+      { taskDistance: xDomainMax, altitude: altitudeMax },
+    ],
+    [xDomainMin, xDomainMax, altitudeMin, altitudeMax],
+  );
+
+  const zoomWheelStateRef = useRef({
+    taskDistanceDisplay,
+    plotWidth: plotSize.width,
+    xZoomDomain,
+  });
+  zoomWheelStateRef.current = {
+    taskDistanceDisplay,
+    plotWidth: plotSize.width,
+    xZoomDomain,
+  };
+
+  const panSessionRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    lastClientX: number;
+    domain: [number, number];
+    didPan: boolean;
+  } | null>(null);
+
+  const suppressNextClickRef = useRef(false);
+  const pendingSeekTimeoutRef = useRef<number | null>(null);
+
+  const cancelPendingChartSeek = useCallback(() => {
+    if (pendingSeekTimeoutRef.current !== null) {
+      window.clearTimeout(pendingSeekTimeoutRef.current);
+      pendingSeekTimeoutRef.current = null;
+    }
+  }, []);
+
+  const [isPanning, setIsPanning] = useState(false);
+
+  const isZoomed = xZoomDomain !== null;
+
+  const resetXZoom = useCallback(() => {
+    setXZoomDomain(null);
+  }, []);
+
+  const handlePlotDoubleClick = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      cancelPendingChartSeek();
+      suppressNextClickRef.current = true;
+      resetXZoom();
+    },
+    [cancelPendingChartSeek, resetXZoom],
+  );
+
+  useEffect(() => () => cancelPendingChartSeek(), [cancelPendingChartSeek]);
 
   const clampPlaybackTime = useCallback(
     (time: Date) => {
@@ -1360,21 +1435,170 @@ export const AltitudeChart = memo(function AltitudeChart({
         CHART_MARGIN.left,
         CHART_MARGIN.right,
         CHART_Y_AXIS_WIDTH,
+        xDomainMin,
+        xDomainMax,
       );
       seekToTaskPercent(taskDistanceDisplayToPercent(taskDistance, taskDistanceDisplay));
     },
-    [plotSize.width, seekToTaskPercent, taskDistanceDisplay],
+    [plotSize.width, seekToTaskPercent, taskDistanceDisplay, xDomainMin, xDomainMax],
   );
+
+  useLayoutEffect(() => {
+    const host = plotHostRef.current;
+    if (!host || plotSize.width <= 0 || plotSize.height <= 0) return;
+
+    const onWheel = (event: WheelEvent) => {
+      const { taskDistanceDisplay: maxDist, plotWidth, xZoomDomain: currentZoom } =
+        zoomWheelStateRef.current;
+      if (maxDist <= 0 || plotWidth <= 0) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const domain: [number, number] = currentZoom ?? [0, maxDist];
+      const center = chartClientXToTaskDistanceDisplay(
+        event.clientX,
+        host.getBoundingClientRect(),
+        plotWidth,
+        maxDist,
+        CHART_MARGIN.left,
+        CHART_MARGIN.right,
+        CHART_Y_AXIS_WIDTH,
+        domain[0],
+        domain[1],
+      );
+      const zoomOut = event.deltaY > 0;
+      const scale = zoomOut ? 1.12 : 1 / 1.12;
+      const next = zoomChartDistanceDomain(domain, maxDist, center, scale);
+      if (isFullChartDistanceDomain(next, maxDist)) {
+        setXZoomDomain(null);
+      } else {
+        setXZoomDomain(next);
+      }
+    };
+
+    host.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    return () => host.removeEventListener('wheel', onWheel, { capture: true });
+  }, [plotSize.width, plotSize.height]);
+
+  useLayoutEffect(() => {
+    const host = plotHostRef.current;
+    if (!host || plotSize.width <= 0 || plotSize.height <= 0) return;
+
+    const isPanTarget = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) return true;
+      return !target.closest('.chart-pilot-marker, .chart-max-progress-marker, .chart-turnpoint-line');
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      if (!isPanTarget(event.target)) return;
+
+      const { taskDistanceDisplay: maxDist, xZoomDomain: currentZoom } = zoomWheelStateRef.current;
+      if (!currentZoom || maxDist <= 0) return;
+
+      panSessionRef.current = {
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        lastClientX: event.clientX,
+        domain: [...currentZoom],
+        didPan: false,
+      };
+      host.setPointerCapture(event.pointerId);
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      const session = panSessionRef.current;
+      if (!session || session.pointerId !== event.pointerId) return;
+
+      const deltaX = event.clientX - session.lastClientX;
+      const totalDragX = Math.abs(event.clientX - session.startClientX);
+      if (totalDragX >= CHART_PAN_CLICK_THRESHOLD_PX) {
+        session.didPan = true;
+        suppressNextClickRef.current = true;
+        setIsPanning(true);
+      }
+      if (deltaX === 0) return;
+
+      session.lastClientX = event.clientX;
+
+      const { taskDistanceDisplay: maxDist, plotWidth } = zoomWheelStateRef.current;
+      if (maxDist <= 0) return;
+
+      const innerWidth = chartPlotInnerWidth(
+        plotWidth,
+        CHART_MARGIN.left,
+        CHART_MARGIN.right,
+        CHART_Y_AXIS_WIDTH,
+      );
+      if (innerWidth <= 0) return;
+
+      const span = session.domain[1] - session.domain[0];
+      const shift = -(deltaX / innerWidth) * span;
+      const next = panChartDistanceDomain(session.domain, maxDist, shift);
+      session.domain = next;
+      if (isFullChartDistanceDomain(next, maxDist)) {
+        setXZoomDomain(null);
+      } else {
+        setXZoomDomain(next);
+      }
+    };
+
+    const endPan = (event: PointerEvent) => {
+      const session = panSessionRef.current;
+      if (!session || session.pointerId !== event.pointerId) return;
+      if (session.didPan) {
+        suppressNextClickRef.current = true;
+        cancelPendingChartSeek();
+      }
+      panSessionRef.current = null;
+      setIsPanning(false);
+      if (host.hasPointerCapture(event.pointerId)) {
+        host.releasePointerCapture(event.pointerId);
+      }
+    };
+
+    const blockClickAfterPan = (event: Event) => {
+      if (!suppressNextClickRef.current) return;
+      event.preventDefault();
+      event.stopPropagation();
+      suppressNextClickRef.current = false;
+      cancelPendingChartSeek();
+    };
+
+    host.addEventListener('pointerdown', onPointerDown);
+    host.addEventListener('pointermove', onPointerMove);
+    host.addEventListener('pointerup', endPan);
+    host.addEventListener('pointercancel', endPan);
+    host.addEventListener('click', blockClickAfterPan, { capture: true });
+
+    return () => {
+      host.removeEventListener('pointerdown', onPointerDown);
+      host.removeEventListener('pointermove', onPointerMove);
+      host.removeEventListener('pointerup', endPan);
+      host.removeEventListener('pointercancel', endPan);
+      host.removeEventListener('click', blockClickAfterPan, { capture: true });
+    };
+  }, [plotSize.width, plotSize.height, cancelPendingChartSeek]);
 
   const handlePlotBackgroundClick = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
+      if (suppressNextClickRef.current) {
+        suppressNextClickRef.current = false;
+        return;
+      }
       const target = event.target as Element;
       if (target.closest('.chart-pilot-marker, .chart-max-progress-marker')) {
         return;
       }
-      seekToChartClientX(event.clientX);
+      const clientX = event.clientX;
+      cancelPendingChartSeek();
+      pendingSeekTimeoutRef.current = window.setTimeout(() => {
+        pendingSeekTimeoutRef.current = null;
+        seekToChartClientX(clientX);
+      }, CHART_SEEK_CLICK_DELAY_MS);
     },
-    [seekToChartClientX],
+    [cancelPendingChartSeek, seekToChartClientX],
   );
 
   const startTurnpointNumber = route.sssIndex + 1;
@@ -1414,8 +1638,8 @@ export const AltitudeChart = memo(function AltitudeChart({
     setTaggedProgressPercent(progressPercent);
   }, [turnpoints, startTurnpointNumber, goalTurnpointNumber]);
 
-  const onPilotSelectRef = useRef(onSetProgressFocusTrack);
-  onPilotSelectRef.current = onSetProgressFocusTrack;
+  const onPilotSelectRef = useRef(onSelectPilotTrack);
+  onPilotSelectRef.current = onSelectPilotTrack;
 
   // Recharts clones every child on every render, so the layer settings travel by ref instead
   // of through a closure that would change the <Customized> component identity each frame.
@@ -1452,20 +1676,38 @@ export const AltitudeChart = memo(function AltitudeChart({
       )}
       <div
         ref={plotHostRef}
-        className="chart-plot-host chart-plot-host-interactive"
+        className={`chart-plot-host chart-plot-host-interactive${isZoomed ? ' chart-plot-host-zoomed' : ''}${isPanning ? ' chart-plot-host-panning' : ''}`}
+        title={
+          isZoomed
+            ? 'Scroll to zoom · Drag to pan · Double-click to reset'
+            : 'Scroll to zoom distance · Double-click to reset'
+        }
         onClick={handlePlotBackgroundClick}
+        onDoubleClick={handlePlotDoubleClick}
       >
         {plotSize.width > 0 && plotSize.height > 0 && (
           <ComposedChart
             width={plotSize.width}
             height={plotSize.height}
             margin={CHART_MARGIN}
+            data={chartScaleData}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+            <Line
+              dataKey="altitude"
+              stroke="transparent"
+              strokeWidth={0}
+              dot={false}
+              isAnimationActive={false}
+              activeDot={false}
+              legendType="none"
+              tooltipType="none"
+            />
             <XAxis
               type="number"
               dataKey="taskDistance"
-              domain={[0, taskDistanceDisplay]}
+              domain={[xDomainMin, xDomainMax]}
+              scale="linear"
               allowDataOverflow
               ticks={xTicks}
               padding={{ left: 0, right: 0 }}

@@ -133,12 +133,12 @@ export function AppPreferencesForm({
         </label>
 
         <label className="welcome-pref-field welcome-pref-field--checkbox">
-          <IconLabel icon={Eye}>Show future trail</IconLabel>
           <input
             type="checkbox"
             checked={preferences.showFutureTrail}
             onChange={(e) => updatePreference('showFutureTrail', e.target.checked)}
           />
+          <IconLabel icon={Eye}>Full pilot path</IconLabel>
         </label>
       </div>
     </section>

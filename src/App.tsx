@@ -3,6 +3,7 @@ import { LineChart, X } from 'lucide-react';
 import { AppMenuOverlay } from './components/AppMenuOverlay';
 import { Icon, IconButtonContent } from './components/Icon';
 import { MapView } from './components/MapView';
+import type { MapDataActivePanel } from './components/MapDataPanels';
 import { TimeControls } from './components/TimeControls';
 import { defaultTaskProgressHeight, normalizeTaskProgressPanelHeight, TaskProgressPanel } from './components/TaskProgressPanel';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -112,6 +113,7 @@ export default function App() {
   const [taskProgressHeightPx, setTaskProgressHeightPx] = useState(() => defaultTaskProgressHeight());
   const [progressFocusTrackId, setProgressFocusTrackId] = useState<string | null>(null);
   const [selectedPilotTrackId, setSelectedPilotTrackId] = useState<string | null>(null);
+  const [mapDataActivePanel, setMapDataActivePanel] = useState<MapDataActivePanel | null>(null);
   const reviewStageRef = useRef<HTMLDivElement>(null);
   const [storageReady, setStorageReady] = useState(false);
   const [appMenuOpen, setAppMenuOpen] = useState(false);
@@ -633,17 +635,16 @@ export default function App() {
     setProgressFocusTrackId((current) => (current === trackId ? null : trackId));
   }, []);
 
-  const onSetProgressFocusTrack = useCallback((trackId: string) => {
-    setProgressFocusTrackId(trackId);
-  }, []);
-
   const onSelectPilotTrack = useCallback((trackId: string) => {
     setSelectedPilotTrackId(trackId);
+    setProgressFocusTrackId(trackId);
+    setMapDataActivePanel('pilot-detail');
   }, []);
 
   const onClosePilotDetail = useCallback(() => {
     setSelectedPilotTrackId(null);
     setProgressFocusTrackId(null);
+    setMapDataActivePanel((current) => (current === 'pilot-detail' ? null : current));
   }, []);
 
   const onPlaybackSpeedChange = useCallback((playbackSpeed: number) => {
@@ -906,10 +907,11 @@ const onSessionBundleExport = useCallback(async () => {
               onToggleTrack={onToggleTrack}
               progressFocusTrackId={progressFocusTrackId}
               progressFocusColor={progressFocusColor}
-              onSetProgressFocusTrack={onSetProgressFocusTrack}
               selectedPilotTrackId={selectedPilotTrackId}
               onSelectPilotTrack={onSelectPilotTrack}
               onClosePilotDetail={onClosePilotDetail}
+              mapDataActivePanel={mapDataActivePanel}
+              onMapDataActivePanelChange={setMapDataActivePanel}
               legStatistics={legStatistics}
               taskStart={timing.taskStart}
               fieldTimeline={fieldTimeline}
@@ -948,7 +950,7 @@ const onSessionBundleExport = useCallback(async () => {
                 playbackEndTime={timing.trackEnd}
                 onTimeChange={setCurrentTime}
                 progressFocusTrackId={progressFocusTrackId}
-                onSetProgressFocusTrack={onSetProgressFocusTrack}
+                onSelectPilotTrack={onSelectPilotTrack}
                 selectedPilotTrackId={selectedPilotTrackId}
                 altitudeMin={altitudeRange.min}
                 altitudeMax={altitudeRange.max}

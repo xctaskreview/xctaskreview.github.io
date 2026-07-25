@@ -1892,11 +1892,17 @@ html.turnpoint-drag-active .welcome-scroll {
   color: #0f172a;
 }
 
+.welcome-pref-field--checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
 .welcome-pref-field--checkbox input[type='checkbox'] {
   width: 1.1rem;
   height: 1.1rem;
-  align-self: flex-start;
-  margin-top: 2px;
+  flex-shrink: 0;
+  margin: 0;
   accent-color: #2563eb;
   cursor: pointer;
 }
@@ -2696,8 +2702,6 @@ button.app-home-link.time-controls-home-link:hover {
 .finish-marker-time {
   z-index: 2;
   color: #dc2626;
-  background: rgba(255, 255, 255, 0.94);
-  border-radius: 4px;
   padding: 0 4px;
 }
 
@@ -2863,6 +2867,15 @@ button.app-home-link.time-controls-home-link:hover {
 
 .chart-plot-host-interactive {
   cursor: crosshair;
+  touch-action: none;
+}
+
+.chart-plot-host-interactive.chart-plot-host-zoomed {
+  cursor: grab;
+}
+
+.chart-plot-host-interactive.chart-plot-host-panning {
+  cursor: grabbing;
 }
 
 .chart-pilot-marker,
@@ -2872,7 +2885,8 @@ button.app-home-link.time-controls-home-link:hover {
 
 .chart-pilot-marker text {
   stroke: none;
-  pointer-events: none;
+  pointer-events: visiblePainted;
+  cursor: pointer;
 }
 
 .review-screen .chart-panel-body .recharts-wrapper,

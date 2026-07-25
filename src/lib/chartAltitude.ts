@@ -15,15 +15,97 @@ export function chartClientXToTaskDistanceDisplay(
   marginLeft: number,
   marginRight: number,
   yAxisWidth: number,
+  domainMin = 0,
+  domainMax?: number,
 ): number {
   if (plotWidth <= 0 || maxDistance <= 0) return 0;
 
+  const domainHigh = domainMax ?? maxDistance;
+  const domainSpan = domainHigh - domainMin;
+  if (domainSpan <= 0) return domainMin;
+
   const plotInnerLeft = hostRect.left + marginLeft + yAxisWidth;
   const plotInnerWidth = plotWidth - marginLeft - marginRight - yAxisWidth;
-  if (plotInnerWidth <= 0) return 0;
+  if (plotInnerWidth <= 0) return domainMin;
 
   const fraction = (clientX - plotInnerLeft) / plotInnerWidth;
-  return clampChartTaskDistanceDisplay(fraction * maxDistance, maxDistance);
+  return clampChartTaskDistanceDisplay(domainMin + fraction * domainSpan, maxDistance);
+}
+
+const MIN_ZOOM_SPAN_FRACTION = 0.02;
+
+/** Zoom the visible distance window; scale < 1 narrows (zoom in), > 1 widens (zoom out). */
+export function zoomChartDistanceDomain(
+  domain: [number, number],
+  fullMax: number,
+  center: number,
+  scale: number,
+): [number, number] {
+  if (fullMax <= 0) return [0, 0];
+
+  const [min, max] = domain;
+  const span = Math.max(max - min, fullMax * MIN_ZOOM_SPAN_FRACTION);
+  const minSpan = fullMax * MIN_ZOOM_SPAN_FRACTION;
+  const newSpan = Math.min(fullMax, Math.max(minSpan, span * scale));
+  const ratio = span > 0 ? (center - min) / span : 0.5;
+
+  let newMin = center - ratio * newSpan;
+  let newMax = newMin + newSpan;
+
+  if (newMin < 0) {
+    newMin = 0;
+    newMax = newSpan;
+  }
+  if (newMax > fullMax) {
+    newMax = fullMax;
+    newMin = fullMax - newSpan;
+  }
+
+  return [newMin, newMax];
+}
+
+export function isFullChartDistanceDomain(
+  domain: [number, number],
+  fullMax: number,
+  epsilon = 0.001,
+): boolean {
+  return domain[0] <= epsilon && domain[1] >= fullMax - epsilon;
+}
+
+export function chartPlotInnerWidth(
+  plotWidth: number,
+  marginLeft: number,
+  marginRight: number,
+  yAxisWidth: number,
+): number {
+  return Math.max(0, plotWidth - marginLeft - marginRight - yAxisWidth);
+}
+
+/** Shift the visible distance window; negative shift shows lower distances (drag chart right). */
+export function panChartDistanceDomain(
+  domain: [number, number],
+  fullMax: number,
+  shiftDistance: number,
+): [number, number] {
+  if (fullMax <= 0 || shiftDistance === 0) return domain;
+
+  const [min, max] = domain;
+  const span = max - min;
+  if (span <= 0) return domain;
+
+  let newMin = min + shiftDistance;
+  let newMax = newMin + span;
+
+  if (newMin < 0) {
+    newMin = 0;
+    newMax = span;
+  }
+  if (newMax > fullMax) {
+    newMax = fullMax;
+    newMin = fullMax - span;
+  }
+
+  return [newMin, newMax];
 }
 
 /**
@@ -193,13 +275,16 @@ export function taskDistanceDisplayToPercent(taskDistance: number, maxDistance: 
   return (clampChartTaskDistanceDisplay(taskDistance, maxDistance) / maxDistance) * 100;
 }
 
-export function buildChartDistanceTicks(maxDistance: number, segments = 5): number[] {
-  if (maxDistance <= 0) return [0];
-  if (segments <= 0) return [0, maxDistance];
+export function buildChartDistanceTicks(maxDistance: number, segments = 5, minDistance = 0): number[] {
+  if (maxDistance <= minDistance) return [minDistance];
+  const span = maxDistance - minDistance;
+  if (span <= 0) return [minDistance, maxDistance];
 
-  const step = maxDistance / segments;
+  if (segments <= 0) return [minDistance, maxDistance];
+
+  const step = span / segments;
   return Array.from({ length: segments + 1 }, (_, index) =>
-    index === segments ? maxDistance : index * step,
+    index === segments ? maxDistance : minDistance + index * step,
   );
 }
 

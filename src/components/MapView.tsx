@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { memo, useEffect, useMemo, useRef, type RefObject } from 'react';
 import { MapContainer, TileLayer, Circle, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { AppPreferences } from '../lib/preferences';
@@ -316,10 +316,11 @@ interface MapViewProps {
   onToggleTrack: (trackId: string, enabled: boolean) => void;
   progressFocusTrackId: string | null;
   progressFocusColor: string | null;
-  onSetProgressFocusTrack: (trackId: string) => void;
   selectedPilotTrackId: string | null;
   onSelectPilotTrack: (trackId: string) => void;
   onClosePilotDetail: () => void;
+  mapDataActivePanel: MapDataActivePanel | null;
+  onMapDataActivePanelChange: (panel: MapDataActivePanel | null) => void;
   legStatistics: GlobalLegStatistics[];
   taskStart?: Date;
   taskTimeZone: string;
@@ -347,10 +348,11 @@ export function MapView({
   onToggleTrack,
   progressFocusTrackId,
   progressFocusColor,
-  onSetProgressFocusTrack,
   selectedPilotTrackId,
   onSelectPilotTrack,
   onClosePilotDetail,
+  mapDataActivePanel,
+  onMapDataActivePanelChange,
   legStatistics,
   taskStart,
   taskTimeZone,
@@ -360,19 +362,8 @@ export function MapView({
   pilotSssCrossDelaySec,
 }: MapViewProps) {
   const tile = MAP_TILES[preferences.mapType];
-  const [mapDataPanel, setMapDataPanel] = useState<MapDataActivePanel | null>(null);
-  const handleSelectPilot = useCallback(
-    (trackId: string) => {
-      onSelectPilotTrack(trackId);
-      setMapDataPanel('pilot-detail');
-      onSetProgressFocusTrack(trackId);
-    },
-    [onSelectPilotTrack, onSetProgressFocusTrack],
-  );
-  const handleClosePilotDetail = useCallback(() => {
-    onClosePilotDetail();
-    setMapDataPanel((current) => (current === 'pilot-detail' ? null : current));
-  }, [onClosePilotDetail]);
+  const handleSelectPilot = onSelectPilotTrack;
+  const handleClosePilotDetail = onClosePilotDetail;
   const layerRefs = useRef<TaskMapLayerRefs>({
     circles: new Map(),
     markers: new Map(),
@@ -443,8 +434,8 @@ export function MapView({
         onSelectPilot={handleSelectPilot}
         onClosePilotDetail={handleClosePilotDetail}
         selectedPilotEntry={selectedPilotEntry}
-        activePanel={mapDataPanel}
-        onActivePanelChange={setMapDataPanel}
+        activePanel={mapDataActivePanel}
+        onActivePanelChange={onMapDataActivePanelChange}
         legs={legStatistics}
         preferences={preferences}
         taskTimeZone={taskTimeZone}
