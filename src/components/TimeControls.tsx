@@ -239,6 +239,21 @@ export function TimeControls({
                 {formatTime(timing.taskStart, timezone)}
               </span>
             )}
+            {turnpointReachMarkers
+              .filter((marker) => marker.number === 1)
+              .map((marker) => {
+                const tp1Pct = markerPercent(timing, marker.time);
+                if (tp1Pct === null) return null;
+                return (
+                  <span
+                    key={`tp1-time-${marker.time.getTime()}`}
+                    className="slider-marker-time tp1-marker-time"
+                    style={{ left: `${tp1Pct}%` }}
+                  >
+                    {formatTime(marker.time, timezone)}
+                  </span>
+                );
+              })}
             {finishPct !== null && fastestElapsed && (
               <span
                 className={`slider-marker-time finish-marker-time${finishPct >= 85 ? ' finish-marker-time-near-end' : ''}`}

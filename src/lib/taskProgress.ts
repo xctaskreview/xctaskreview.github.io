@@ -487,3 +487,15 @@ export function enrichTracksWithTaskProgress(
   const enriched = tracks.map((track) => enrichTrackWithTaskProgress(track, task, route, taskStart));
   return attachLegTimingsToTracks(enriched, route, taskStart);
 }
+
+/** First SSS exit (start gate crossing) from enriched track points. */
+export function getPilotSssExitTime(track: EnrichedFlightTrack): Date | undefined {
+  return track.points.find((point) => point.hasStarted)?.time;
+}
+
+/** Whole seconds from task start gate to SSS exit, or null if not crossed. */
+export function getPilotSssCrossDelaySec(track: EnrichedFlightTrack, taskStart: Date): number | null {
+  const exitTime = getPilotSssExitTime(track);
+  if (!exitTime) return null;
+  return Math.max(0, Math.round((exitTime.getTime() - taskStart.getTime()) / 1000));
+}

@@ -19,10 +19,11 @@ import { Icon } from './Icon';
 interface LegStatisticsTableProps {
   legs: GlobalLegStatistics[];
   preferences: AppPreferences;
+  timeZone: string;
   expanded: boolean;
 }
 
-export function LegStatisticsTable({ legs, preferences, expanded }: LegStatisticsTableProps) {
+export function LegStatisticsTable({ legs, preferences, timeZone, expanded }: LegStatisticsTableProps) {
   if (!expanded || legs.length === 0) return null;
 
   const distanceUnitLabel = preferences.distanceUnit === 'mi' ? 'mi' : 'km';
@@ -161,10 +162,10 @@ export function LegStatisticsTable({ legs, preferences, expanded }: LegStatistic
                   )}
                 </span>
                 <span className="leg-statistics-cell leg-statistics-time" role="cell">
-                  {formatLegStatisticsTimestamp(leg.earliestStartTime, preferences.timezone)}
+                  {formatLegStatisticsTimestamp(leg.earliestStartTime, timeZone)}
                 </span>
                 <span className="leg-statistics-cell leg-statistics-time" role="cell">
-                  {formatLegStatisticsTimestamp(leg.latestStartTime, preferences.timezone)}
+                  {formatLegStatisticsTimestamp(leg.latestStartTime, timeZone)}
                 </span>
                 <span className="leg-statistics-cell leg-statistics-first-finish" role="cell">
                   {leg.firstFinishPilot ? (
@@ -175,7 +176,7 @@ export function LegStatisticsTable({ legs, preferences, expanded }: LegStatistic
                       </span>
                       {leg.firstFinishTime && (
                         <span className="leg-statistics-muted">
-                          {formatLegStatisticsTimestamp(leg.firstFinishTime, preferences.timezone)}
+                          {formatLegStatisticsTimestamp(leg.firstFinishTime, timeZone)}
                         </span>
                       )}
                     </span>

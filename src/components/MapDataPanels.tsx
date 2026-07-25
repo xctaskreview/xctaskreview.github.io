@@ -27,6 +27,8 @@ interface MapDataPanelsProps {
   onActivePanelChange: (panel: ActivePanel | null) => void;
   legs: GlobalLegStatistics[];
   preferences: AppPreferences;
+  taskTimeZone: string;
+  pilotSssCrossDelaySec: Map<string, number>;
   playing: boolean;
 }
 
@@ -44,6 +46,8 @@ export function MapDataPanels({
   onActivePanelChange,
   legs,
   preferences,
+  taskTimeZone,
+  pilotSssCrossDelaySec,
   playing,
 }: MapDataPanelsProps) {
   const showLeaderboard = competitors.length > 0;
@@ -160,12 +164,16 @@ export function MapDataPanels({
       <LegStatisticsTable
         legs={legs}
         preferences={preferences}
+        timeZone={taskTimeZone}
         expanded={legStatisticsExpanded}
       />
       <PilotDetailPanel
         entry={selectedPilotEntry}
         competitors={competitors}
         preferences={preferences}
+        sssCrossDelaySec={
+          selectedPilotEntry ? (pilotSssCrossDelaySec.get(selectedPilotEntry.id) ?? null) : null
+        }
         expanded={pilotDetailExpanded}
       />
     </div>

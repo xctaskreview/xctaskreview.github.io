@@ -5,10 +5,11 @@ import type { AppPreferences } from '../lib/preferences';
 interface LegStatisticsPopupContentProps {
   leg: GlobalLegStatistics;
   preferences: AppPreferences;
+  timeZone: string;
 }
 
-export function LegStatisticsPopupContent({ leg, preferences }: LegStatisticsPopupContentProps) {
-  const lines = formatLegStatisticsPopupLines(leg, preferences);
+export function LegStatisticsPopupContent({ leg, preferences, timeZone }: LegStatisticsPopupContentProps) {
+  const lines = formatLegStatisticsPopupLines(leg, preferences, timeZone);
 
   return (
     <div className="turnpoint-popup">

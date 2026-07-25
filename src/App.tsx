@@ -35,7 +35,9 @@ import {
   getTaskStartTime,
   getUniqueTurnpointCircles,
   parseXcTask,
+  resolveTaskTimeZone,
   resolveTaskLocationLabel,
+  withResolvedTaskTimeZone,
 } from './lib/xctask';
 import { loadPersistedSession, savePersistedSession } from './lib/persistedSession';
 import { downloadSessionBundle, importSessionBundle } from './lib/sessionBundle';
@@ -45,7 +47,8 @@ import {
   type TaskHistoryEntry,
 } from './lib/taskHistory';
 import type { TaskProgressMarker } from './lib/taskProgressMarker';
-import { computeTurnpointReachTimes } from './lib/taskProgressMarker';
+import { getPilotSssCrossDelaySec } from './lib/taskProgress';
+import { computeFleetSssExitTp1Marker, computeTurnpointReachTimes } from './lib/taskProgressMarker';
 import {
   buildFinishTurnpointTooltip,
   buildStartTurnpointTooltip,
@@ -126,7 +129,7 @@ export default function App() {
           skipNextPersistRef.current = true;
           hadTaskRef.current = true;
           syncAppDocumentTitle(persisted.task, persisted.taskFileName ?? '');
-          setTask(persisted.task);
+          setTask(withResolvedTaskTimeZone(persisted.task));
           setTaskFileName(persisted.taskFileName ?? '');
           setTracks(persisted.tracks);
           setEnabledTrackIds(new Set(persisted.enabledTrackIds));
@@ -217,6 +220,8 @@ export default function App() {
   );
   const showReview = view === 'review' && Boolean(task && visibleTracks.length > 0);
 
+  const taskTimeZone = useMemo(() => (task ? resolveTaskTimeZone(task) : 'UTC'), [task]);
+
   const taskStart = useMemo(() => {
     if (!task || visibleTracks.length === 0) return undefined;
     const referenceDate =
@@ -267,6 +272,31 @@ export default function App() {
         : [],
     [enrichedTracks, route, timing.taskStart, timing.trackEnd, circles, fieldTimeline],
   );
+
+  const sssExitTp1Marker = useMemo(
+    () =>
+      timing.taskStart && enrichedTracks.length > 0 && route
+        ? computeFleetSssExitTp1Marker(enrichedTracks, route, timing.taskStart, circles)
+        : null,
+    [enrichedTracks, route, timing.taskStart, circles],
+  );
+
+  const sliderTurnpointReachMarkers = useMemo(() => {
+    const withoutTp1 = turnpointReachMarkers.filter((marker) => marker.number !== 1);
+    if (!sssExitTp1Marker) return turnpointReachMarkers;
+    return [sssExitTp1Marker, ...withoutTp1];
+  }, [turnpointReachMarkers, sssExitTp1Marker]);
+
+  const pilotSssCrossDelaySec = useMemo(() => {
+    const delays = new Map<string, number>();
+    if (!timing.taskStart) return delays;
+    for (const track of enrichedTracks) {
+      const delay = getPilotSssCrossDelaySec(track, timing.taskStart);
+      if (delay !== null) delays.set(track.id, delay);
+    }
+    return delays;
+  }, [enrichedTracks, timing.taskStart]);
+
   const startTurnpointTooltip = useMemo(
     () =>
       route && timing.taskStart
@@ -465,7 +495,7 @@ export default function App() {
 
   const onTaskUpdate = useCallback((updatedTask: XcTask) => {
     setError(null);
-    setTask(updatedTask);
+    setTask(withResolvedTaskTimeZone(updatedTask));
     setTaskFitKey(`${taskFileName || 'task'}-${Date.now()}`);
     const location = updatedTask.location?.trim() || null;
     if (location) setTaskLocationLabel(location);
@@ -647,7 +677,7 @@ const applyPersistedSession = useCallback((session: {
 }) => {
   hadTaskRef.current = true;
   syncAppDocumentTitle(session.task, session.taskFileName ?? '');
-  setTask(session.task);
+  setTask(withResolvedTaskTimeZone(session.task));
   setTaskFileName(session.taskFileName ?? '');
   setTracks(session.tracks);
   setEnabledTrackIds(new Set(session.enabledTrackIds));
@@ -665,7 +695,7 @@ const applyPersistedSession = useCallback((session: {
 
 const onHistorySelect = useCallback((entry: TaskHistoryEntry) => {
   setError(null);
-  setTask(entry.task);
+  setTask(withResolvedTaskTimeZone(entry.task));
   setTaskFileName(entry.taskFileName ?? '');
   setTaskFitKey(`${entry.taskFileName ?? entry.name}-${Date.now()}`);
   syncAppDocumentTitle(entry.task, entry.taskFileName ?? '', entry.location);
@@ -711,7 +741,7 @@ const onSessionBundleExport = useCallback(async () => {
 
   const onXcdemonImport = useCallback((result: XcdemonImportResult) => {
     setError(null);
-    setTask(result.task);
+    setTask(withResolvedTaskTimeZone(result.task));
     setTaskFileName(result.taskFileName);
     setTaskFitKey(`${result.taskFileName}-${Date.now()}`);
     setTracks(result.tracks);
@@ -732,7 +762,7 @@ const onSessionBundleExport = useCallback(async () => {
 
   const onCivlImport = useCallback((result: CivlImportResult) => {
     setError(null);
-    setTask(result.task);
+    setTask(withResolvedTaskTimeZone(result.task));
     setTaskFileName(result.taskFileName);
     setTaskFitKey(`${result.taskFileName}-${Date.now()}`);
     setTracks(result.tracks);
@@ -836,13 +866,13 @@ const onSessionBundleExport = useCallback(async () => {
           <TimeControls
             currentTime={currentTime}
             timing={timing}
-            turnpointReachMarkers={turnpointReachMarkers}
+            turnpointReachMarkers={sliderTurnpointReachMarkers}
             startTurnpointTooltip={startTurnpointTooltip}
             finishTurnpointTooltip={finishTurnpointTooltip}
             distanceUnit={preferences.distanceUnit}
             playing={playing}
             speed={preferences.playbackSpeed}
-            timezone={preferences.timezone}
+            timezone={taskTimeZone}
             onTimeChange={setCurrentTime}
             onPlayingChange={setPlaying}
             onSpeedChange={onPlaybackSpeedChange}
@@ -867,6 +897,8 @@ const onSessionBundleExport = useCallback(async () => {
               leadPercentages={leadPercentages}
               fitKey={taskFitKey || 'task'}
               preferences={preferences}
+              taskTimeZone={taskTimeZone}
+              pilotSssCrossDelaySec={pilotSssCrossDelaySec}
               playing={playing}
               pausedTime={currentTime}
               scoreboardCompetitors={scoreboardCompetitors}

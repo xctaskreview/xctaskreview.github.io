@@ -29,6 +29,7 @@ export function formatLegStatisticsSpeedRange(
 export function formatLegStatisticsPopupLines(
   leg: GlobalLegStatistics,
   preferences: AppPreferences,
+  timeZone: string,
 ): string[] {
   const speeds = formatLegStatisticsSpeedRange(
     leg.minSpeedMps,
@@ -48,7 +49,7 @@ export function formatLegStatisticsPopupLines(
       : 'Fastest: —';
 
   const firstFinishLine = leg.firstFinishPilot
-    ? `First finish: ${leg.firstFinishPilot} (${formatLegStatisticsTimestamp(leg.firstFinishTime, preferences.timezone)})`
+    ? `First finish: ${leg.firstFinishPilot} (${formatLegStatisticsTimestamp(leg.firstFinishTime, timeZone)})`
     : 'First finish: —';
 
   return [
@@ -59,8 +60,8 @@ export function formatLegStatisticsPopupLines(
     `Min speed: ${speeds.min} ${speedUnit}`,
     `Avg speed: ${speeds.avg} ${speedUnit}`,
     fastestLine,
-    `Earliest start: ${formatLegStatisticsTimestamp(leg.earliestStartTime, preferences.timezone)}`,
-    `Latest start: ${formatLegStatisticsTimestamp(leg.latestStartTime, preferences.timezone)}`,
+    `Earliest start: ${formatLegStatisticsTimestamp(leg.earliestStartTime, timeZone)}`,
+    `Latest start: ${formatLegStatisticsTimestamp(leg.latestStartTime, timeZone)}`,
     firstFinishLine,
   ];
 }

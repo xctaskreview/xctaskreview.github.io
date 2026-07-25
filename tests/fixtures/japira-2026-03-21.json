@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "taskType": "CLASSIC",
+  "name": "Japira - Prova 01 2026-03-21",
+  "taskName": "Japira - Prova 01 2026-03-21",
+  "location": "1 Stage of the Paranaense Paragliding Championship  2026 - Japira",
+  "eventDate": "2026-03-21",
+  "turnpoints": [
+    {
+      "radius": 400,
+      "waypoint": {
+        "name": "JP001",
+        "lat": -23.75312,
+        "lon": -50.19437,
+        "altSmoothed": 863
+      }
+    },
+    {
+      "radius": 2000,
+      "type": "SSS",
+      "waypoint": {
+        "name": "JP001",
+        "lat": -23.75312,
+        "lon": -50.19437,
+        "altSmoothed": 863
+      }
+    },
+    {
+      "radius": 3000,
+      "waypoint": {
+        "name": "JP024",
+        "lat": -23.74192,
+        "lon": -50.34353,
+        "altSmoothed": 555
+      }
+    },
+    {
+      "radius": 8000,
+      "waypoint": {
+        "name": "JP016",
+        "lat": -23.89757,
+        "lon": -50.24418,
+        "altSmoothed": 801
+      }
+    },
+    {
+      "radius": 3000,
+      "waypoint": {
+        "name": "JP001",
+        "lat": -23.75312,
+        "lon": -50.19437,
+        "altSmoothed": 863
+      }
+    },
+    {
+      "radius": 9000,
+      "waypoint": {
+        "name": "JP016",
+        "lat": -23.89757,
+        "lon": -50.24418,
+        "altSmoothed": 801
+      }
+    },
+    {
+      "radius": 2000,
+      "type": "ESS",
+      "waypoint": {
+        "name": "JP003",
+        "lat": -23.8157,
+        "lon": -50.13783,
+        "altSmoothed": 658
+      }
+    },
+    {
+      "radius": 500,
+      "waypoint": {
+        "name": "JP003",
+        "lat": -23.8157,
+        "lon": -50.13783,
+        "altSmoothed": 658
+      }
+    }
+  ],
+  "sss": {
+    "type": "RACE",
+    "direction": "EXIT",
+    "timeGates": [
+      "13:00:00"
+    ]
+  },
+  "goal": {
+    "type": "CYLINDER"
+  },
+  "earthModel": "WGS84"
+}

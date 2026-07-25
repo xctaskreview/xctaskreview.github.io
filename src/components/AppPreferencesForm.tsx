@@ -1,9 +1,8 @@
-import { Clock, Eye, Gauge, Map, Mountain, Route, Ruler, Settings2, TrendingUp } from 'lucide-react';
+import { Eye, Gauge, Map, Mountain, Route, Ruler, Settings2, TrendingUp } from 'lucide-react';
 import type { AppPreferences } from '../lib/preferences';
 import {
   getMapTypeOptions,
   getSpeedUnitOptions,
-  getTimezoneOptions,
   getVerticalSpeedUnitOptions,
   normalizePilotTrailLengthM,
 } from '../lib/preferences';
@@ -98,17 +97,6 @@ export function AppPreferencesForm({
             }
           >
             {getVerticalSpeedUnitOptions().map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="welcome-pref-field">
-          <IconLabel icon={Clock}>Timezone</IconLabel>
-          <select value={preferences.timezone} onChange={(e) => updatePreference('timezone', e.target.value)}>
-            {getTimezoneOptions().map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>

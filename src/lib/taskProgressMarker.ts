@@ -2,7 +2,7 @@ import { createLocalProjection, haversine, type LocalProjection } from './geo';
 import { extractPilotDisplayName } from './igc';
 import { getTaggedTurnpointProgressIndices, TASK_PROGRESS_LINE_COLOR } from './taskMapStyle';
 import type { EnrichedFlightTrack } from './taskProgress';
-import { getPilotMaxProgressAtTime, getTrackSnapshotAtTime } from './taskProgress';
+import { getPilotMaxProgressAtTime, getPilotSssExitTime, getTrackSnapshotAtTime } from './taskProgress';
 import { fieldRunningMaxPercentAt, type TaskFieldTimeline } from './taskTimeline';
 import type { LatLon, OptimizedRoute, RoutePoint } from './types';
 
@@ -19,6 +19,9 @@ export interface TurnpointReachMarker {
   firstPilot: string;
   firstTagTime: Date;
 }
+
+/** Minimum delay after the task start gate before TP #1 is shown on the time slider. */
+export const SSS_EXIT_TP1_MIN_DELAY_MS = 10_000;
 
 export const TASK_PROGRESS_LINE_HALF_WIDTH_M = 350;
 
@@ -208,6 +211,45 @@ function computeFirstPilotTags(
   }
 
   return firstByIndex;
+}
+
+/** Fleet-first SSS exit as TP #1 for the time slider when late enough to show separately from Start. */
+export function computeFleetSssExitTp1Marker(
+  tracks: EnrichedFlightTrack[],
+  route: OptimizedRoute,
+  taskStart: Date,
+  circles: RoutePoint[],
+): TurnpointReachMarker | null {
+  let fleetFirst: { time: Date; pilot: string } | null = null;
+
+  for (const track of tracks) {
+    const exitTime = getPilotSssExitTime(track);
+    if (!exitTime) continue;
+    const pilot = extractPilotDisplayName(track);
+    if (!fleetFirst || exitTime.getTime() < fleetFirst.time.getTime()) {
+      fleetFirst = { time: exitTime, pilot };
+    }
+  }
+
+  if (!fleetFirst) return null;
+  if (fleetFirst.time.getTime() - taskStart.getTime() <= SSS_EXIT_TP1_MIN_DELAY_MS) {
+    return null;
+  }
+
+  const sssProgress = route.progressTurnpoints[0];
+  const circle = circles.find((entry) => entry.number === sssProgress?.number);
+
+  return {
+    index: 1,
+    number: 1,
+    name: sssProgress?.name ?? 'SSS',
+    taskPercent: sssProgress?.taskPercent ?? 0,
+    taskKm: sssProgress?.taskKm ?? 0,
+    radiusM: circle?.radius ?? route.sssRadius,
+    time: fleetFirst.time,
+    firstPilot: fleetFirst.pilot,
+    firstTagTime: fleetFirst.time,
+  };
 }
 
 export function computeTurnpointReachTimes(

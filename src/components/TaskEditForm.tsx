@@ -6,6 +6,7 @@ import {
 } from 'react';
 import { GripVertical, Plus, Trash2 } from 'lucide-react';
 import type { TaskEditDraft, XcTask } from '../lib/types';
+import { getTimezoneOptions } from '../lib/taskTimezone';
 import {
   applyTurnpointTypeChange,
   createBlankXcTask,
@@ -462,6 +463,21 @@ export function TaskEditForm({ task, locationLabel = null, onChange }: TaskEditF
             }
             onClick={(e) => e.stopPropagation()}
           />
+        </label>
+        <label className="welcome-task-edit-timezone">
+          <span>Timezone</span>
+          <select
+            value={draft.timeZone}
+            aria-label="Task timezone"
+            onChange={(e) => commitDraft((prev) => ({ ...prev, timeZone: e.target.value }))}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {getTimezoneOptions().map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 

@@ -1,17 +1,73 @@
 import type { EditableTurnpointRow, LatLon, OptimizedRoute, RoutePoint, TaskEditDraft, Turnpoint, TurnpointTypeOption, XcTask } from './types';
 import { computeOptimizedRoute } from './route';
 import { haversine, parseIsoDate, parseLocalTimeOnDate, parseUtcTimeOnDate } from './geo';
+import { getBrowserTimeZone } from './taskTimezone';
 
 export function parseXcTask(text: string): XcTask {
   const task = JSON.parse(text) as XcTask;
   if (!task.turnpoints?.length) {
     throw new Error('Task file has no turnpoints');
   }
-  return task;
+  return withResolvedTaskTimeZone(task);
 }
 
 export function getTaskStartGate(task: XcTask): string {
   return task.sss?.timeGates?.[0] ?? '';
+}
+
+function taskTurnpointCentroid(task: XcTask): LatLon | undefined {
+  if (!task.turnpoints.length) return undefined;
+
+  let latSum = 0;
+  let lonSum = 0;
+  for (const tp of task.turnpoints) {
+    latSum += tp.waypoint.lat;
+    lonSum += tp.waypoint.lon;
+  }
+
+  const count = task.turnpoints.length;
+  return { lat: latSum / count, lon: lonSum / count };
+}
+
+/** Guess IANA timezone from task geography when CIVL/XC exports omit `timeZone`. */
+export function inferTaskTimeZone(task: XcTask): string | undefined {
+  if (task.timeZone) return task.timeZone;
+
+  const centroid = taskTurnpointCentroid(task);
+  if (!centroid) return undefined;
+
+  const { lat, lon } = centroid;
+
+  if (lat >= -34 && lat <= 6 && lon >= -74 && lon <= -34) {
+    return 'America/Sao_Paulo';
+  }
+
+  if (lat >= 32 && lat <= 49 && lon >= -125 && lon <= -114) {
+    return 'America/Los_Angeles';
+  }
+
+  if (lat >= 45 && lat <= 55 && lon >= 5 && lon <= 20) {
+    return 'Europe/Berlin';
+  }
+
+  return undefined;
+}
+
+export function resolveTaskTimeZone(task: XcTask): string {
+  const explicit = task.timeZone?.trim();
+  if (explicit) return explicit;
+  return inferTaskTimeZone(task) ?? getBrowserTimeZone();
+}
+
+export function withResolvedTaskTimeZone(task: XcTask): XcTask {
+  const timeZone = resolveTaskTimeZone(task);
+  if (task.timeZone === timeZone) return task;
+  return { ...task, timeZone };
+}
+
+/** @deprecated Use withResolvedTaskTimeZone */
+export function withInferredTaskTimeZone(task: XcTask): XcTask {
+  return withResolvedTaskTimeZone(task);
 }
 
 function normalizeTimeGate(timeGate: string): string {
@@ -101,6 +157,7 @@ export function createEmptyTaskEditDraft(): TaskEditDraft {
     location: '',
     turnpoints: [],
     startTime: '',
+    timeZone: getBrowserTimeZone(),
   };
 }
 
@@ -111,6 +168,7 @@ export function createTaskEditDraft(task: XcTask, locationLabel?: string | null)
     location: (task.location ?? info.embeddedLocation ?? locationLabel ?? '').trim(),
     turnpoints: task.turnpoints.map(editableRowFromTurnpoint),
     startTime: getTaskStartGate(task),
+    timeZone: resolveTaskTimeZone(task),
   };
 }
 
@@ -120,6 +178,7 @@ export function taskEditDraftEquals(task: XcTask, draft: TaskEditDraft): boolean
     current.name !== draft.name.trim() ||
     current.location !== draft.location.trim() ||
     current.startTime !== draft.startTime.trim() ||
+    current.timeZone !== draft.timeZone.trim() ||
     current.turnpoints.length !== draft.turnpoints.length
   ) {
     return false;
@@ -169,6 +228,7 @@ export function taskEffectivelyEquals(a: XcTask, b: XcTask): boolean {
     aNormalized === bNormalized &&
     aName === bName &&
     aLocation === bLocation &&
+    (a.timeZone ?? '') === (b.timeZone ?? '') &&
     turnpointsEffectivelyEqual(a.turnpoints, b.turnpoints)
   );
 }
@@ -225,6 +285,7 @@ export function applyTaskEditDraft(baseTask: XcTask, draft: TaskEditDraft): XcTa
   }
 
   const location = draft.location.trim();
+  const timeZone = draft.timeZone.trim() || getBrowserTimeZone();
 
   return {
     ...baseTask,
@@ -233,6 +294,7 @@ export function applyTaskEditDraft(baseTask: XcTask, draft: TaskEditDraft): XcTa
     ...(location ? { location } : { location: undefined }),
     turnpoints,
     sss,
+    timeZone,
   };
 }
 
@@ -397,14 +459,15 @@ export function getTaskStartTime(task: XcTask, referenceDate: Date): Date | unde
   const gate = task.sss?.timeGates?.[0];
   if (!gate) return undefined;
 
+  const trimmedGate = gate.trim();
   const date =
     task.eventDate !== undefined ? parseIsoDate(task.eventDate) : referenceDate;
 
-  if (task.timeZone) {
-    return parseLocalTimeOnDate(gate, date, task.timeZone);
+  if (/Z$/i.test(trimmedGate)) {
+    return parseUtcTimeOnDate(trimmedGate, date);
   }
 
-  return parseUtcTimeOnDate(gate, date);
+  return parseLocalTimeOnDate(trimmedGate, date, resolveTaskTimeZone(task));
 }
 
 export function getUniqueTurnpointCircles(task: XcTask): RoutePoint[] {

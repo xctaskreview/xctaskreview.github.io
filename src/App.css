@@ -1245,6 +1245,31 @@ html.turnpoint-drag-active .welcome-scroll {
   min-width: 8.5rem;
 }
 
+.welcome-task-edit-timezone {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.welcome-task-edit-timezone span {
+  flex-shrink: 0;
+}
+
+.welcome-task-edit-timezone select {
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: white;
+  font-weight: 500;
+  color: #0f172a;
+  min-width: min(220px, 100%);
+  max-width: 100%;
+}
+
 .welcome-inline-button:disabled {
   background: #94a3b8;
   cursor: not-allowed;

@@ -63,6 +63,7 @@ function RouteLegPolyline({
   positions,
   leg,
   preferences,
+  taskTimeZone,
 }: {
   legNumber: number;
   fromLabel: string;
@@ -70,6 +71,7 @@ function RouteLegPolyline({
   positions: [[number, number], [number, number]];
   leg?: GlobalLegStatistics;
   preferences: AppPreferences;
+  taskTimeZone: string;
 }) {
   return (
     <>
@@ -93,7 +95,7 @@ function RouteLegPolyline({
       >
         <Popup>
           {leg ? (
-            <LegStatisticsPopupContent leg={leg} preferences={preferences} />
+            <LegStatisticsPopupContent leg={leg} preferences={preferences} timeZone={taskTimeZone} />
           ) : (
             formatRouteLegPopup(legNumber, fromLabel, toLabel)
           )}
@@ -201,6 +203,7 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
   distanceUnit,
   legStatistics,
   preferences,
+  taskTimeZone,
 }: {
   circles: RoutePoint[];
   optimizedRoute: OptimizedRoute;
@@ -210,6 +213,7 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
   distanceUnit: DistanceUnit;
   legStatistics: GlobalLegStatistics[];
   preferences: AppPreferences;
+  taskTimeZone: string;
 }) {
   const turnpointMarkers = useMemo(() => getUniqueTurnpointMarkers(circles), [circles]);
   const routeLegs = useMemo(() => getProgressRouteLegs(optimizedRoute), [optimizedRoute]);
@@ -255,6 +259,7 @@ const MapTaskOverlay = memo(function MapTaskOverlay({
           toLabel={formatProgressTurnpointLabel(leg.to)}
           leg={legStatsByNumber.get(leg.legNumber)}
           preferences={preferences}
+          taskTimeZone={taskTimeZone}
           positions={[
             [leg.points[0].lat, leg.points[0].lon],
             [leg.points[1].lat, leg.points[1].lon],
@@ -317,9 +322,11 @@ interface MapViewProps {
   onClosePilotDetail: () => void;
   legStatistics: GlobalLegStatistics[];
   taskStart?: Date;
+  taskTimeZone: string;
   fieldTimeline: TaskFieldTimeline;
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
   turnpointReachMarkers: TurnpointReachMarker[];
+  pilotSssCrossDelaySec: Map<string, number>;
 }
 
 export function MapView({
@@ -346,9 +353,11 @@ export function MapView({
   onClosePilotDetail,
   legStatistics,
   taskStart,
+  taskTimeZone,
   fieldTimeline,
   taskProgressMarkerRef,
   turnpointReachMarkers,
+  pilotSssCrossDelaySec,
 }: MapViewProps) {
   const tile = MAP_TILES[preferences.mapType];
   const [mapDataPanel, setMapDataPanel] = useState<MapDataActivePanel | null>(null);
@@ -400,6 +409,7 @@ export function MapView({
           distanceUnit={preferences.distanceUnit}
           legStatistics={legStatistics}
           preferences={preferences}
+          taskTimeZone={taskTimeZone}
         />
         <LiveCompetitorLayer
           tracks={enrichedTracks}
@@ -437,6 +447,8 @@ export function MapView({
         onActivePanelChange={setMapDataPanel}
         legs={legStatistics}
         preferences={preferences}
+        taskTimeZone={taskTimeZone}
+        pilotSssCrossDelaySec={pilotSssCrossDelaySec}
         playing={playing}
       />
     </div>

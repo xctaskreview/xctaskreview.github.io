@@ -1,5 +1,6 @@
 import type { FlightTrack, Turnpoint, XcTask } from './types';
 import { loadIgcFiles } from './tracks';
+import { withResolvedTaskTimeZone } from './xctask';
 
 export const CIVL_BASE_URL = 'https://civlcomps.org';
 const CIVL_FETCH_TIMEOUT_MS = 20_000;
@@ -426,7 +427,7 @@ export function parseCivlTaskPage(
   const taskName = `${meta.name} ${meta.date}`.trim();
   const location = eventName?.trim() || meta.name;
 
-  return {
+  const task: XcTask = {
     version: 1,
     taskType: 'CLASSIC',
     name: taskName,
@@ -446,6 +447,8 @@ export function parseCivlTaskPage(
     },
     earthModel: 'WGS84',
   };
+
+  return withResolvedTaskTimeZone(task);
 }
 
 export async function fetchCivlResults(resultsUrl: string) {

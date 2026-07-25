@@ -18,7 +18,6 @@ export interface AppPreferences {
   altitudeUnit: AltitudeUnit;
   speedUnit: SpeedUnit;
   verticalSpeedUnit: VerticalSpeedUnit;
-  timezone: string;
   mapType: MapType;
   pilotTrailLengthM: number;
   showFutureTrail: boolean;
@@ -30,21 +29,12 @@ export function normalizePilotTrailLengthM(value: number): number {
   return Math.max(0, Math.min(20000, Math.round(value)));
 }
 
-export function getDefaultTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles';
-  } catch {
-    return 'America/Los_Angeles';
-  }
-}
-
 export function createDefaultPreferences(): AppPreferences {
   return {
     distanceUnit: 'km',
     altitudeUnit: 'm',
     speedUnit: 'km/h',
     verticalSpeedUnit: 'm/s',
-    timezone: getDefaultTimezone(),
     mapType: 'topo',
     pilotTrailLengthM: 0,
     showFutureTrail: false,
@@ -77,10 +67,6 @@ export function normalizePreferences(value: Partial<AppPreferences> | null | und
     verticalSpeedUnit: VERTICAL_SPEED_UNITS.has(value.verticalSpeedUnit as VerticalSpeedUnit)
       ? (value.verticalSpeedUnit as VerticalSpeedUnit)
       : defaults.verticalSpeedUnit,
-    timezone:
-      typeof value.timezone === 'string' && value.timezone.trim().length > 0
-        ? value.timezone
-        : defaults.timezone,
     mapType: MAP_TYPES.has(value.mapType as MapType) ? (value.mapType as MapType) : defaults.mapType,
     pilotTrailLengthM: normalizePilotTrailLengthM(
       typeof value.pilotTrailLengthM === 'number' ? value.pilotTrailLengthM : defaults.pilotTrailLengthM,
@@ -209,35 +195,6 @@ export function distanceAxisLabel(unit: DistanceUnit): string {
 
 export function altitudeAxisLabel(unit: AltitudeUnit): string {
   return unit === 'ft' ? 'Altitude (ft)' : 'Altitude (m)';
-}
-
-export function getTimezoneOptions(): { value: string; label: string }[] {
-  const browserTz = getDefaultTimezone();
-  const common = [
-    browserTz,
-    'America/Los_Angeles',
-    'America/Denver',
-    'America/Chicago',
-    'America/New_York',
-    'America/Phoenix',
-    'UTC',
-    'Europe/London',
-    'Europe/Paris',
-    'Europe/Zurich',
-    'Australia/Sydney',
-  ];
-
-  const seen = new Set<string>();
-  return common
-    .filter((tz) => {
-      if (seen.has(tz)) return false;
-      seen.add(tz);
-      return true;
-    })
-    .map((tz) => ({
-      value: tz,
-      label: tz === browserTz ? `${tz} (browser)` : tz,
-    }));
 }
 
 export function getMapTypeOptions(): { value: MapType; label: string }[] {

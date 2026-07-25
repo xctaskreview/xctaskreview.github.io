@@ -36,6 +36,7 @@ export interface TaskEditDraft {
   location: string;
   turnpoints: EditableTurnpointRow[];
   startTime: string;
+  timeZone: string;
 }
 
 export interface XcTask {
@@ -60,7 +61,7 @@ export interface XcTask {
     deadline?: string;
   };
   earthModel?: string;
-  /** IANA timezone for interpreting local time gates (e.g. America/Los_Angeles). */
+  /** IANA timezone for local time gates and review labels (e.g. America/Sao_Paulo). */
   timeZone?: string;
   /** Task date as YYYY-MM-DD when known (e.g. from XCDemon). */
   eventDate?: string;

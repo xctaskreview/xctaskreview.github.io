@@ -13,10 +13,17 @@ interface PilotDetailPanelProps {
   entry: ScoreboardEntry | null;
   competitors: CompetitorSnapshot[];
   preferences: AppPreferences;
+  sssCrossDelaySec: number | null;
   expanded: boolean;
 }
 
-export function PilotDetailPanel({ entry, competitors, preferences, expanded }: PilotDetailPanelProps) {
+export function PilotDetailPanel({
+  entry,
+  competitors,
+  preferences,
+  sssCrossDelaySec,
+  expanded,
+}: PilotDetailPanelProps) {
   if (!expanded || !entry) return null;
 
   const distanceBehindKm = getTaskDistanceBehindLeaderKm(entry, competitors);
@@ -63,6 +70,10 @@ export function PilotDetailPanel({ entry, competitors, preferences, expanded }: 
             <dd className={`competitor-popup-vario${varioClass}`}>
               {formatVerticalSpeed(entry.verticalSpeedMps, preferences.verticalSpeedUnit)}
             </dd>
+          </div>
+          <div>
+            <dt>Crossed SSS</dt>
+            <dd>{sssCrossDelaySec !== null ? `-${sssCrossDelaySec} s` : '—'}</dd>
           </div>
           <div>
             <dt>Next TP</dt>
