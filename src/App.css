@@ -2495,9 +2495,27 @@ button.app-home-link.time-controls-home-link:hover {
 
 .slider-times {
   position: relative;
-  height: 32px;
+  height: 36px;
   color: #64748b;
   font-size: 12px;
+}
+
+.slider-edge-tick {
+  position: absolute;
+  top: 1px;
+  width: 1px;
+  height: 14px;
+  background: #94a3b8;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.slider-edge-tick-start {
+  left: 5px;
+}
+
+.slider-edge-tick-end {
+  right: 5px;
 }
 
 .time-marker-column {
@@ -2640,7 +2658,7 @@ button.app-home-link.time-controls-home-link:hover {
   top: 50%;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  transform: translateY(-50%);
+  transform: translateY(calc(-50% + 8px));
 }
 
 .slider-edge-time-start {
@@ -2667,6 +2685,8 @@ button.app-home-link.time-controls-home-link:hover {
 
 .start-marker-time {
   z-index: 2;
+  top: 50%;
+  transform: translate(-50%, calc(-50% - 10px));
   color: #2563eb;
   background: rgba(255, 255, 255, 0.94);
   border-radius: 4px;

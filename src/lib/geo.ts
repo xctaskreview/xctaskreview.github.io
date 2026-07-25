@@ -228,17 +228,23 @@ export function clampDisplayAltitudeMeters(alt: number): number {
   return Math.min(DISPLAY_ALTITUDE_MAX_M, Math.max(DISPLAY_ALTITUDE_MIN_M, alt));
 }
 
-export function formatTime(date: Date, timezone = 'UTC'): string {
+export function formatTime(
+  date: Date,
+  timezone = 'UTC',
+  options?: { includeSeconds?: boolean },
+): string {
+  const includeSeconds = options?.includeSeconds ?? true;
   try {
     return new Intl.DateTimeFormat('en-GB', {
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
+      ...(includeSeconds ? { second: '2-digit' } : {}),
       hour12: false,
       timeZone: timezone,
     }).format(date);
   } catch {
-    return date.toISOString().slice(11, 19) + 'Z';
+    const iso = date.toISOString().slice(11, 19);
+    return includeSeconds ? iso : iso.slice(0, 5);
   }
 }
 
@@ -249,10 +255,10 @@ export function formatDuration(ms: number): string {
   const seconds = totalSeconds % 60;
 
   if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
 export function parseUtcTimeOnDate(timeGate: string, date: Date): Date {

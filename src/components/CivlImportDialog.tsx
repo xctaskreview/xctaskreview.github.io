@@ -139,14 +139,22 @@ export function CivlImportDialog({
     [tasks, selectedTaskId],
   );
 
-  const eventOptions = useMemo(
-    () =>
-      events.map((event) => ({
-        value: String(event.id),
-        label: event.label,
-      })),
-    [events],
-  );
+  const eventOptions = useMemo(() => {
+    const all = events.map((event) => ({
+      value: String(event.id),
+      label: event.label,
+    }));
+    if (selectedEventId === '') return all;
+    const selected = all.find((option) => option.value === String(selectedEventId));
+    return selected ? [selected] : all;
+  }, [events, selectedEventId]);
+
+  const clearSelectedEvent = () => {
+    setSelectedEventId('');
+    setSelectedTaskId('');
+    setTasks([]);
+    setEventName('');
+  };
 
   const handleImport = async () => {
     if (!selectedTask) return;
@@ -214,7 +222,7 @@ export function CivlImportDialog({
             loadingHint="Loading events…"
             placeholder="Select an event…"
             emptyHint="No events with results were found for this year."
-            filterable
+            filterable={selectedEventId === ''}
             searchPlaceholder="Filter events…"
             noMatchesHint="No events match your filter."
             options={eventOptions}
@@ -223,6 +231,12 @@ export function CivlImportDialog({
               setSelectedTaskId('');
             }}
           />
+
+          {selectedEventId !== '' && !loadingEvents && events.length > 1 && (
+            <button type="button" className="welcome-text-button" onClick={clearSelectedEvent}>
+              Show all events
+            </button>
+          )}
 
           <ImportCatalogPicker
             label="Task with IGC zip"

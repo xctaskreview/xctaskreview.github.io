@@ -145,6 +145,8 @@ export interface TaskTiming {
   trackStart: Date;
   trackEnd: Date;
   taskStart?: Date;
+  /** When false, task start on the time slider is shown as HH:MM. */
+  taskStartIncludesSeconds?: boolean;
   fastestFinish?: Date;
   fastestPilot?: string;
 }

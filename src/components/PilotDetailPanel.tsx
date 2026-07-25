@@ -1,3 +1,4 @@
+import { formatDuration } from '../lib/geo';
 import type { AppPreferences } from '../lib/preferences';
 import {
   formatAltitude,
@@ -73,7 +74,11 @@ export function PilotDetailPanel({
           </div>
           <div>
             <dt>Crossed SSS</dt>
-            <dd>{sssCrossDelaySec !== null ? `-${sssCrossDelaySec} s` : '—'}</dd>
+            <dd>
+              {sssCrossDelaySec !== null
+                ? `-${formatDuration(sssCrossDelaySec * 1000)}`
+                : '—'}
+            </dd>
           </div>
           <div>
             <dt>Next TP</dt>

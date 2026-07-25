@@ -231,29 +231,18 @@ export function TimeControls({
           />
 
           <div className="slider-times">
+            <span className="slider-edge-tick slider-edge-tick-start" aria-hidden="true" />
+            <span className="slider-edge-tick slider-edge-tick-end" aria-hidden="true" />
             <span className="slider-edge-time slider-edge-time-start">
-              {formatTime(timing.trackStart, timezone)}
+              {formatTime(timing.trackStart, timezone, { includeSeconds: false })}
             </span>
             {taskStartPct !== null && timing.taskStart && (
               <span className="slider-marker-time start-marker-time" style={{ left: `${taskStartPct}%` }}>
-                {formatTime(timing.taskStart, timezone)}
+                {formatTime(timing.taskStart, timezone, {
+                  includeSeconds: timing.taskStartIncludesSeconds ?? true,
+                })}
               </span>
             )}
-            {turnpointReachMarkers
-              .filter((marker) => marker.number === 1)
-              .map((marker) => {
-                const tp1Pct = markerPercent(timing, marker.time);
-                if (tp1Pct === null) return null;
-                return (
-                  <span
-                    key={`tp1-time-${marker.time.getTime()}`}
-                    className="slider-marker-time tp1-marker-time"
-                    style={{ left: `${tp1Pct}%` }}
-                  >
-                    {formatTime(marker.time, timezone)}
-                  </span>
-                );
-              })}
             {finishPct !== null && fastestElapsed && (
               <span
                 className={`slider-marker-time finish-marker-time${finishPct >= 85 ? ' finish-marker-time-near-end' : ''}`}
@@ -264,7 +253,7 @@ export function TimeControls({
               </span>
             )}
             <span className="slider-edge-time slider-edge-time-end">
-              {formatTime(timing.trackEnd, timezone)}
+              {formatTime(timing.trackEnd, timezone, { includeSeconds: false })}
             </span>
           </div>
         </div>

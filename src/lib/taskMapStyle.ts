@@ -109,12 +109,13 @@ export function getTurnpointCirclePathOptions(
   progressColor: string = TASK_PROGRESS_COLOR,
 ): L.PathOptions {
   const color = getTurnpointColor(circle, route, tagged, progressColor);
+  const highlightNext = fillHighlight && !tagged;
 
   return {
     color,
     weight: TURNPOINT_CIRCLE_WEIGHT,
-    fillColor: fillHighlight ? progressColor : color,
-    fillOpacity: fillHighlight ? NEXT_TURNPOINT_FILL_OPACITY : TURNPOINT_FILL_OPACITY,
+    fillColor: highlightNext ? progressColor : color,
+    fillOpacity: highlightNext ? NEXT_TURNPOINT_FILL_OPACITY : TURNPOINT_FILL_OPACITY,
     dashArray: isNonTaskTurnpoint(circle, route) ? ROUTE_DASH_ARRAY : undefined,
   };
 }
@@ -132,20 +133,33 @@ export function turnpointIcon(color: string, name: string): L.DivIcon {
 }
 
 export function getProgressIndexForCircle(circle: RoutePoint, route: OptimizedRoute): number {
-  if (circle.number !== undefined) {
-    const index = circle.number - 1 - route.sssIndex;
-    if (index >= 0 && index < route.progressPoints.length) {
-      return index;
-    }
-  }
+  if (circle.number === undefined) return -1;
 
-  for (let i = 0; i < route.progressTurnpoints.length; i += 1) {
-    if (route.progressTurnpoints[i].name === circle.name) {
-      return i;
-    }
+  const progressIndex = circle.number - 1 - route.sssIndex;
+  if (progressIndex >= 0 && progressIndex < route.progressPoints.length) {
+    return progressIndex;
   }
 
   return -1;
+}
+
+export function findCircleForProgressIndex(
+  progressIndex: number,
+  route: OptimizedRoute,
+  circles: RoutePoint[],
+): RoutePoint | undefined {
+  for (const circle of circles) {
+    if (getProgressIndexForCircle(circle, route) === progressIndex) {
+      return circle;
+    }
+  }
+
+  const tp = route.progressTurnpoints[progressIndex];
+  if (tp?.number !== undefined) {
+    return circles.find((circle) => circle.number === tp.number);
+  }
+
+  return undefined;
 }
 
 export function getTaggedTurnpointProgressIndices(

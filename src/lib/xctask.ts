@@ -15,6 +15,16 @@ export function getTaskStartGate(task: XcTask): string {
   return task.sss?.timeGates?.[0] ?? '';
 }
 
+/** True when the start gate carries a non-zero seconds field (show HH:MM:SS on the slider). */
+export function taskStartGateIncludesSeconds(gate: string): boolean {
+  const trimmed = gate.trim().replace(/Z$/i, '');
+  const match = trimmed.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) return true;
+  const seconds = match[3];
+  if (seconds === undefined) return false;
+  return seconds !== '00';
+}
+
 function taskTurnpointCentroid(task: XcTask): LatLon | undefined {
   if (!task.turnpoints.length) return undefined;
 

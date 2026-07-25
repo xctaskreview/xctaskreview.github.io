@@ -11,6 +11,7 @@ import {
   getLeaderNextLegSegment,
   getTurnpointCirclePathOptions,
   getTurnpointColor,
+  findCircleForProgressIndex,
   isCircleTagged,
   isStartTurnpoint,
   ROUTE_DASH_ARRAY,
@@ -792,26 +793,34 @@ export function LiveCompetitorLayer({
       progressLineRef.current?.bringToFront();
 
       const nextIndex = snapshot.legIndex + 1;
-      const nextTp = routeRef.current.progressTurnpoints[nextIndex];
-      const nextCircle = nextTp
-        ? circlesRef.current.find((circle) => circle.number === nextTp.number)
-        : undefined;
+      const nextCircle = findCircleForProgressIndex(
+        nextIndex,
+        routeRef.current,
+        circlesRef.current,
+      );
       const nextKey = nextCircle ? circleKey(nextCircle) : null;
 
-      if (nextKey === leaderNextTpKeyRef.current) return;
+      if (nextKey === leaderNextTpKeyRef.current) {
+        const tagged = nextKey ? (taggedTurnpointStateRef.current.get(nextKey) ?? false) : false;
+        if (!tagged) return;
+        resetLeaderNextTurnpointCircle();
+        return;
+      }
 
       resetLeaderNextTurnpointCircle();
 
       const layers = layerRefs.current;
       if (!layers || !nextCircle || !nextKey) return;
 
-      leaderNextTpKeyRef.current = nextKey;
       const tagged = taggedTurnpointStateRef.current.get(nextKey) ?? false;
+      if (tagged) return;
+
+      leaderNextTpKeyRef.current = nextKey;
       layers.circles.get(nextKey)?.setStyle(
         getTurnpointCirclePathOptions(
           nextCircle,
           routeRef.current,
-          tagged,
+          false,
           true,
           resolveProgressColor(),
         ),
@@ -867,7 +876,7 @@ export function LiveCompetitorLayer({
 
         taggedTurnpointStateRef.current.set(key, tagged);
         const color = getTurnpointColor(circle, routeRef.current, tagged, progressColor);
-        const fillHighlight = key === leaderNextTpKeyRef.current;
+        const fillHighlight = key === leaderNextTpKeyRef.current && !tagged;
         layers.circles
           .get(key)
           ?.setStyle(
