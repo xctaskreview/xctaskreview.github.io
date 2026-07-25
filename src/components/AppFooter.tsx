@@ -1,14 +1,6 @@
-import { useEffect, useState } from 'react';
 import { Bug, GitBranch, Smartphone } from 'lucide-react';
+import { usePwaInstall } from '../lib/usePwaInstall';
 import { IconLabel } from './Icon';
-import {
-  IOS_INSTALL_HINT,
-  canPromptNativeInstall,
-  isIosDevice,
-  isStandaloneApp,
-  promptNativeInstall,
-  subscribeToInstallPrompt,
-} from '../lib/pwaInstall';
 
 export const GITHUB_REPO_URL = 'https://github.com/xctaskreview/xctaskreview.github.io';
 export const GITHUB_ISSUES_URL = `${GITHUB_REPO_URL}/issues/new`;
@@ -18,39 +10,7 @@ interface AppFooterLinksProps {
 }
 
 export function AppFooterLinks({ className = '' }: AppFooterLinksProps) {
-  const [installed, setInstalled] = useState(isStandaloneApp);
-  const [nativeInstallReady, setNativeInstallReady] = useState(canPromptNativeInstall);
-  const [hint, setHint] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isStandaloneApp()) {
-      setInstalled(true);
-      return;
-    }
-
-    return subscribeToInstallPrompt(() => {
-      setNativeInstallReady(true);
-    });
-  }, []);
-
-  const handleInstallClick = async () => {
-    setHint(null);
-
-    if (nativeInstallReady && canPromptNativeInstall()) {
-      const accepted = await promptNativeInstall();
-      if (accepted) {
-        setInstalled(true);
-      }
-      return;
-    }
-
-    if (isIosDevice()) {
-      setHint(IOS_INSTALL_HINT);
-      return;
-    }
-
-    setHint('Install is not available in this browser yet. Try Chrome or Edge on desktop or Android.');
-  };
+  const { installed, hint, handleInstallClick } = usePwaInstall();
 
   return (
     <div className={`app-footer-content${className ? ` ${className}` : ''}`}>

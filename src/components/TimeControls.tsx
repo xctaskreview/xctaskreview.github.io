@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Clock, Flag, Gauge, Pause, Play, Timer, Trophy } from 'lucide-react';
+import { Clock, Flag, Gauge, Pause, PencilLine, Play, Timer, Trophy } from 'lucide-react';
 import { formatDuration, formatTime } from '../lib/geo';
 import type { TurnpointReachMarker } from '../lib/taskProgressMarker';
 import type { TaskTiming } from '../lib/types';
 import type { AppPreferences } from '../lib/preferences';
 import { PLAYBACK_SPEEDS } from '../lib/preferences';
 import { formatTurnpointHoverLabel } from '../lib/turnpointTooltip';
+import { AppHomeLink } from './AppHomeLink';
 import { Icon, IconLabel } from './Icon';
 import { TurnpointHoverTrigger } from './TurnpointHoverTooltip';
 
@@ -24,6 +25,8 @@ interface TimeControlsProps {
   onTimeChange: (time: Date) => void;
   onPlayingChange: (playing: boolean) => void;
   onSpeedChange: (speed: number) => void;
+  onEdit?: () => void;
+  onOpenAppMenu?: () => void;
 }
 
 function markerPercent(timing: TaskTiming, markerTime?: Date): number | null {
@@ -102,6 +105,8 @@ export function TimeControls({
   onTimeChange,
   onPlayingChange,
   onSpeedChange,
+  onEdit,
+  onOpenAppMenu,
 }: TimeControlsProps) {
   const startMs = timing.trackStart.getTime();
   const endMs = timing.trackEnd.getTime();
@@ -115,6 +120,19 @@ export function TimeControls({
   return (
     <div className="time-controls">
       <div className="time-controls-row">
+        {onEdit && (
+          <div className="time-controls-review-nav">
+            <AppHomeLink className="time-controls-home-link" iconSize="sm" onOpenMenu={onOpenAppMenu} />
+            <button
+              type="button"
+              className="time-controls-edit-button"
+              aria-label="Edit task"
+              onClick={onEdit}
+            >
+              <Icon icon={PencilLine} size="sm" />
+            </button>
+          </div>
+        )}
         <button
           type="button"
           className="play-button"

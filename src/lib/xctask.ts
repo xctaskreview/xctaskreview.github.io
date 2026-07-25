@@ -20,6 +20,27 @@ function normalizeTimeGate(timeGate: string): string {
   return `${match[1]}:${match[2]}:${match[3] ?? '00'}${match[4] ?? ''}`;
 }
 
+/** Value for `<input type="time">` from a task start gate string. */
+export function startTimeGateToTimeInputValue(gate: string): string {
+  const trimmed = gate.trim();
+  if (!trimmed) return '';
+  const match = trimmed.match(/^(\d{2}):(\d{2})(?::(\d{2}))?(Z)?$/i);
+  if (!match) return '';
+  const seconds = match[3] ?? '00';
+  return seconds === '00' ? `${match[1]}:${match[2]}` : `${match[1]}:${match[2]}:${seconds}`;
+}
+
+/** Task start gate string from a time input value; preserves trailing Z when present on the previous gate. */
+export function timeInputValueToStartTimeGate(value: string, previousGate = ''): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const match = trimmed.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) return trimmed;
+  const seconds = match[3] ?? '00';
+  const utcSuffix = /Z$/i.test(previousGate.trim()) ? 'Z' : '';
+  return `${match[1]}:${match[2]}:${seconds}${utcSuffix}`;
+}
+
 let turnpointRowKeyCounter = 0;
 
 function nextTurnpointRowKey(): string {

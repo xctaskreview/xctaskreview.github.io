@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { LineChart, PencilLine, X } from 'lucide-react';
-import { AppFooter } from './components/AppFooter';
-import { AppHomeLink } from './components/AppHomeLink';
+import { LineChart, X } from 'lucide-react';
+import { AppMenuOverlay } from './components/AppMenuOverlay';
 import { Icon, IconButtonContent } from './components/Icon';
 import { MapView } from './components/MapView';
 import { TimeControls } from './components/TimeControls';
@@ -112,6 +111,7 @@ export default function App() {
   const [selectedPilotTrackId, setSelectedPilotTrackId] = useState<string | null>(null);
   const reviewStageRef = useRef<HTMLDivElement>(null);
   const [storageReady, setStorageReady] = useState(false);
+  const [appMenuOpen, setAppMenuOpen] = useState(false);
   const currentTimeRef = useRef(currentTime);
   const enabledTrackIdsKey = useMemo(() => [...enabledTrackIds].sort().join('|'), [enabledTrackIds]);
 
@@ -762,8 +762,18 @@ const onSessionBundleExport = useCallback(async () => {
     );
   }, [showReview, taskProgressMinimized, taskProgressHeightPx, previewTaskProgressHeight]);
 
+  const appMenuOverlay = (
+    <AppMenuOverlay
+      open={appMenuOpen}
+      onClose={() => setAppMenuOpen(false)}
+      preferences={preferences}
+      onPreferencesChange={setPreferences}
+    />
+  );
+
   if (!showReview) {
     return (
+      <>
       <div className="app-shell">
         <WelcomeScreen
           task={task}
@@ -785,7 +795,7 @@ const onSessionBundleExport = useCallback(async () => {
           onRemoveTrack={onRemoveTrack}
           onRemoveAllTracks={onRemoveAllTracks}
           onSetTracksEnabled={onSetTracksEnabled}
-          onPreferencesChange={setPreferences}
+          onOpenAppMenu={() => setAppMenuOpen(true)}
           onContinue={() => setView('review')}
           onDismissError={() => setError(null)}
           onXcdemonImport={onXcdemonImport}
@@ -798,25 +808,16 @@ const onSessionBundleExport = useCallback(async () => {
           onTaskUpdate={onTaskUpdate}
           onClearTask={onClearTask}
         />
-        <AppFooter />
       </div>
+      {appMenuOverlay}
+      </>
     );
   }
 
   return (
+    <>
     <div className="app-shell review-mode">
       <div className="app review-screen">
-        <header className="review-header">
-          <div className="review-header-start">
-            <h1 className="review-header-title">
-              <AppHomeLink iconSize="sm" />
-            </h1>
-          </div>
-          <button type="button" className="edit-button" onClick={() => setView('welcome')}>
-            <IconButtonContent icon={PencilLine}>Edit</IconButtonContent>
-          </button>
-        </header>
-
         {error && (
           <div className="error-banner">
             <span className="error-message-text">{error}</span>
@@ -845,6 +846,8 @@ const onSessionBundleExport = useCallback(async () => {
             onTimeChange={setCurrentTime}
             onPlayingChange={setPlaying}
             onSpeedChange={onPlaybackSpeedChange}
+            onEdit={() => setView('welcome')}
+            onOpenAppMenu={() => setAppMenuOpen(true)}
           />
         )}
 
@@ -936,5 +939,7 @@ const onSessionBundleExport = useCallback(async () => {
         </div>
       </div>
     </div>
+    {appMenuOverlay}
+    </>
   );
 }

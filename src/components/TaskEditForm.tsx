@@ -12,7 +12,9 @@ import {
   createEmptyTaskEditDraft,
   createEmptyTurnpointRow,
   createTaskEditDraft,
+  startTimeGateToTimeInputValue,
   taskEffectivelyEquals,
+  timeInputValueToStartTimeGate,
   tryApplyTaskEditDraft,
 } from '../lib/xctask';
 import { Icon, IconButtonContent } from './Icon';
@@ -448,11 +450,16 @@ export function TaskEditForm({ task, locationLabel = null, onChange }: TaskEditF
         <label className="welcome-task-edit-start">
           <span>Start time</span>
           <input
-            type="text"
-            value={draft.startTime}
-            placeholder="HH:MM or HH:MM:SS"
+            type="time"
+            step={60}
+            value={startTimeGateToTimeInputValue(draft.startTime)}
             aria-label="Task start time"
-            onChange={(e) => commitDraft((prev) => ({ ...prev, startTime: e.target.value }))}
+            onChange={(e) =>
+              commitDraft((prev) => ({
+                ...prev,
+                startTime: timeInputValueToStartTimeGate(e.target.value, prev.startTime),
+              }))
+            }
             onClick={(e) => e.stopPropagation()}
           />
         </label>
