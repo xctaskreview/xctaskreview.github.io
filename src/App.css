@@ -2315,6 +2315,30 @@ html.turnpoint-drag-active .welcome-scroll {
   gap: 12px;
 }
 
+.time-controls-toolbar {
+  display: contents;
+}
+
+.time-controls-review-nav {
+  order: 1;
+}
+
+.time-controls-row .play-button {
+  order: 2;
+}
+
+.time-controls-row .speed-control {
+  order: 3;
+}
+
+.time-controls-row .slider-shell {
+  order: 4;
+}
+
+.time-controls-row .current-time-block {
+  order: 5;
+}
+
 .speed-control {
   flex-shrink: 0;
   display: inline-flex;
@@ -2419,36 +2443,56 @@ button.app-home-link.time-controls-home-link:hover {
 }
 
 .current-time-block {
-  flex: 0 0 9rem;
-  width: 9rem;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 8ch;
-  column-gap: 6px;
-  row-gap: 1px;
-  align-items: center;
+  flex: 0 0 auto;
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: stretch;
+  flex-shrink: 0;
 }
 
 .current-time-row {
-  display: contents;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .time-metric-label {
   color: #64748b;
   font-size: 0.85rem;
   min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.time-metric-label-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .current-time {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  text-align: left;
+  line-height: 1.2;
 }
 
 .task-elapsed {
   color: #0f172a;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  text-align: left;
+  line-height: 1.2;
 }
 
 .slider-shell {
@@ -3891,19 +3935,39 @@ button.app-home-link.time-controls-home-link:hover {
   }
 
   .time-controls-row {
-    flex-wrap: wrap;
-    gap: 8px 10px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
   }
 
-  .current-time-block {
-    flex: 1 1 auto;
-    width: auto;
+  .time-controls-toolbar {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
     min-width: 0;
   }
 
+  .time-controls-toolbar .current-time-block {
+    margin-left: auto;
+  }
+
+  .time-controls-row .play-button,
+  .time-controls-row .speed-control,
+  .time-controls-row .slider-shell,
+  .time-controls-row .current-time-block,
+  .time-controls-review-nav {
+    order: unset;
+  }
+
+  .current-time,
+  .task-elapsed {
+    font-size: 0.85rem;
+  }
+
   .slider-shell {
-    order: 3;
-    flex: 1 1 100%;
+    flex: 1 1 auto;
+    width: 100%;
     min-width: 0;
   }
 

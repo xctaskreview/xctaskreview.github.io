@@ -120,42 +120,63 @@ export function TimeControls({
   return (
     <div className="time-controls">
       <div className="time-controls-row">
-        {onEdit && (
-          <div className="time-controls-review-nav">
-            <AppHomeLink className="time-controls-home-link" iconSize="sm" onOpenMenu={onOpenAppMenu} />
-            <button
-              type="button"
-              className="time-controls-edit-button"
-              aria-label="Edit task"
-              onClick={onEdit}
-            >
-              <Icon icon={PencilLine} size="sm" />
-            </button>
-          </div>
-        )}
-        <button
-          type="button"
-          className="play-button"
-          aria-label={playing ? 'Pause' : 'Play'}
-          onClick={() => onPlayingChange(!playing)}
-        >
-          <Icon icon={playing ? Pause : Play} size="sm" />
-        </button>
-
-        <label className="speed-control">
-          <Icon icon={Gauge} size="xs" />
-          <select
-            value={speed}
-            aria-label="Playback speed"
-            onChange={(e) => onSpeedChange(Number(e.target.value))}
+        <div className="time-controls-toolbar">
+          {onEdit && (
+            <div className="time-controls-review-nav">
+              <AppHomeLink className="time-controls-home-link" iconSize="sm" onOpenMenu={onOpenAppMenu} />
+              <button
+                type="button"
+                className="time-controls-edit-button"
+                aria-label="Edit task"
+                onClick={onEdit}
+              >
+                <Icon icon={PencilLine} size="sm" />
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            className="play-button"
+            aria-label={playing ? 'Pause' : 'Play'}
+            onClick={() => onPlayingChange(!playing)}
           >
-            {PLAYBACK_SPEEDS.map((value) => (
-              <option key={value} value={value}>
-                x{value}
-              </option>
-            ))}
-          </select>
-        </label>
+            <Icon icon={playing ? Pause : Play} size="sm" />
+          </button>
+
+          <label className="speed-control">
+            <Icon icon={Gauge} size="xs" />
+            <select
+              value={speed}
+              aria-label="Playback speed"
+              onChange={(e) => onSpeedChange(Number(e.target.value))}
+            >
+              {PLAYBACK_SPEEDS.map((value) => (
+                <option key={value} value={value}>
+                  x{value}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="current-time-block">
+            <div className="current-time-row" aria-label="Current time">
+              <span className="time-metric-label">
+                <Icon icon={Clock} size="xs" />
+                <span className="time-metric-label-text">Time</span>
+              </span>
+              <span className="current-time">{formatTime(displayedTime, timezone)}</span>
+            </div>
+            {taskElapsed && (
+              <div className="current-time-row" aria-label="Elapsed task time">
+                <span className="time-metric-label">
+                  <Icon icon={Timer} size="xs" />
+                  <span className="time-metric-label-text">Elapsed</span>
+                </span>
+                <span className="task-elapsed">{taskElapsed}</span>
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="slider-shell">
           <div className="slider-markers">
@@ -256,27 +277,6 @@ export function TimeControls({
               {formatTime(timing.trackEnd, timezone, { includeSeconds: false })}
             </span>
           </div>
-        </div>
-
-        <div className="current-time-block">
-          <div className="current-time-row">
-            <span className="time-metric-label">
-              <IconLabel icon={Clock} iconSize="xs">
-                Time
-              </IconLabel>
-            </span>
-            <span className="current-time">{formatTime(displayedTime, timezone)}</span>
-          </div>
-          {taskElapsed && (
-            <div className="current-time-row">
-              <span className="time-metric-label">
-                <IconLabel icon={Timer} iconSize="xs">
-                  Elapsed
-                </IconLabel>
-              </span>
-              <span className="task-elapsed">{taskElapsed}</span>
-            </div>
-          )}
         </div>
       </div>
     </div>
