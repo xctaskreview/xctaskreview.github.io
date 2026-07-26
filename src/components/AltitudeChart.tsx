@@ -1360,6 +1360,12 @@ export const AltitudeChart = memo(function AltitudeChart({
     didPan: boolean;
   } | null>(null);
 
+  const pinchTouchSessionRef = useRef<{
+    initialSpread: number;
+    initialDomain: [number, number];
+    centerClientX: number;
+  } | null>(null);
+
   const suppressNextClickRef = useRef(false);
   const pendingSeekTimeoutRef = useRef<number | null>(null);
 
@@ -1477,9 +1483,105 @@ export const AltitudeChart = memo(function AltitudeChart({
       }
     };
 
+    const applyDistanceZoomAtClientX = (
+      initialDomain: [number, number],
+      maxDist: number,
+      plotWidth: number,
+      centerClientX: number,
+      scale: number,
+    ) => {
+      const center = chartClientXToTaskDistanceDisplay(
+        centerClientX,
+        host.getBoundingClientRect(),
+        plotWidth,
+        maxDist,
+        CHART_MARGIN.left,
+        CHART_MARGIN.right,
+        CHART_Y_AXIS_WIDTH,
+        initialDomain[0],
+        initialDomain[1],
+      );
+      const next = zoomChartDistanceDomain(initialDomain, maxDist, center, scale);
+      if (isFullChartDistanceDomain(next, maxDist)) {
+        setXZoomDomain(null);
+      } else {
+        setXZoomDomain(next);
+      }
+    };
+
+    const touchSpreadPx = (touches: TouchList) => {
+      if (touches.length < 2) return 0;
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.hypot(dx, dy);
+    };
+
+    const touchCenterClientX = (touches: TouchList) =>
+      (touches[0].clientX + touches[1].clientX) / 2;
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 2) return;
+      const { taskDistanceDisplay: maxDist, plotWidth, xZoomDomain: currentZoom } =
+        zoomWheelStateRef.current;
+      if (maxDist <= 0 || plotWidth <= 0) return;
+
+      const spread = touchSpreadPx(event.touches);
+      if (spread <= 0) return;
+
+      const domain: [number, number] = currentZoom ?? [0, maxDist];
+      panSessionRef.current = null;
+      setIsPanning(false);
+      cancelPendingChartSeek();
+      pinchTouchSessionRef.current = {
+        initialSpread: spread,
+        initialDomain: [...domain],
+        centerClientX: touchCenterClientX(event.touches),
+      };
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      const session = pinchTouchSessionRef.current;
+      if (!session || event.touches.length !== 2) return;
+
+      event.preventDefault();
+      suppressNextClickRef.current = true;
+
+      const spread = touchSpreadPx(event.touches);
+      if (spread <= 0) return;
+
+      const { taskDistanceDisplay: maxDist, plotWidth } = zoomWheelStateRef.current;
+      const scale = session.initialSpread / spread;
+      applyDistanceZoomAtClientX(
+        session.initialDomain,
+        maxDist,
+        plotWidth,
+        session.centerClientX,
+        scale,
+      );
+    };
+
+    const onTouchEnd = (event: TouchEvent) => {
+      if (event.touches.length < 2) {
+        if (pinchTouchSessionRef.current) {
+          suppressNextClickRef.current = true;
+        }
+        pinchTouchSessionRef.current = null;
+      }
+    };
+
     host.addEventListener('wheel', onWheel, { passive: false, capture: true });
-    return () => host.removeEventListener('wheel', onWheel, { capture: true });
-  }, [plotSize.width, plotSize.height]);
+    host.addEventListener('touchstart', onTouchStart, { passive: true });
+    host.addEventListener('touchmove', onTouchMove, { passive: false });
+    host.addEventListener('touchend', onTouchEnd);
+    host.addEventListener('touchcancel', onTouchEnd);
+    return () => {
+      host.removeEventListener('wheel', onWheel, { capture: true });
+      host.removeEventListener('touchstart', onTouchStart);
+      host.removeEventListener('touchmove', onTouchMove);
+      host.removeEventListener('touchend', onTouchEnd);
+      host.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [plotSize.width, plotSize.height, cancelPendingChartSeek]);
 
   useLayoutEffect(() => {
     const host = plotHostRef.current;
@@ -1493,6 +1595,7 @@ export const AltitudeChart = memo(function AltitudeChart({
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 0) return;
       if (!isPanTarget(event.target)) return;
+      if (pinchTouchSessionRef.current) return;
 
       const { taskDistanceDisplay: maxDist, xZoomDomain: currentZoom } = zoomWheelStateRef.current;
       if (!currentZoom || maxDist <= 0) return;

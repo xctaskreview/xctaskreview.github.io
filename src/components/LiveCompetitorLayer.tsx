@@ -56,7 +56,7 @@ function escapeHtml(text: string): string {
 function formatCompetitorMapLabelHtml(position: number, firstName: string): string {
   const name = escapeHtml(firstName);
   if (position === 1) {
-    return `${trophyIconHtml(10)}<span>${name}</span>`;
+    return `${trophyIconHtml(12)}<span>${name}</span>`;
   }
   return `#${position} ${name}`;
 }
