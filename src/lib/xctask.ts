@@ -475,6 +475,11 @@ export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
   return route;
 }
 
+/** Optimized course length used for GAP-style task speed (full cylinder route). */
+export function getTaskScoringDistanceM(route: OptimizedRoute): number {
+  return route.totalDistance;
+}
+
 /** Progress turnpoint where the speed section ends (ESS, or goal if there is no ESS). */
 export function getSpeedSectionEndProgressTurnpoint(route: OptimizedRoute): ProgressTurnpoint | undefined {
   const { essTurnpointIndex, progressTurnpoints } = route;

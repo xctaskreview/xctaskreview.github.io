@@ -296,9 +296,14 @@ export function computePilotTaskVerification(
     essCrossTime = goalCrossTime;
   }
 
+  const speedSectionStartTime = assignedStartGateTime ?? sssCrossTime;
+
   let taskTimeSeconds: number | null = null;
-  if (sssCrossTime && essCrossTime) {
-    taskTimeSeconds = Math.max(0, Math.round((essCrossTime.getTime() - sssCrossTime.getTime()) / 1000));
+  if (speedSectionStartTime && essCrossTime) {
+    taskTimeSeconds = Math.max(
+      0,
+      Math.round((essCrossTime.getTime() - speedSectionStartTime.getTime()) / 1000),
+    );
   }
 
   const cappedAtDeadline = deadlineMs !== null && points.some((p) => p.time.getTime() > deadlineMs);
@@ -337,4 +342,14 @@ export function getPilotSpeedSectionFinishTime(track: {
   const { essCrossTime, goalCrossTime } = track.verification;
   if (essCrossTime) return essCrossTime;
   return goalCrossTime ?? undefined;
+}
+
+/** Task speed (km/h) from scoring distance and published-style speed-section time. */
+export function computePilotTaskSpeedKmh(
+  verification: PilotTaskVerification,
+  scoringDistanceM: number,
+): number | null {
+  const seconds = verification.taskTimeSeconds;
+  if (seconds == null || seconds <= 0 || scoringDistanceM <= 0) return null;
+  return (scoringDistanceM / 1000) / (seconds / 3600);
 }
