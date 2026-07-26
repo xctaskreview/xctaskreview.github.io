@@ -92,7 +92,7 @@ export function TaskHistoryDialog({
                 Task history
               </span>
             </h2>
-            <p className="xcdemon-dialog-subtitle">Saved tasks in this browser, keyed by name</p>
+            <p className="xcdemon-dialog-subtitle">Saved tasks and tracklogs in this browser, keyed by name</p>
           </div>
           <button type="button" className="welcome-icon-button" aria-label="Close" onClick={onClose}>
             <Icon icon={X} size="sm" />

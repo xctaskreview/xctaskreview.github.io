@@ -1,5 +1,11 @@
 import { buildOptimizedRoute, getTaskDisplayInfo } from './xctask';
-import type { XcTask } from './types';
+import {
+  deserializeFlightTrackFromPersistence,
+  isValidPersistedFlightTrack,
+  serializeFlightTrackForPersistence,
+  type StoredFlightTrackV2,
+} from './persistedSession';
+import type { FlightTrack, XcTask } from './types';
 
 const DB_NAME = 'xc-task-review-history';
 const DB_VERSION = 1;
@@ -17,6 +23,13 @@ export interface TaskHistoryEntry {
   pinned: boolean;
   createdAt: number;
   loadedAt: number;
+  tracks?: FlightTrack[];
+  enabledTrackIds?: string[];
+  trackColors?: Record<string, string>;
+}
+
+interface StoredTaskHistoryEntry extends Omit<TaskHistoryEntry, 'tracks'> {
+  tracks?: StoredFlightTrackV2[];
 }
 
 export interface UpsertTaskHistoryInput {
@@ -24,6 +37,9 @@ export interface UpsertTaskHistoryInput {
   taskFileName?: string;
   name?: string;
   location?: string | null;
+  tracks?: FlightTrack[];
+  enabledTrackIds?: string[];
+  trackColors?: Record<string, string>;
 }
 
 export function normalizeTaskHistoryName(name: string): string {
@@ -107,22 +123,44 @@ async function withStore<T>(
   }
 }
 
-function isValidHistoryEntry(value: unknown): value is TaskHistoryEntry {
+function isValidHistoryEntry(value: unknown): value is StoredTaskHistoryEntry {
   if (!value || typeof value !== 'object') return false;
-  const entry = value as TaskHistoryEntry;
-  return (
-    typeof entry.id === 'string' &&
-    !!entry.task &&
-    typeof entry.task === 'object' &&
-    Array.isArray(entry.task.turnpoints) &&
-    entry.task.turnpoints.length > 0 &&
-    typeof entry.name === 'string' &&
-    typeof entry.legCount === 'number' &&
-    typeof entry.optimizedDistanceKm === 'number' &&
-    typeof entry.pinned === 'boolean' &&
-    typeof entry.createdAt === 'number' &&
-    typeof entry.loadedAt === 'number'
-  );
+  const entry = value as StoredTaskHistoryEntry;
+  if (
+    typeof entry.id !== 'string' ||
+    !entry.task ||
+    typeof entry.task !== 'object' ||
+    !Array.isArray(entry.task.turnpoints) ||
+    entry.task.turnpoints.length === 0 ||
+    typeof entry.name !== 'string' ||
+    typeof entry.legCount !== 'number' ||
+    typeof entry.optimizedDistanceKm !== 'number' ||
+    typeof entry.pinned !== 'boolean' ||
+    typeof entry.createdAt !== 'number' ||
+    typeof entry.loadedAt !== 'number'
+  ) {
+    return false;
+  }
+  if (entry.tracks !== undefined) {
+    if (!Array.isArray(entry.tracks) || !entry.tracks.every(isValidPersistedFlightTrack)) {
+      return false;
+    }
+  }
+  if (entry.enabledTrackIds !== undefined && !Array.isArray(entry.enabledTrackIds)) {
+    return false;
+  }
+  if (entry.trackColors !== undefined && (typeof entry.trackColors !== 'object' || !entry.trackColors)) {
+    return false;
+  }
+  return true;
+}
+
+function toTaskHistoryEntry(stored: StoredTaskHistoryEntry): TaskHistoryEntry {
+  const { tracks: storedTracks, ...rest } = stored;
+  return {
+    ...rest,
+    tracks: storedTracks?.map(deserializeFlightTrackFromPersistence),
+  };
 }
 
 export function sortTaskHistoryEntries(entries: TaskHistoryEntry[]): TaskHistoryEntry[] {
@@ -136,7 +174,7 @@ export async function listTaskHistory(): Promise<TaskHistoryEntry[]> {
   try {
     const entries = await withStore('readonly', async (store) => {
       const values = await idbRequest(store.getAll());
-      return values.filter(isValidHistoryEntry);
+      return values.filter(isValidHistoryEntry).map(toTaskHistoryEntry);
     });
     return sortTaskHistoryEntries(entries);
   } catch {
@@ -148,7 +186,10 @@ async function pruneHistory(store: IDBObjectStore): Promise<void> {
   const values = (await idbRequest(store.getAll())).filter(isValidHistoryEntry);
   if (values.length <= MAX_HISTORY_ENTRIES) return;
 
-  const sorted = sortTaskHistoryEntries(values);
+  const sorted = [...values].sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return b.loadedAt - a.loadedAt;
+  });
   const keepIds = new Set(sorted.slice(0, MAX_HISTORY_ENTRIES).map((entry) => entry.id));
   const removable = values
     .filter((entry) => !entry.pinned && !keepIds.has(entry.id))
@@ -165,7 +206,7 @@ async function pruneHistory(store: IDBObjectStore): Promise<void> {
 async function findEntryByName(
   store: IDBObjectStore,
   name: string,
-): Promise<TaskHistoryEntry | null> {
+): Promise<StoredTaskHistoryEntry | null> {
   const id = taskHistoryIdFromName(name);
   const byId = await idbRequest(store.get(id));
   if (isValidHistoryEntry(byId)) return byId;
@@ -187,7 +228,25 @@ export async function upsertTaskHistory(input: UpsertTaskHistoryInput): Promise<
 
     return await withStore('readwrite', async (store) => {
       const existing = await findEntryByName(store, name);
-      const entry: TaskHistoryEntry = {
+      const tracksProvided = input.tracks !== undefined;
+      const hasTracks = Boolean(input.tracks && input.tracks.length > 0);
+      const storedTracks = hasTracks
+        ? input.tracks!.map(serializeFlightTrackForPersistence)
+        : tracksProvided
+          ? undefined
+          : existing?.tracks;
+      const enabledTrackIds = hasTracks
+        ? (input.enabledTrackIds ?? input.tracks!.map((track) => track.id))
+        : tracksProvided
+          ? undefined
+          : existing?.enabledTrackIds;
+      const trackColors = hasTracks
+        ? (input.trackColors ?? {})
+        : tracksProvided
+          ? undefined
+          : existing?.trackColors;
+
+      const stored: StoredTaskHistoryEntry = {
         id,
         task: applyTaskDisplayFields(input.task, name, location),
         taskFileName: input.taskFileName,
@@ -198,14 +257,17 @@ export async function upsertTaskHistory(input: UpsertTaskHistoryInput): Promise<
         pinned: existing?.pinned ?? false,
         createdAt: existing?.createdAt ?? now,
         loadedAt: now,
+        ...(storedTracks && storedTracks.length > 0 ? { tracks: storedTracks } : {}),
+        ...(enabledTrackIds && enabledTrackIds.length > 0 ? { enabledTrackIds } : {}),
+        ...(trackColors && Object.keys(trackColors).length > 0 ? { trackColors } : {}),
       };
 
       if (existing && existing.id !== id) {
         store.delete(existing.id);
       }
-      store.put(entry);
+      store.put(stored);
       await pruneHistory(store);
-      return entry;
+      return toTaskHistoryEntry(stored);
     });
   } catch {
     return null;
@@ -238,7 +300,7 @@ export async function setTaskHistoryPinned(id: string, pinned: boolean): Promise
       if (!isValidHistoryEntry(existingRaw)) return null;
       const entry = { ...existingRaw, pinned };
       store.put(entry);
-      return entry;
+      return toTaskHistoryEntry(entry);
     });
   } catch {
     return null;

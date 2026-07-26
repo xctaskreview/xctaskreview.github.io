@@ -39,7 +39,7 @@ interface StoredFlightTrackV1 {
   igcHeader?: string;
 }
 
-interface StoredFlightTrackV2 {
+export interface StoredFlightTrackV2 {
   id: string;
   pilotName: string;
   fileName: string;
@@ -779,6 +779,18 @@ async function performSaveForTab(tabId: string, session: PersistedSession | null
 
 async function performSave(session: PersistedSession | null): Promise<SaveSessionResult> {
   return performSaveForTab(getTabId(), session);
+}
+
+export function serializeFlightTrackForPersistence(track: FlightTrack): StoredFlightTrackV2 {
+  return serializeTrackV2(track);
+}
+
+export function deserializeFlightTrackFromPersistence(track: StoredFlightTrackV2): FlightTrack {
+  return deserializeTrackV2(track);
+}
+
+export function isValidPersistedFlightTrack(track: unknown): track is StoredFlightTrackV2 {
+  return isValidTrackV2(track);
 }
 
 export function savePersistedSession(session: PersistedSession | null): Promise<SaveSessionResult> {

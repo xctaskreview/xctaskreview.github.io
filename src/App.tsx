@@ -552,16 +552,24 @@ export default function App() {
         task,
         taskFileName: taskFileName || undefined,
         location: taskLocationLabel,
+        tracks,
+        enabledTrackIds: [...enabledTrackIds],
+        trackColors,
       });
       if (!entry) {
         setError('Could not save task to history.');
         return;
       }
-      setError(`Saved “${entry.name}” to history.`);
+      const trackCount = entry.tracks?.length ?? 0;
+      setError(
+        trackCount > 0
+          ? `Saved “${entry.name}” to history with ${trackCount} tracklog${trackCount === 1 ? '' : 's'}.`
+          : `Saved “${entry.name}” to history.`,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save task to history.');
     }
-  }, [task, taskFileName, taskLocationLabel]);
+  }, [task, taskFileName, taskLocationLabel, tracks, enabledTrackIds, trackColors]);
 
   const onTaskUpdate = useCallback((updatedTask: XcTask) => {
     setError(null);
@@ -764,10 +772,21 @@ const applyPersistedSession = useCallback((session: {
 
 const onHistorySelect = useCallback((entry: TaskHistoryEntry) => {
   setError(null);
+  hadTaskRef.current = true;
+  syncAppDocumentTitle(entry.task, entry.taskFileName ?? '', entry.location);
   setTask(withResolvedTaskTimeZone(entry.task));
   setTaskFileName(entry.taskFileName ?? '');
+  const historyTracks = entry.tracks ?? [];
+  setTracks(historyTracks);
+  setEnabledTrackIds(
+    new Set(
+      entry.enabledTrackIds && entry.enabledTrackIds.length > 0
+        ? entry.enabledTrackIds
+        : historyTracks.map((track) => track.id),
+    ),
+  );
+  setTrackColors(assignUniqueTrackColors(historyTracks, entry.trackColors ?? {}));
   setTaskFitKey(`${entry.taskFileName ?? entry.name}-${Date.now()}`);
-  syncAppDocumentTitle(entry.task, entry.taskFileName ?? '', entry.location);
   if (entry.location) setTaskLocationLabel(entry.location);
 }, []);
 
