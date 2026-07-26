@@ -40,6 +40,7 @@ export function buildCompetitorSnapshots(
         verticalSpeedMps: speeds.verticalSpeedMps,
         nextTurnpointName: snapshot.nextTurnpointName,
         nextTurnpointNumber: snapshot.nextTurnpointNumber,
+        nextTurnpointRadiusM: snapshot.nextTurnpointRadiusM,
         leadPercent: 0,
       },
     ];

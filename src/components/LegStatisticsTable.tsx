@@ -14,7 +14,17 @@ import {
 } from '../lib/legStatisticsDisplay';
 import type { AppPreferences } from '../lib/preferences';
 import { formatDistanceValue } from '../lib/preferences';
+import type { ProgressTurnpoint } from '../lib/types';
 import { Icon } from './Icon';
+
+function LegTurnpointCell({ turnpoint }: { turnpoint: ProgressTurnpoint }) {
+  return (
+    <span className="leg-statistics-turnpoint-stack">
+      <span className="leg-statistics-turnpoint-name">{turnpoint.name}</span>
+      <span className="leg-statistics-turnpoint-radius">({Math.round(turnpoint.radius)} m)</span>
+    </span>
+  );
+}
 
 interface LegStatisticsTableProps {
   legs: GlobalLegStatistics[];
@@ -132,10 +142,10 @@ export function LegStatisticsTable({ legs, preferences, timeZone, expanded }: Le
                   {leg.legNumber}
                 </span>
                 <span className="leg-statistics-cell leg-statistics-turnpoint" role="cell">
-                  <span className="leg-statistics-turnpoint-name">{leg.fromTurnpoint.name}</span>
+                  <LegTurnpointCell turnpoint={leg.fromTurnpoint} />
                 </span>
                 <span className="leg-statistics-cell leg-statistics-turnpoint" role="cell">
-                  <span className="leg-statistics-turnpoint-name">{leg.toTurnpoint.name}</span>
+                  <LegTurnpointCell turnpoint={leg.toTurnpoint} />
                 </span>
                 <span className="leg-statistics-cell leg-statistics-distance" role="cell">
                   {formatDistanceValue(distanceKm, preferences.distanceUnit)}

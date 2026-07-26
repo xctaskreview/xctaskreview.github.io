@@ -8,7 +8,7 @@ import {
 } from '../lib/preferences';
 import type { CompetitorSnapshot } from '../lib/types';
 import { getTaskDistanceBehindLeaderKm, type ScoreboardEntry } from '../lib/scoreboardDisplay';
-import { formatNextTurnpointLabel } from '../lib/taskProgress';
+import { formatNextTurnpointDisplay } from '../lib/taskProgress';
 
 interface PilotDetailPanelProps {
   entry: ScoreboardEntry | null;
@@ -82,7 +82,13 @@ export function PilotDetailPanel({
           </div>
           <div>
             <dt>Next TP</dt>
-            <dd>{formatNextTurnpointLabel(entry.nextTurnpointName, entry.nextTurnpointNumber)}</dd>
+            <dd>
+              {formatNextTurnpointDisplay(
+                entry.nextTurnpointName,
+                entry.nextTurnpointNumber,
+                entry.nextTurnpointRadiusM,
+              )}
+            </dd>
           </div>
         </dl>
       </div>

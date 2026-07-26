@@ -2,13 +2,14 @@ import type { LatLon, OptimizedRoute, TrackPoint, XcTask } from './types';
 import {
   clampDisplayAltitudeMeters,
   createLocalProjection,
+  estimateLaunchAltitudeMetersFromTracks,
   getTrackEndTime,
   haversine,
   isFlyingAltitudeMeters,
   isLandedAtTime,
 } from './geo';
 import { attachLegTimingsToTracks, type PilotLegTiming } from './legStatistics';
-import { parseGliderTypeFromHeader, pilotFirstName } from './igc';
+import { extractPilotDisplayName, parseGliderTypeFromHeader, pilotFirstName } from './igc';
 import { findFirstTimeFieldReachedPercent, type TaskFieldTimeline } from './taskTimeline';
 
 /**
@@ -44,6 +45,8 @@ export interface EnrichedFlightTrack {
   gliderType?: string;
   igcHeader?: string;
   legTimings?: PilotLegTiming[];
+  /** Fleet launch level derived from early fixes; used before a pilot's log begins. */
+  launchAltitudeM?: number | null;
 }
 
 interface TurnpointCylinder {
@@ -241,10 +244,12 @@ export function enrichTrackWithTaskProgress(
 
   attachPlaybackFieldsToPoints(enrichedPoints);
 
+  const displayPilotName = extractPilotDisplayName(track);
+
   return {
     id: track.id,
-    pilotName: track.pilotName,
-    firstName: pilotFirstName(track.pilotName),
+    pilotName: displayPilotName,
+    firstName: pilotFirstName(displayPilotName),
     fileName: track.fileName,
     points: enrichedPoints,
     date: track.date,
@@ -294,17 +299,23 @@ export function getNextTurnpoint(
   finished: boolean,
   hasStarted: boolean,
   route: OptimizedRoute,
-): { name: string; number: number | null } {
-  if (finished) return { name: 'Goal', number: null };
+): { name: string; number: number | null; radiusM: number | null } {
+  if (finished) return { name: 'Goal', number: null, radiusM: route.goalRadius };
 
   const turnpoints = route.progressTurnpoints;
-  if (turnpoints.length === 0) return { name: '—', number: null };
+  if (turnpoints.length === 0) return { name: '—', number: null, radiusM: null };
 
   const nextIndex = hasStarted ? legIndex + 1 : 1;
-  if (nextIndex >= turnpoints.length) return { name: 'Goal', number: null };
+  if (nextIndex >= turnpoints.length) {
+    return { name: 'Goal', number: null, radiusM: route.goalRadius };
+  }
 
   const next = turnpoints[nextIndex];
-  return { name: next?.name ?? '—', number: next?.number ?? null };
+  return {
+    name: next?.name ?? '—',
+    number: next?.number ?? null,
+    radiusM: next?.radius ?? null,
+  };
 }
 
 export function getNextTurnpointName(
@@ -316,11 +327,24 @@ export function getNextTurnpointName(
   return getNextTurnpoint(legIndex, finished, hasStarted, route).name;
 }
 
+export function formatTurnpointRadiusParenthetical(radiusM: number | null | undefined): string {
+  if (radiusM == null || !Number.isFinite(radiusM) || radiusM <= 0) return '';
+  return ` (${Math.round(radiusM)} m)`;
+}
+
 export function formatNextTurnpointLabel(name: string, number: number | null | undefined): string {
   if (!name || name === '—') return '—';
   if (name === 'Goal') return 'Goal';
   if (number != null && Number.isFinite(number)) return `${number} ${name}`;
   return name;
+}
+
+export function formatNextTurnpointDisplay(
+  name: string,
+  number: number | null | undefined,
+  radiusM: number | null | undefined,
+): string {
+  return formatNextTurnpointLabel(name, number) + formatTurnpointRadiusParenthetical(radiusM);
 }
 
 export function findLastPointIndexAtOrBefore(points: EnrichedTrackPoint[], timeMs: number): number {
@@ -376,11 +400,32 @@ export function getTrackSnapshotAtTime(
   finished: boolean;
   nextTurnpointName: string;
   nextTurnpointNumber: number | null;
+  nextTurnpointRadiusM: number | null;
 } | null {
   if (track.points.length === 0) return null;
 
   const points = track.points;
   const t = time.getTime();
+
+  if (t < points[0]!.timeMs) {
+    const first = points[0]!;
+    const launchAlt = track.launchAltitudeM ?? first.displayAlt;
+    const nextTurnpoint = getNextTurnpoint(first.legIndex, false, false, route);
+    return {
+      lat: first.lat,
+      lon: first.lon,
+      alt: launchAlt,
+      taskPercent: 0,
+      legIndex: first.legIndex,
+      landed: false,
+      hasStarted: false,
+      finished: false,
+      nextTurnpointName: nextTurnpoint.name,
+      nextTurnpointNumber: nextTurnpoint.number,
+      nextTurnpointRadiusM: nextTurnpoint.radiusM,
+    };
+  }
+
   const stateIndex = findLastPointIndexAtOrBefore(points, t);
   const state = points[stateIndex];
 
@@ -418,6 +463,7 @@ export function getTrackSnapshotAtTime(
     finished: state.finished,
     nextTurnpointName: nextTurnpoint.name,
     nextTurnpointNumber: nextTurnpoint.number,
+    nextTurnpointRadiusM: nextTurnpoint.radiusM,
   };
 }
 
@@ -484,7 +530,11 @@ export function enrichTracksWithTaskProgress(
   route: OptimizedRoute,
   taskStart?: Date,
 ): EnrichedFlightTrack[] {
-  const enriched = tracks.map((track) => enrichTrackWithTaskProgress(track, task, route, taskStart));
+  const launchAltitudeM = estimateLaunchAltitudeMetersFromTracks(tracks);
+  const enriched = tracks.map((track) => {
+    const entry = enrichTrackWithTaskProgress(track, task, route, taskStart);
+    return launchAltitudeM == null ? entry : { ...entry, launchAltitudeM };
+  });
   return attachLegTimingsToTracks(enriched, route, taskStart);
 }
 

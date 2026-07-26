@@ -1,5 +1,5 @@
 import type { FlightTrack, TrackPoint } from './types';
-import { getTrackEndTime, sanitizeTrackPointAltitudes } from './geo';
+import { getTrackEndTime, sanitizeTrackPointAltitudes, trimLeadingZeroFixTrackPoints } from './geo';
 
 function parseIgcDate(line: string): Date | undefined {
   const match = line.match(/^HFDTE(?:DATE)?:?(\d{6})/);
@@ -72,13 +72,70 @@ function cleanHeaderValue(raw: string): string {
   return raw.replace(/^[:!\s]+/, '').replace(/[:!\s]+$/, '').trim();
 }
 
-function pilotNameFromFileName(fileName: string): string {
-  const stem = fileName.replace(/\.igc$/i, '').replace(/^.*[/\\]/, '').trim();
-  return stripCompetitionIdSuffix(stem);
+function fileNameStem(fileName: string): string {
+  return fileName.replace(/\.igc$/i, '').replace(/^.*[/\\]/, '').trim();
 }
 
 function stripCompetitionIdSuffix(name: string): string {
-  return name.replace(/\.\d+\.\d+$/, '').trim();
+  let stem = name.trim().replace(/\.igc$/i, '');
+  stem = stem.replace(/\.\d+\.\d+$/i, '');
+  stem = stem.replace(/\.\d+$/i, '');
+  return stem.trim();
+}
+
+function humanizePilotStem(stem: string): string {
+  let name = stem.trim();
+  const hadDatePrefix = /^\d{4}-\d{2}-\d{2}[-_]/.test(name);
+  if (hadDatePrefix) {
+    name = name.replace(/^\d{4}-\d{2}-\d{2}[-_]/, '');
+    name = name.replace(/-/g, ' ');
+  }
+  name = name.replace(/_/g, ' ');
+  return stripCompetitionIdSuffix(name).replace(/\s+/g, ' ').trim();
+}
+
+function pilotNameFromFileName(fileName: string): string {
+  return humanizePilotStem(fileNameStem(fileName));
+}
+
+function looksLikeExportFileName(name: string): boolean {
+  const trimmed = name.trim();
+  if (/^\d{4}-\d{2}-\d{2}[-_]/.test(trimmed)) return true;
+  if (/\.\d+\.\d+$/i.test(trimmed)) return true;
+  return false;
+}
+
+function headerMatchesFileName(header: string, fileName: string): boolean {
+  const normalizedHeader = header.toLowerCase().replace(/\s+/g, '');
+  if (!normalizedHeader) return false;
+
+  const fromFile = pilotNameFromFileName(fileName);
+  const fileWords = fromFile.toLowerCase().split(/\s+/).filter(Boolean);
+  if (fileWords.some((word) => word === normalizedHeader || normalizedHeader.includes(word))) {
+    return true;
+  }
+
+  const compactFile = fromFile.toLowerCase().replace(/\s+/g, '');
+  return compactFile.includes(normalizedHeader) || normalizedHeader.includes(compactFile);
+}
+
+function shouldPreferFileNamePilot(header: string, fileName: string): boolean {
+  const fromFile = pilotNameFromFileName(fileName);
+  if (!fromFile) return false;
+  if (looksLikeExportFileName(header)) return true;
+
+  const headerWords = header.trim().split(/\s+/).filter(Boolean);
+  const fileWords = fromFile.split(/\s+/).filter(Boolean);
+
+  if (fileWords.length > headerWords.length && headerWords.length <= 1) {
+    return true;
+  }
+
+  if (!headerMatchesFileName(header, fileName)) {
+    return true;
+  }
+
+  return false;
 }
 
 function capitalizeWord(word: string): string {
@@ -108,11 +165,17 @@ function isUsableGliderType(value: string): boolean {
 }
 
 export function resolvePilotDisplayName(pilotName: string, fileName: string): string {
-  const resolved = isUsablePilotName(pilotName)
-    ? stripCompetitionIdSuffix(pilotName)
-    : pilotNameFromFileName(fileName) || 'Unknown pilot';
+  const fromFile = pilotNameFromFileName(fileName);
+  let resolved: string;
 
-  return capitalizePilotName(resolved);
+  if (!isUsablePilotName(pilotName)) {
+    resolved = fromFile || 'Unknown pilot';
+  } else {
+    const fromHeader = humanizePilotStem(stripCompetitionIdSuffix(pilotName));
+    resolved = shouldPreferFileNamePilot(fromHeader, fileName) ? fromFile || fromHeader : fromHeader;
+  }
+
+  return capitalizePilotName(resolved || 'Unknown pilot');
 }
 
 function parsePilotName(lines: string[], fileName: string): string {
@@ -204,7 +267,8 @@ export function parseIgc(text: string, fileName: string): FlightTrack {
   }
 
   points.sort((a, b) => a.time.getTime() - b.time.getTime());
-  const sanitizedPoints = sanitizeTrackPointAltitudes(points);
+  const trimmedPoints = trimLeadingZeroFixTrackPoints(points);
+  const sanitizedPoints = sanitizeTrackPointAltitudes(trimmedPoints);
   const landingTime = getTrackEndTime(sanitizedPoints);
 
   return {

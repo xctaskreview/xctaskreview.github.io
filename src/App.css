@@ -3668,6 +3668,21 @@ button.app-home-link.time-controls-home-link:hover {
   white-space: nowrap;
 }
 
+.leg-statistics-turnpoint-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.leg-statistics-turnpoint-radius {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+}
+
 .leg-statistics-first-finish {
   min-width: 0;
   white-space: normal;

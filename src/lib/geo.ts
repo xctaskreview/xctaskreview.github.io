@@ -168,6 +168,27 @@ export function isFlyingAltitudeMeters(alt: number): boolean {
   return Number.isFinite(alt) && alt >= FLYING_ALTITUDE_MIN_M && alt <= DISPLAY_ALTITUDE_MAX_M;
 }
 
+/** IGC loggers often emit 0000000N00000000E before GPS lock. */
+export function isNullIslandTrackPoint(point: TrackPoint): boolean {
+  return Math.abs(point.lat) < 1e-9 && Math.abs(point.lon) < 1e-9;
+}
+
+function isAllZeroTrackPoint(point: TrackPoint): boolean {
+  return isNullIslandTrackPoint(point) && point.alt === 0;
+}
+
+/** Remove leading no-fix points (0°N 0°E / 00000 m), common before GPS lock. */
+export function trimLeadingZeroFixTrackPoints(points: TrackPoint[]): TrackPoint[] {
+  if (points.length <= 1) return points;
+
+  let start = 0;
+  while (start < points.length - 1 && (isNullIslandTrackPoint(points[start]) || isAllZeroTrackPoint(points[start]))) {
+    start += 1;
+  }
+
+  return start === 0 ? points : points.slice(start);
+}
+
 export function interpolateReasonableAltitude(altA: number, altB: number, ratio: number): number {
   const aOk = isFlyingAltitudeMeters(altA);
   const bOk = isFlyingAltitudeMeters(altB);
@@ -226,6 +247,37 @@ export function clampChartAltitudeDisplay(
 export function clampDisplayAltitudeMeters(alt: number): number {
   if (!Number.isFinite(alt)) return DISPLAY_ALTITUDE_MIN_M;
   return Math.min(DISPLAY_ALTITUDE_MAX_M, Math.max(DISPLAY_ALTITUDE_MIN_M, alt));
+}
+
+/** Points at the start of each log used to infer launch height for the whole task. */
+export const LAUNCH_ALTITUDE_SAMPLE_POINTS = 120;
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1]! + sorted[mid]!) / 2;
+  }
+  return sorted[mid]!;
+}
+
+/**
+ * Median pressure altitude from the opening fixes of every track (typical launch-site level).
+ */
+export function estimateLaunchAltitudeMetersFromTracks(tracks: { points: TrackPoint[] }[]): number | null {
+  const samples: number[] = [];
+
+  for (const track of tracks) {
+    const limit = Math.min(LAUNCH_ALTITUDE_SAMPLE_POINTS, track.points.length);
+    for (let index = 0; index < limit; index += 1) {
+      const alt = track.points[index]!.alt;
+      if (!isReasonableAltitudeMeters(alt)) continue;
+      samples.push(clampDisplayAltitudeMeters(alt));
+    }
+  }
+
+  return median(samples);
 }
 
 export function formatTime(

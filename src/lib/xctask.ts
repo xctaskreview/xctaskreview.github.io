@@ -435,6 +435,7 @@ export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
   const progressTurnpoints = task.turnpoints.slice(startIndex, goalIndex + 1).map((tp, i) => ({
     number: startIndex + i + 1,
     name: tp.waypoint.name,
+    radius: tp.radius,
     taskPercent:
       progressTotalDistance > 0
         ? (progressCumulativeDistances[i] / progressTotalDistance) * 100

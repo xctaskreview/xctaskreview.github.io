@@ -98,6 +98,7 @@ export interface RoutePoint {
 export interface ProgressTurnpoint {
   number: number;
   name: string;
+  radius: number;
   taskPercent: number;
   taskKm: number;
 }
@@ -138,6 +139,7 @@ export interface CompetitorSnapshot {
   verticalSpeedMps: number;
   nextTurnpointName: string;
   nextTurnpointNumber: number | null;
+  nextTurnpointRadiusM: number | null;
   leadPercent: number;
 }
 
