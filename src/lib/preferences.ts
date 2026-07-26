@@ -2,7 +2,7 @@ export type DistanceUnit = 'km' | 'mi';
 export type AltitudeUnit = 'm' | 'ft';
 export type SpeedUnit = 'km/h' | 'mph' | 'kt';
 export type VerticalSpeedUnit = 'm/s' | 'ft/min';
-export type MapType = 'topo' | 'osm' | 'satellite';
+export type MapType = 'topo' | 'osm' | 'satellite' | 'esriTopo' | 'osmHillshade';
 
 export const PLAYBACK_SPEEDS = [1, 2, 5, 10, 20, 50, 100] as const;
 export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];
@@ -88,7 +88,7 @@ const DISTANCE_UNITS = new Set<DistanceUnit>(['km', 'mi']);
 const ALTITUDE_UNITS = new Set<AltitudeUnit>(['m', 'ft']);
 const SPEED_UNITS = new Set<SpeedUnit>(['km/h', 'mph', 'kt']);
 const VERTICAL_SPEED_UNITS = new Set<VerticalSpeedUnit>(['m/s', 'ft/min']);
-const MAP_TYPES = new Set<MapType>(['topo', 'osm', 'satellite']);
+const MAP_TYPES = new Set<MapType>(['topo', 'osm', 'satellite', 'esriTopo', 'osmHillshade']);
 
 export function normalizePreferences(value: Partial<AppPreferences> | null | undefined): AppPreferences {
   const defaults = createDefaultPreferences();
@@ -284,7 +284,9 @@ export function altitudeAxisLabel(unit: AltitudeUnit): string {
 
 export function getMapTypeOptions(): { value: MapType; label: string }[] {
   return [
-    { value: 'topo', label: 'Topographic' },
+    { value: 'topo', label: 'Topographic (OpenTopoMap)' },
+    { value: 'esriTopo', label: 'Topographic (Esri relief)' },
+    { value: 'osmHillshade', label: 'OpenStreetMap + hillshade' },
     { value: 'osm', label: 'OpenStreetMap' },
     { value: 'satellite', label: 'Satellite' },
   ];
@@ -305,11 +307,34 @@ export function getVerticalSpeedUnitOptions(): { value: VerticalSpeedUnit; label
   ];
 }
 
-export const MAP_TILES: Record<MapType, { url: string; attribution: string }> = {
+export interface MapTileConfig {
+  url: string;
+  attribution: string;
+  overlay?: {
+    url: string;
+    opacity: number;
+  };
+}
+
+const ESRI_ATTRIBUTION = 'Tiles &copy; Esri';
+
+export const MAP_TILES: Record<MapType, MapTileConfig> = {
   topo: {
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     attribution:
       'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap (CC-BY-SA)',
+  },
+  esriTopo: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: `${ESRI_ATTRIBUTION} — World Topo`,
+  },
+  osmHillshade: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors | Hillshade &copy; Esri',
+    overlay: {
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+      opacity: 0.45,
+    },
   },
   osm: {
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -317,6 +342,6 @@ export const MAP_TILES: Record<MapType, { url: string; attribution: string }> = 
   },
   satellite: {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Tiles &copy; Esri',
+    attribution: ESRI_ATTRIBUTION,
   },
 };

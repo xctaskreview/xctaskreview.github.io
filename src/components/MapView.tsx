@@ -395,6 +395,9 @@ export function MapView({
     <div className="map-panel">
       <MapContainer bounds={bounds} scrollWheelZoom className="task-map" key={`${fitKey}-${preferences.mapType}`}>
         <TileLayer attribution={tile.attribution} url={tile.url} />
+        {tile.overlay ? (
+          <TileLayer url={tile.overlay.url} opacity={tile.overlay.opacity} />
+        ) : null}
         <FitBounds bounds={bounds} fitKey={fitKey} />
         <MapTaskOverlay
           circles={circles}
