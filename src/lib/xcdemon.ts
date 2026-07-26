@@ -12,6 +12,25 @@ export interface XcdemonLeague {
   name: string;
 }
 
+export interface XcdemonArchivedSeason {
+  leagueId: number;
+  leagueName: string;
+  startDate: string;
+  endDate: string;
+  year: number;
+  label: string;
+  entryId: string;
+}
+
+export interface XcdemonArchivedLeague {
+  leagueId: number;
+  leagueName: string;
+  latestStartDate: string;
+  defaultYear: number;
+}
+
+const ARCHIVED_DATE_RANGE_RE = /^(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})$/;
+
 export interface XcdemonLeagueTask {
   taskId: string;
   location: string;
@@ -147,6 +166,121 @@ export function parseActiveLeagues(doc: Document): XcdemonLeague[] {
   }
 
   return leagues;
+}
+
+interface RawArchivedSeason {
+  leagueId: number;
+  leagueName: string;
+  startDate: string;
+  endDate: string;
+}
+
+export function parseArchivedLeagueSeasons(doc: Document): RawArchivedSeason[] {
+  const h1 = [...doc.querySelectorAll('h1')].find((el) => el.textContent?.trim() === 'All Leagues');
+  if (!h1) return [];
+
+  let list: Element | null = h1.nextElementSibling;
+  while (list && list.tagName !== 'UL') {
+    list = list.nextElementSibling;
+  }
+  if (!list) return [];
+
+  const entries: RawArchivedSeason[] = [];
+  const children = [...list.children];
+
+  for (let index = 0; index < children.length; index++) {
+    const child = children[index];
+    if (child.tagName !== 'LI') continue;
+
+    const link = child.querySelector('a[href*="leagueappid="]');
+    if (!link) continue;
+
+    const href = link.getAttribute('href') ?? '';
+    const idMatch = href.match(/[?&]leagueappid=(\d+)/);
+    const leagueId = idMatch ? Number(idMatch[1]) : 0;
+    const leagueName = link.textContent?.trim() ?? '';
+    if (!Number.isInteger(leagueId) || leagueId <= 0 || !leagueName) continue;
+
+    const datesList = children[index + 1];
+    if (!datesList || datesList.tagName !== 'UL') continue;
+
+    for (const dateItem of datesList.querySelectorAll(':scope > li')) {
+      const text = dateItem.textContent?.trim() ?? '';
+      const match = text.match(ARCHIVED_DATE_RANGE_RE);
+      if (!match) continue;
+
+      entries.push({
+        leagueId,
+        leagueName,
+        startDate: match[1],
+        endDate: match[2],
+      });
+    }
+  }
+
+  return entries;
+}
+
+export function buildArchivedSeasonCatalog(raw: RawArchivedSeason[]): XcdemonArchivedSeason[] {
+  const byLeague = new Map<number, RawArchivedSeason[]>();
+  for (const entry of raw) {
+    const leagueEntries = byLeague.get(entry.leagueId) ?? [];
+    leagueEntries.push(entry);
+    byLeague.set(entry.leagueId, leagueEntries);
+  }
+
+  const catalog: XcdemonArchivedSeason[] = [];
+
+  for (const leagueEntries of byLeague.values()) {
+    const startYears = leagueEntries.map((entry) => Number(entry.startDate.slice(0, 4)));
+    const showYearOnly = new Set(startYears).size === startYears.length;
+
+    for (const entry of leagueEntries) {
+      const year = Number(entry.startDate.slice(0, 4));
+      const suffix = showYearOnly ? String(year) : entry.startDate;
+      catalog.push({
+        leagueId: entry.leagueId,
+        leagueName: entry.leagueName,
+        startDate: entry.startDate,
+        endDate: entry.endDate,
+        year,
+        label: `${entry.leagueName} · ${suffix}`,
+        entryId: `${entry.leagueId}-${entry.startDate}`,
+      });
+    }
+  }
+
+  catalog.sort((a, b) => b.startDate.localeCompare(a.startDate));
+  return catalog;
+}
+
+export function buildArchivedLeagueCatalog(seasons: XcdemonArchivedSeason[]): XcdemonArchivedLeague[] {
+  const byLeague = new Map<number, XcdemonArchivedSeason[]>();
+  for (const season of seasons) {
+    const leagueSeasons = byLeague.get(season.leagueId) ?? [];
+    leagueSeasons.push(season);
+    byLeague.set(season.leagueId, leagueSeasons);
+  }
+
+  const leagues: XcdemonArchivedLeague[] = [];
+  for (const leagueSeasons of byLeague.values()) {
+    const latest = leagueSeasons.reduce((best, season) =>
+      season.startDate.localeCompare(best.startDate) > 0 ? season : best,
+    );
+    leagues.push({
+      leagueId: latest.leagueId,
+      leagueName: latest.leagueName,
+      latestStartDate: latest.startDate,
+      defaultYear: latest.year,
+    });
+  }
+
+  leagues.sort((a, b) => b.latestStartDate.localeCompare(a.latestStartDate));
+  return leagues;
+}
+
+export function parseXcdemonArchivedLeaguesPage(html: string): XcdemonArchivedSeason[] {
+  return buildArchivedSeasonCatalog(parseArchivedLeagueSeasons(parseDocument(html)));
 }
 
 function parseIgcZipUrl(trackLogsCell: Element): string | null {
@@ -385,6 +519,10 @@ export function parseXcdemonTaskPage(
   };
 }
 
+export function getXcdemonArchivedLeaguesUrl(): string {
+  return `${XCDEMON_BASE_URL}/index.php?leagueappid=41&id=archived_leagues`;
+}
+
 export function getXcdemonResultsUrl(leagueId: number, year?: number): string {
   const params = new URLSearchParams({
     leagueappid: String(leagueId),
@@ -404,6 +542,16 @@ export async function fetchXcdemonActiveLeagues(
 ): Promise<XcdemonLeague[]> {
   const html = await fetchXcdemonText(getXcdemonResultsUrl(leagueId));
   return parseActiveLeagues(parseDocument(html));
+}
+
+export async function fetchXcdemonArchivedLeagues(): Promise<XcdemonArchivedLeague[]> {
+  const html = await fetchXcdemonText(getXcdemonArchivedLeaguesUrl());
+  const seasons = parseXcdemonArchivedLeaguesPage(html);
+  const leagues = buildArchivedLeagueCatalog(seasons);
+  if (leagues.length === 0) {
+    throw new Error('No archived leagues were found on XCDemon.');
+  }
+  return leagues;
 }
 
 export async function importXcdemonTask(selectedTask: XcdemonLeagueTask): Promise<XcdemonImportResult> {

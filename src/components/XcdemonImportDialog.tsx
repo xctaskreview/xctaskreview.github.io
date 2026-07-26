@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LoaderCircle, X } from 'lucide-react';
 import {
-  XCDEMON_DEFAULT_LEAGUE_ID,
-  fetchXcdemonActiveLeagues,
+  fetchXcdemonArchivedLeagues,
   fetchXcdemonResults,
   importXcdemonTask,
+  type XcdemonArchivedLeague,
   type XcdemonImportResult,
-  type XcdemonLeague,
   type XcdemonLeagueTask,
 } from '../lib/xcdemon';
 import { useStableCallbackRef } from '../lib/useStableCallbackRef';
@@ -30,8 +29,8 @@ export function XcdemonImportDialog({
   const [loadingLeagues, setLoadingLeagues] = useState(false);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [activeLeagues, setActiveLeagues] = useState<XcdemonLeague[]>([]);
-  const [selectedLeagueId, setSelectedLeagueId] = useState<number>(XCDEMON_DEFAULT_LEAGUE_ID);
+  const [archivedLeagues, setArchivedLeagues] = useState<XcdemonArchivedLeague[]>([]);
+  const [selectedLeagueId, setSelectedLeagueId] = useState<number | ''>('');
   const [leagueName, setLeagueName] = useState('');
   const [years, setYears] = useState<number[]>([]);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -39,20 +38,26 @@ export function XcdemonImportDialog({
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const onErrorRef = useStableCallbackRef(onError);
 
+  const selectedLeague = useMemo(
+    () => archivedLeagues.find((league) => league.leagueId === selectedLeagueId) ?? null,
+    [archivedLeagues, selectedLeagueId],
+  );
+
   useEffect(() => {
     if (!open) return;
 
     let cancelled = false;
     setLoadingLeagues(true);
+    setSelectedLeagueId('');
+    setSelectedTaskId('');
 
-    void fetchXcdemonActiveLeagues()
+    void fetchXcdemonArchivedLeagues()
       .then((leagues) => {
         if (cancelled) return;
-        if (leagues.length === 0) {
-          throw new Error('No active leagues were found on XCDemon.');
-        }
-        setActiveLeagues(leagues);
-        setSelectedLeagueId(leagues[0]?.id ?? XCDEMON_DEFAULT_LEAGUE_ID);
+        setArchivedLeagues(leagues);
+        const first = leagues[0];
+        setSelectedLeagueId(first?.leagueId ?? '');
+        if (first) setSelectedYear(first.defaultYear);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -68,7 +73,7 @@ export function XcdemonImportDialog({
   }, [open, onErrorRef]);
 
   useEffect(() => {
-    if (!open || loadingLeagues || activeLeagues.length === 0) return;
+    if (!open || loadingLeagues || selectedLeagueId === '') return;
 
     let cancelled = false;
     setLoadingCatalog(true);
@@ -95,7 +100,7 @@ export function XcdemonImportDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, loadingLeagues, activeLeagues.length, selectedLeagueId, selectedYear, onErrorRef]);
+  }, [open, loadingLeagues, selectedLeagueId, selectedYear, onErrorRef]);
 
   const selectedTask = useMemo(
     () => tasks.find((task) => task.taskId === selectedTaskId) ?? null,
@@ -132,7 +137,7 @@ export function XcdemonImportDialog({
           <div>
             <h2 id="xcdemon-dialog-title">Import from XCDemon</h2>
             <p className="xcdemon-dialog-subtitle">
-              {leagueName || 'Choose an active league and task'}
+              {selectedLeague?.leagueName || leagueName || 'Choose a league and task'}
             </p>
           </div>
           <button type="button" className="welcome-icon-button" aria-label="Close" onClick={onClose}>
@@ -141,23 +146,29 @@ export function XcdemonImportDialog({
         </div>
 
         <div className="xcdemon-dialog-body">
-          <label className="welcome-pref-field">
-            Active league
-            <select
-              value={selectedLeagueId}
-              disabled={busy || activeLeagues.length === 0}
-              onChange={(event) => {
-                setSelectedLeagueId(Number(event.target.value));
-                setSelectedTaskId('');
-              }}
-            >
-              {activeLeagues.map((league) => (
-                <option key={league.id} value={league.id}>
-                  {league.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ImportCatalogPicker
+            label="League"
+            value={selectedLeagueId === '' ? '' : String(selectedLeagueId)}
+            disabled={busy}
+            loading={loadingLeagues}
+            loadingHint="Loading leagues…"
+            placeholder="Select a league…"
+            emptyHint="No leagues loaded."
+            filterable
+            searchPlaceholder="Type to filter leagues…"
+            noMatchesHint="No matching leagues."
+            options={archivedLeagues.map((league) => ({
+              value: String(league.leagueId),
+              label: league.leagueName,
+            }))}
+            onChange={(value) => {
+              const leagueId = Number(value);
+              const league = archivedLeagues.find((entry) => entry.leagueId === leagueId);
+              setSelectedLeagueId(leagueId);
+              if (league) setSelectedYear(league.defaultYear);
+              setSelectedTaskId('');
+            }}
+          />
 
           <label className="welcome-pref-field">
             Season year
@@ -198,7 +209,7 @@ export function XcdemonImportDialog({
             </p>
           )}
 
-          {!loadingLeagues && !loadingCatalog && tasks.length === 0 && (
+          {!loadingLeagues && !loadingCatalog && selectedLeague && tasks.length === 0 && (
             <p className="xcdemon-dialog-hint">No tasks with TASK RESULTS were found for this year.</p>
           )}
 
