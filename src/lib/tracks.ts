@@ -8,6 +8,7 @@ import {
   getTrackSnapshotAtTime,
   type EnrichedFlightTrack,
 } from './taskProgress';
+import { getPilotSpeedSectionFinishTime } from './taskVerification';
 
 export { enrichTracksWithTaskProgress, getTrackSnapshotAtTime, type EnrichedFlightTrack };
 export {
@@ -77,16 +78,18 @@ export function computeTaskTiming(task: XcTask, tracks: EnrichedFlightTrack[]): 
   const referenceDate = tracks.find((t) => t.date)?.date ?? trackStart;
   const taskStart = getTaskStartTime(task, referenceDate);
 
-  const finished = tracks.filter((t) => t.finishTime);
+  const finished = tracks
+    .map((track) => ({ track, finishTime: getPilotSpeedSectionFinishTime(track) }))
+    .filter((entry): entry is { track: EnrichedFlightTrack; finishTime: Date } => entry.finishTime !== undefined);
   let fastestFinish: Date | undefined;
   let fastestPilot: string | undefined;
 
   if (finished.length > 0) {
     const fastest = finished.reduce((best, current) =>
-      current.finishTime!.getTime() < best.finishTime!.getTime() ? current : best,
+      current.finishTime.getTime() < best.finishTime.getTime() ? current : best,
     );
     fastestFinish = fastest.finishTime;
-    fastestPilot = extractPilotDisplayName(fastest);
+    fastestPilot = extractPilotDisplayName(fastest.track);
   }
 
   const startGate = getTaskStartGate(task);

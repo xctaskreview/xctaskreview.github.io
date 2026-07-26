@@ -1,4 +1,4 @@
-import type { EditableTurnpointRow, LatLon, OptimizedRoute, RoutePoint, TaskEditDraft, Turnpoint, TurnpointTypeOption, XcTask } from './types';
+import type { EditableTurnpointRow, LatLon, OptimizedRoute, ProgressTurnpoint, RoutePoint, TaskEditDraft, Turnpoint, TurnpointTypeOption, XcTask } from './types';
 import { computeOptimizedRoute } from './route';
 import { adjustProgressDistancesForSssCylinderExit } from './taskMapStyle';
 import { haversine, parseIsoDate, parseLocalTimeOnDate, parseUtcTimeOnDate } from './geo';
@@ -473,6 +473,16 @@ export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
 
   adjustProgressDistancesForSssCylinderExit(route);
   return route;
+}
+
+/** Progress turnpoint where the speed section ends (ESS, or goal if there is no ESS). */
+export function getSpeedSectionEndProgressTurnpoint(route: OptimizedRoute): ProgressTurnpoint | undefined {
+  const { essTurnpointIndex, progressTurnpoints } = route;
+  if (essTurnpointIndex !== null) {
+    const number = essTurnpointIndex + 1;
+    return progressTurnpoints.find((turnpoint) => turnpoint.number === number);
+  }
+  return progressTurnpoints[progressTurnpoints.length - 1];
 }
 
 export function parseTaskTimeOnReferenceDate(

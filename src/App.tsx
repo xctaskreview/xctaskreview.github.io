@@ -38,6 +38,7 @@ import {
   getTaskBounds,
   getTaskDisplayInfo,
   getTaskStartTime,
+  getSpeedSectionEndProgressTurnpoint,
   getUniqueTurnpointCircles,
   parseXcTask,
   resolveTaskTimeZone,
@@ -361,13 +362,21 @@ export default function App() {
   );
 
   const sliderTurnpointReachMarkers = useMemo(() => {
-    if (!sssExitTp1Marker) return turnpointReachMarkers;
-    const withoutSss = turnpointReachMarkers.filter(
+    let markers = turnpointReachMarkers;
+    if (route && route.essTurnpointIndex !== null) {
+      const speedEnd = getSpeedSectionEndProgressTurnpoint(route);
+      if (speedEnd) {
+        markers = markers.filter((marker) => marker.number <= speedEnd.number);
+      }
+    }
+
+    if (!sssExitTp1Marker) return markers;
+    const withoutSss = markers.filter(
       (marker) =>
         marker.index !== sssExitTp1Marker.index && marker.number !== sssExitTp1Marker.number,
     );
     return [sssExitTp1Marker, ...withoutSss];
-  }, [turnpointReachMarkers, sssExitTp1Marker]);
+  }, [turnpointReachMarkers, sssExitTp1Marker, route]);
 
   const pilotSssCrossDelaySec = useMemo(() => {
     const delays = new Map<string, number>();

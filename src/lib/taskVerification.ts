@@ -329,3 +329,12 @@ export function computePilotTaskVerification(
     pointStates,
   };
 }
+
+/** End of speed section (ESS cross, or goal when the task has no separate ESS). */
+export function getPilotSpeedSectionFinishTime(track: {
+  verification: PilotTaskVerification;
+}): Date | undefined {
+  const { essCrossTime, goalCrossTime } = track.verification;
+  if (essCrossTime) return essCrossTime;
+  return goalCrossTime ?? undefined;
+}

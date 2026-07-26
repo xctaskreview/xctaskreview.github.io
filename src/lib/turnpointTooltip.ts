@@ -1,4 +1,5 @@
 import { formatDuration } from './geo';
+import { getSpeedSectionEndProgressTurnpoint } from './xctask';
 import { formatDistance, type DistanceUnit } from './preferences';
 import type { TurnpointReachMarker } from './taskProgressMarker';
 import type { OptimizedRoute, RoutePoint, TaskTiming } from './types';
@@ -102,17 +103,17 @@ export function buildFinishTurnpointTooltip(
 ): string | undefined {
   if (!timing.fastestFinish) return undefined;
 
-  const goalTurnpoint = route.progressTurnpoints[route.progressTurnpoints.length - 1];
-  if (!goalTurnpoint) return undefined;
+  const speedEndTurnpoint = getSpeedSectionEndProgressTurnpoint(route);
+  if (!speedEndTurnpoint) return undefined;
 
-  const circle = findCircleByNumber(circles, goalTurnpoint.number);
+  const circle = findCircleByNumber(circles, speedEndTurnpoint.number);
 
   return formatTurnpointHoverLabel(
     {
-      number: goalTurnpoint.number,
-      name: goalTurnpoint.name,
-      taskPercent: goalTurnpoint.taskPercent,
-      taskKm: goalTurnpoint.taskKm,
+      number: speedEndTurnpoint.number,
+      name: speedEndTurnpoint.name,
+      taskPercent: speedEndTurnpoint.taskPercent,
+      taskKm: speedEndTurnpoint.taskKm,
       radiusM: circle?.radius ?? 0,
       firstPilot: timing.fastestPilot ?? '—',
       firstTagTime: timing.fastestFinish,
