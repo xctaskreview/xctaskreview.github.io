@@ -65,7 +65,7 @@ function escapeHtml(text: string): string {
 function formatCompetitorMapLabelHtml(position: number, firstName: string): string {
   const name = escapeHtml(firstName);
   if (position === 1) {
-    return `${trophyIconHtml(14)}<span>${name}</span>`;
+    return `${trophyIconHtml(12)}<span>${name}</span>`;
   }
   return `#${position} ${name}`;
 }
@@ -683,6 +683,7 @@ export function LiveCompetitorLayer({
       const focusTrackId = progressFocusTrackIdRef.current;
       const competitorCount = tracksRef.current.length;
       const isFocused = track.id === focusTrackId;
+      const showMapPilotStats = isFocused;
       const markerScale = isFocused ? FOCUSED_PILOT_MARKER_SCALE : 1;
 
       const prefs = preferencesRef.current;
@@ -707,11 +708,22 @@ export function LiveCompetitorLayer({
         entry.landed = snapshot.landed;
         entry.color = markerColor;
         if (entry.altEl) {
-          entry.altEl.innerHTML = formatMapPilotAltStatHtml(altForDisplay);
+          if (showMapPilotStats && altForDisplay) {
+            entry.altEl.innerHTML = formatMapPilotAltStatHtml(altForDisplay);
+            entry.altEl.style.display = '';
+          } else {
+            entry.altEl.innerHTML = '';
+            entry.altEl.style.display = 'none';
+          }
         }
         if (entry.modeEl) {
-          entry.modeEl.innerHTML = entry.displayedModeHtml;
-          entry.modeEl.style.display = entry.displayedModeHtml ? '' : 'none';
+          if (showMapPilotStats && entry.displayedModeHtml) {
+            entry.modeEl.innerHTML = entry.displayedModeHtml;
+            entry.modeEl.style.display = '';
+          } else {
+            entry.modeEl.innerHTML = '';
+            entry.modeEl.style.display = 'none';
+          }
         }
       } else if (entry.markerEl) {
         entry.markerEl.style.background = displayColor;
@@ -722,26 +734,31 @@ export function LiveCompetitorLayer({
           markerZIndexOffset(track.id, position, competitorCount, focusTrackId),
         );
 
-        if (entry.labelEl && position !== undefined) {
-          entry.labelEl.innerHTML = formatCompetitorMapLabelHtml(position, entry.firstName);
+        if (entry.labelEl) {
+          if (position !== undefined) {
+            entry.labelEl.innerHTML = formatCompetitorMapLabelHtml(position, entry.firstName);
+          } else {
+            entry.labelEl.textContent = entry.firstName;
+          }
         }
 
-        const altHtml = formatMapPilotAltStatHtml(altLabel);
+        const altHtml = showMapPilotStats ? formatMapPilotAltStatHtml(altLabel) : '';
         if (entry.altEl) {
           entry.altEl.innerHTML = altHtml;
+          entry.altEl.style.display = altHtml ? '' : 'none';
         }
-        entry.displayedAltLabel = altLabel;
+        entry.displayedAltLabel = showMapPilotStats ? altLabel : '';
 
-        const modeState = getFlyingModeStateAtTime(track.flyingModeTimeline, time);
-        const { verticalSpeedMps } = snapshot.landed
-          ? { verticalSpeedMps: 0 }
-          : computeSpeedsAtTime(track.points, time);
-        const modeHtml = formatMapPilotModeStatHtml(
-          modeState,
-          verticalSpeedMps,
-          prefs,
-          snapshot.landed,
-        );
+        const modeState = showMapPilotStats
+          ? getFlyingModeStateAtTime(track.flyingModeTimeline, time)
+          : null;
+        const { verticalSpeedMps } =
+          !showMapPilotStats || snapshot.landed
+            ? { verticalSpeedMps: 0 }
+            : computeSpeedsAtTime(track.points, time);
+        const modeHtml = showMapPilotStats
+          ? formatMapPilotModeStatHtml(modeState, verticalSpeedMps, prefs, snapshot.landed)
+          : '';
         if (entry.modeEl) {
           entry.modeEl.innerHTML = modeHtml;
           entry.modeEl.classList.toggle('competitor-mode--circling', modeState?.mode === 'circling');

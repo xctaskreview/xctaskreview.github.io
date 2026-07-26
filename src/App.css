@@ -2261,10 +2261,10 @@ html.turnpoint-drag-active .welcome-scroll {
   border-radius: 4px;
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.15);
   color: #059669;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 1.35;
-  padding: 3px 7px;
+  padding: 2px 6px;
   pointer-events: none;
   text-align: center;
   white-space: nowrap;
@@ -2321,17 +2321,17 @@ html.turnpoint-drag-active .welcome-scroll {
 
 .competitor-label-box {
   position: absolute;
-  left: 50%;
-  top: calc(100% + 4px);
-  transform: translateX(-50%);
+  left: calc(100% + 5px);
+  top: 50%;
+  transform: translateY(-50%);
   padding: 2px 6px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.18);
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  min-width: 6.5rem;
+  align-items: flex-start;
+  min-width: 0;
   white-space: nowrap;
 }
 
@@ -2347,11 +2347,11 @@ html.turnpoint-drag-active .welcome-scroll {
 .competitor-label {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 3px;
-  width: 100%;
+  width: auto;
   color: #0f172a;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1.15;
 }
@@ -2363,7 +2363,7 @@ html.turnpoint-drag-active .welcome-scroll {
 
 .competitor-alt {
   color: #475569;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.2;
 }
@@ -2371,16 +2371,18 @@ html.turnpoint-drag-active .welcome-scroll {
 .competitor-stat-line {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 3px;
-  width: 100%;
-  font-size: 12px;
+  width: auto;
+  font-size: 10px;
   font-weight: 600;
   line-height: 1.15;
 }
 
 .competitor-stat-line.competitor-alt {
   color: #475569;
+  font-size: 11px;
+  line-height: 1.2;
 }
 
 .competitor-stat-line .metric-icon {
@@ -2391,6 +2393,8 @@ html.turnpoint-drag-active .welcome-scroll {
 .competitor-label-box .competitor-stat-line.competitor-mode {
   white-space: nowrap;
   max-width: none;
+  font-size: 11px;
+  line-height: 1.2;
 }
 
 .competitor-map-glide,
@@ -2423,9 +2427,7 @@ html.turnpoint-drag-active .welcome-scroll {
 }
 
 .competitor-mode {
-  font-size: 12px;
   font-weight: 600;
-  line-height: 1.2;
   max-width: 240px;
   text-align: center;
   white-space: normal;

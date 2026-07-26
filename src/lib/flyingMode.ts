@@ -455,7 +455,7 @@ export function flyingModeLabelSegmentsKey(segments: ColoredTextSegment[]): stri
   return JSON.stringify(segments);
 }
 
-const MAP_STAT_ICON_PX = 12;
+const MAP_STAT_ICON_PX = 10;
 
 /** Altitude row under the pilot name on map markers. */
 export function formatMapPilotAltStatHtml(altText: string): string {
