@@ -18,7 +18,8 @@ describe('potato hill task distance', () => {
     const { session } = await importSessionBundle(file);
     const route = buildOptimizedRoute(session.task);
 
-    expect(route.progressTotalDistance / 1000).toBeCloseTo(30.307, 1);
-    expect(route.progressGoalApproachDistance).toBeCloseTo(599.960249995496, 2);
+    // Progress distance starts at the SSS cylinder exit, not the optimized center fix.
+    expect(route.progressTotalDistance / 1000).toBeCloseTo(29.294, 1);
+    expect(route.progressGoalApproachDistance).toBe(0);
   });
 });

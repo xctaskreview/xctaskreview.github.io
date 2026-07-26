@@ -1,14 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  Crown,
   Eye,
   EyeOff,
-  Gauge,
   Hash,
-  MapPin,
-  Mountain,
-  Route,
-  TrendingUp,
   Trophy,
   User,
 } from 'lucide-react';
@@ -19,9 +13,11 @@ import {
   formatDistanceValue,
   formatGroundSpeedValue,
   formatVerticalSpeedValue,
+  varioToneClass,
 } from '../lib/preferences';
 import type { CompetitorSnapshot } from '../lib/types';
 import { Icon } from './Icon';
+import { LeaderboardMetricLabel } from './LeaderboardMetricLabel';
 import { sortScoreboardEntriesForDisplay, type ScoreboardEntry } from '../lib/scoreboardDisplay';
 
 const UPDATE_INTERVAL_MS = 1000;
@@ -177,55 +173,37 @@ export function Scoreboard({
           </span>
           <span className="scoreboard-cell scoreboard-task" role="columnheader">
             <span className="scoreboard-header-stack">
-              <span className="scoreboard-header-label">
-                <Icon icon={Route} size="xs" />
-                Task
-              </span>
+              <LeaderboardMetricLabel metric="task" className="scoreboard-header-label" />
               <span className="scoreboard-header-unit">{distanceUnitLabel}</span>
             </span>
           </span>
           <span className="scoreboard-cell scoreboard-lead" role="columnheader">
             <span className="scoreboard-header-stack">
-              <span className="scoreboard-header-label">
-                <Icon icon={Crown} size="xs" />
-                Lead
-              </span>
-              <span className="scoreboard-header-unit">%</span>
+              <LeaderboardMetricLabel metric="lead" className="scoreboard-header-label" />
+              <span className="scoreboard-header-unit">% time</span>
             </span>
           </span>
           <span className="scoreboard-cell scoreboard-alt" role="columnheader">
             <span className="scoreboard-header-stack">
-              <span className="scoreboard-header-label">
-                <Icon icon={Mountain} size="xs" />
-                Alt
-              </span>
+              <LeaderboardMetricLabel metric="alt" className="scoreboard-header-label" />
               <span className="scoreboard-header-unit">{altitudeUnitLabel}</span>
             </span>
           </span>
           <span className="scoreboard-cell scoreboard-speed" role="columnheader">
             <span className="scoreboard-header-stack">
-              <span className="scoreboard-header-label">
-                <Icon icon={Gauge} size="xs" />
-                Speed
-              </span>
+              <LeaderboardMetricLabel metric="speed" className="scoreboard-header-label" />
               <span className="scoreboard-header-unit">{speedUnitLabel}</span>
             </span>
           </span>
           <span className="scoreboard-cell scoreboard-vario" role="columnheader">
             <span className="scoreboard-header-stack">
-              <span className="scoreboard-header-label">
-                <Icon icon={TrendingUp} size="xs" />
-                Vario
-              </span>
+              <LeaderboardMetricLabel metric="vario" className="scoreboard-header-label" />
               <span className="scoreboard-header-unit">{varioUnitLabel}</span>
             </span>
           </span>
           <span className="scoreboard-cell scoreboard-next-tp" role="columnheader">
             <span className="scoreboard-header-stack">
-              <span className="scoreboard-header-label">
-                <Icon icon={MapPin} size="xs" />
-                Next TP
-              </span>
+              <LeaderboardMetricLabel metric="nextTp" className="scoreboard-header-label" />
             </span>
           </span>
         </div>
@@ -322,13 +300,7 @@ export function Scoreboard({
                   {formatGroundSpeedValue(entry.groundSpeedMps, preferences.speedUnit)}
                 </span>
                 <span
-                  className={`scoreboard-cell scoreboard-vario${
-                    entry.verticalSpeedMps > 0.2
-                      ? ' climbing'
-                      : entry.verticalSpeedMps < -0.2
-                        ? ' sinking'
-                        : ''
-                  }`}
+                  className={`scoreboard-cell scoreboard-vario${varioToneClass(entry.verticalSpeedMps)}`}
                   role="cell"
                 >
                   {formatVerticalSpeedValue(entry.verticalSpeedMps, preferences.verticalSpeedUnit)}

@@ -1,6 +1,10 @@
 import { createLocalProjection, haversine, type LocalProjection } from './geo';
 import { extractPilotDisplayName } from './igc';
-import { getTaggedTurnpointProgressIndices, TASK_PROGRESS_LINE_COLOR } from './taskMapStyle';
+import {
+  getTaggedTurnpointProgressIndices,
+  progressLegStartPoint,
+  TASK_PROGRESS_LINE_COLOR,
+} from './taskMapStyle';
 import type { EnrichedFlightTrack } from './taskProgress';
 import { getPilotMaxProgressAtTime, getPilotSssExitTime, getTrackSnapshotAtTime } from './taskProgress';
 import { fieldRunningMaxPercentAt, type TaskFieldTimeline } from './taskTimeline';
@@ -54,7 +58,8 @@ export function pointOnRouteAtProgress(
 
   const legStartDistance = route.progressCumulativeDistances[legIndex] ?? 0;
   const legLength = route.progressLegDistances[legIndex] ?? 0;
-  const legStart = route.progressPoints[legIndex];
+  const legStart =
+    progressLegStartPoint(route, legIndex) ?? route.progressPoints[legIndex];
   const legEnd = route.progressPoints[legIndex + 1] ?? legStart;
 
   if (legLength <= 0) {
@@ -91,8 +96,11 @@ export function buildProgressLineAtPoint(
 ): [LatLon, LatLon] {
   const clampedLeg = Math.max(0, Math.min(route.progressLegDistances.length - 1, legIndex));
   const projection = getRouteProjection(route);
-  const legStart = projection.toLocal(route.progressPoints[clampedLeg]);
-  const legEnd = projection.toLocal(route.progressPoints[clampedLeg + 1] ?? route.progressPoints[clampedLeg]);
+  const legStartGeo =
+    progressLegStartPoint(route, clampedLeg) ?? route.progressPoints[clampedLeg];
+  const legEndGeo = route.progressPoints[clampedLeg + 1] ?? route.progressPoints[clampedLeg];
+  const legStart = projection.toLocal(legStartGeo);
+  const legEnd = projection.toLocal(legEndGeo);
 
   let dx = legEnd.x - legStart.x;
   let dy = legEnd.y - legStart.y;
@@ -182,7 +190,7 @@ function computeFirstPilotTags(
   const goalProgressIndex = route.progressTurnpoints.length - 1;
 
   const record = (index: number, time: Date, pilot: string) => {
-    if (index <= 0 || index > goalProgressIndex) return;
+    if (index < 0 || index > goalProgressIndex) return;
     const existing = firstByIndex.get(index);
     if (!existing || time.getTime() < existing.time.getTime()) {
       firstByIndex.set(index, { time, pilot });
@@ -240,8 +248,8 @@ export function computeFleetSssExitTp1Marker(
   const circle = circles.find((entry) => entry.number === sssProgress?.number);
 
   return {
-    index: 1,
-    number: 1,
+    index: 0,
+    number: sssProgress?.number ?? 1,
     name: sssProgress?.name ?? 'SSS',
     taskPercent: sssProgress?.taskPercent ?? 0,
     taskKm: sssProgress?.taskKm ?? 0,
@@ -279,7 +287,7 @@ export function computeTurnpointReachTimes(
     const tagged = getTaggedTurnpointProgressIndices(route, runningMax);
 
     for (const index of tagged) {
-      if (index === 0 || reached.has(index)) continue;
+      if (reached.has(index)) continue;
       const tp = route.progressTurnpoints[index];
       if (!tp) continue;
       const firstTag = firstPilotTags.get(index);

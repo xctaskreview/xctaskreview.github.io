@@ -400,6 +400,23 @@ export function isLandedAtTime(landingTime: Date | undefined, time: Date): boole
   return landingTime !== undefined && time.getTime() >= landingTime.getTime();
 }
 
+/** Point on the cylinder edge from `center` toward `toward`, at `radiusM`. */
+export function pointOnCylinderToward(center: LatLon, radiusM: number, toward: LatLon): LatLon {
+  if (radiusM <= 0) return { lat: center.lat, lon: center.lon };
+
+  const projection = createLocalProjection(center);
+  const origin = projection.toLocal(center);
+  const target = projection.toLocal(toward);
+  let dx = target.x - origin.x;
+  let dy = target.y - origin.y;
+  const length = Math.hypot(dx, dy);
+  if (length === 0) {
+    return projection.toLatLon(origin.x + radiusM, origin.y);
+  }
+  const scale = radiusM / length;
+  return projection.toLatLon(origin.x + dx * scale, origin.y + dy * scale);
+}
+
 /** Initial bearing from `from` to `to`, degrees clockwise from north. */
 export function bearingDegrees(from: LatLon, to: LatLon): number {
   const lat1 = (from.lat * Math.PI) / 180;

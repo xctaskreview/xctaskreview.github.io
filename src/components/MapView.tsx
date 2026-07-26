@@ -24,6 +24,7 @@ import type { GlobalLegStatistics } from '../lib/legStatistics';
 import type { TaskProgressMarker, TurnpointReachMarker } from '../lib/taskProgressMarker';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
 import type { TaskFieldTimeline } from '../lib/taskTimeline';
+import type { TaskNextTurnpointTimeline } from '../lib/nextTurnpoint';
 import { getScoreboardEntryForTrack } from '../lib/scoreboardDisplay';
 import { buildReachMarkerMap, buildTurnpointTooltipFromCircle } from '../lib/turnpointTooltip';
 import { TurnpointPopupContent } from './TurnpointHoverTooltip';
@@ -317,6 +318,7 @@ interface MapViewProps {
   progressFocusTrackId: string | null;
   progressFocusColor: string | null;
   selectedPilotTrackId: string | null;
+  onProgressFocusTrack: (trackId: string) => void;
   onSelectPilotTrack: (trackId: string) => void;
   onClosePilotDetail: () => void;
   mapDataActivePanel: MapDataActivePanel | null;
@@ -325,6 +327,7 @@ interface MapViewProps {
   taskStart?: Date;
   taskTimeZone: string;
   fieldTimeline: TaskFieldTimeline;
+  nextTurnpointTimeline: TaskNextTurnpointTimeline;
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
   turnpointReachMarkers: TurnpointReachMarker[];
   pilotSssCrossDelaySec: Map<string, number>;
@@ -349,6 +352,7 @@ export function MapView({
   progressFocusTrackId,
   progressFocusColor,
   selectedPilotTrackId,
+  onProgressFocusTrack,
   onSelectPilotTrack,
   onClosePilotDetail,
   mapDataActivePanel,
@@ -357,6 +361,7 @@ export function MapView({
   taskStart,
   taskTimeZone,
   fieldTimeline,
+  nextTurnpointTimeline,
   taskProgressMarkerRef,
   turnpointReachMarkers,
   pilotSssCrossDelaySec,
@@ -415,12 +420,13 @@ export function MapView({
           pausedTime={pausedTime}
           taskStart={taskStart}
           fieldTimeline={fieldTimeline}
+          nextTurnpointTimeline={nextTurnpointTimeline}
           taskProgressMarkerRef={taskProgressMarkerRef}
           leadPercentages={leadPercentages}
           progressFocusTrackId={progressFocusTrackId}
           progressFocusColor={progressFocusColor}
           selectedPilotTrackId={selectedPilotTrackId}
-          onPilotMarkerClick={handleSelectPilot}
+          onPilotMarkerClick={onProgressFocusTrack}
         />
       </MapContainer>
       <MapLegend />

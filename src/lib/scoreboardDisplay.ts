@@ -7,9 +7,11 @@ import {
   formatGroundSpeedValue,
   formatVerticalSpeedValue,
   speedUnitLabel,
+  varioToneClass,
 } from './preferences';
 import type { CompetitorSnapshot } from './types';
 import { formatNextTurnpointDisplay } from './taskProgress';
+import { metricDtHtml } from './metricIconHtml';
 
 export interface ScoreboardEntry extends CompetitorSnapshot {
   position: number;
@@ -88,12 +90,7 @@ export function formatCompetitorLeaderboardPopupHtml(
   const altitudeUnitLabel = preferences.altitudeUnit === 'ft' ? 'ft' : 'm';
   const speedUnit = speedUnitLabel(preferences.speedUnit);
   const varioUnitLabel = preferences.verticalSpeedUnit === 'ft/min' ? 'ft/min' : 'm/s';
-  const varioClass =
-    entry.verticalSpeedMps > 0.2
-      ? ' climbing'
-      : entry.verticalSpeedMps < -0.2
-        ? ' sinking'
-        : '';
+  const varioClass = varioToneClass(entry.verticalSpeedMps);
 
   const gliderHtml = entry.gliderType
     ? `<div class="competitor-popup-glider">${escapeHtml(entry.gliderType)}</div>`
@@ -113,13 +110,13 @@ export function formatCompetitorLeaderboardPopupHtml(
     `</div>` +
     `</div>` +
     `<dl class="competitor-popup-stats">` +
-    `<div><dt>Task (${distanceUnitLabel})</dt><dd>${formatDistanceValue(entry.taskKm, preferences.distanceUnit)}` +
+    `<div>${metricDtHtml('task', `Task (${distanceUnitLabel})`)}<dd>${formatDistanceValue(entry.taskKm, preferences.distanceUnit)}` +
     `<span class="competitor-popup-muted"> (${Math.round(entry.taskPercent)}%)</span></dd></div>` +
-    `<div><dt>Lead (%)</dt><dd>${entry.leadPercent.toFixed(1)}</dd></div>` +
-    `<div><dt>Alt (${altitudeUnitLabel})</dt><dd>${formatAltitudeValue(entry.alt, preferences.altitudeUnit)}</dd></div>` +
-    `<div><dt>Speed (${speedUnit})</dt><dd>${formatGroundSpeedValue(entry.groundSpeedMps, preferences.speedUnit)}</dd></div>` +
-    `<div><dt>Vario (${varioUnitLabel})</dt><dd class="competitor-popup-vario${varioClass}">${formatVerticalSpeedValue(entry.verticalSpeedMps, preferences.verticalSpeedUnit)}</dd></div>` +
-    `<div><dt>Next TP</dt><dd>${escapeHtml(formatNextTurnpointDisplay(entry.nextTurnpointName, entry.nextTurnpointNumber, entry.nextTurnpointRadiusM))}</dd></div>` +
+    `<div>${metricDtHtml('lead', 'Lead (% time)')}<dd>${entry.leadPercent.toFixed(1)}</dd></div>` +
+    `<div>${metricDtHtml('alt', `Alt (${altitudeUnitLabel})`)}<dd>${formatAltitudeValue(entry.alt, preferences.altitudeUnit)}</dd></div>` +
+    `<div>${metricDtHtml('speed', `Speed (${speedUnit})`)}<dd>${formatGroundSpeedValue(entry.groundSpeedMps, preferences.speedUnit)}</dd></div>` +
+    `<div>${metricDtHtml('vario', `Vario (${varioUnitLabel})`)}<dd class="competitor-popup-vario${varioClass}">${formatVerticalSpeedValue(entry.verticalSpeedMps, preferences.verticalSpeedUnit)}</dd></div>` +
+    `<div>${metricDtHtml('nextTp', 'Next TP')}<dd>${escapeHtml(formatNextTurnpointDisplay(entry.nextTurnpointName, entry.nextTurnpointNumber, entry.nextTurnpointRadiusM))}</dd></div>` +
     `</dl>` +
     `</div>`
   );

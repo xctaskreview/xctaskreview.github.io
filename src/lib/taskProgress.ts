@@ -3,6 +3,7 @@ import {
   clampDisplayAltitudeMeters,
   createLocalProjection,
   estimateLaunchAltitudeMetersFromTracks,
+  formatDuration,
   getTrackEndTime,
   haversine,
   isFlyingAltitudeMeters,
@@ -18,6 +19,13 @@ import {
 import { createDefaultPreferences, type CirclingDetectionPreferences } from './preferences';
 import { extractPilotDisplayName, parseGliderTypeFromHeader, pilotFirstName } from './igc';
 import { findFirstTimeFieldReachedPercent, type TaskFieldTimeline } from './taskTimeline';
+import { computePilotTaskVerification, type PilotTaskVerification } from './taskVerification';
+import {
+  buildPilotNextTurnpointMilestones,
+  lookupPilotNextTurnpointTarget,
+  type NextTurnpointMilestone,
+} from './nextTurnpoint';
+import { progressLegStartPoint } from './taskMapStyle';
 
 /**
  * Track point with every value playback needs already derived. Nothing here is recomputed
@@ -56,16 +64,12 @@ export interface EnrichedFlightTrack {
   launchAltitudeM?: number | null;
   /** Per-second circling vs glide metrics for the full track. */
   flyingModeTimeline: FlyingModeTimeline;
-}
-
-interface TurnpointCylinder {
-  index: number;
-  center: LatLon;
-  radius: number;
-}
-
-function pointInCylinder(point: LatLon, center: LatLon, radius: number): boolean {
-  return haversine(point, center) <= radius;
+  /** GAP-oriented turnpoint crossings, start/ESS/goal times, and log warnings. */
+  verification: PilotTaskVerification;
+  /** Precomputed next TP milestones (SSS exit / TP enters), monotonic forward only. */
+  nextTurnpointMilestones: NextTurnpointMilestone[];
+  /** Task start gate used for next-TP lookup (ms since epoch). */
+  taskStartMs?: number;
 }
 
 /** Progress along the optimized leg segment, trimmed to [0, 1]. */
@@ -115,12 +119,14 @@ export function computeTaskPercentForLeg(
   }
 
   const legLength = progressLegDistances[legIndex] ?? 0;
+  const legStart = progressLegStartPoint(route, legIndex) ?? progressPoints[legIndex];
+  const legEnd = progressPoints[legIndex + 1] ?? legStart;
   const legFraction = progressOnOptimizedLeg(
     position,
-    progressPoints[legIndex],
-    progressPoints[legIndex + 1],
+    legStart,
+    legEnd,
     legLength,
-    progressPoints[0],
+    legStart,
   );
 
   const distanceAlong = finishedDistance + legFraction * legLength;
@@ -175,74 +181,31 @@ export function enrichTrackWithTaskProgress(
   taskStart?: Date,
   circlingDetection?: CirclingDetectionSettings,
 ): EnrichedFlightTrack {
-  const goalIndex = route.goalIndex;
-  const turnpoints: TurnpointCylinder[] = task.turnpoints.map((tp, index) => ({
-    index,
-    center: { lat: tp.waypoint.lat, lon: tp.waypoint.lon },
-    radius: tp.radius,
-  }));
-
-  let wasInsideSss = false;
-  let hasExitedSss = false;
-  let currentLeg = -1;
-  let finished = false;
-  let finishTime: Date | undefined;
-
+  const referenceDate = track.date ?? track.points[0]?.time ?? new Date();
   const taskStartMs = taskStart?.getTime();
+  const { verification, pointStates } = computePilotTaskVerification(
+    track.points,
+    task,
+    route,
+    referenceDate,
+    taskStartMs,
+  );
 
-  for (const point of track.points) {
-    if (taskStartMs === undefined || point.time.getTime() < taskStartMs) {
-      if (pointInCylinder(point, route.sssCenter, route.sssRadius)) {
-        wasInsideSss = true;
-      }
-    }
-  }
-
-  const enrichedPoints: EnrichedTrackPoint[] = track.points.map((point) => {
-    const afterStart = taskStartMs === undefined || point.time.getTime() >= taskStartMs;
-    const insideSss = pointInCylinder(point, route.sssCenter, route.sssRadius);
-
-    if (afterStart && !finished) {
-      if (!hasExitedSss && wasInsideSss && !insideSss) {
-        hasExitedSss = true;
-        currentLeg = 0;
-      }
-
-      if (hasExitedSss && currentLeg >= 0) {
-        // currentLeg is 0-based in the SSS→ESS progress route; cylinders use absolute indices.
-        const nextTpIndex = route.sssIndex + currentLeg + 1;
-        if (nextTpIndex <= goalIndex) {
-          const nextTp = turnpoints[nextTpIndex];
-          if (pointInCylinder(point, nextTp.center, nextTp.radius)) {
-            if (nextTpIndex === goalIndex) {
-              finished = true;
-              finishTime ??= point.time;
-            } else {
-              currentLeg = nextTpIndex - route.sssIndex;
-            }
-          }
-        }
-      }
-    }
-
-    if (insideSss) {
-      wasInsideSss = true;
-    }
-
-    const hasStarted = hasExitedSss && afterStart;
+  const enrichedPoints: EnrichedTrackPoint[] = track.points.map((point, index) => {
+    const state = pointStates[index];
     const taskPercent = computeTaskPercentForLeg(
       point,
-      currentLeg,
-      finished,
-      hasStarted,
+      state.legIndex,
+      state.finished,
+      state.hasStarted,
       route,
     );
 
     return {
       ...point,
-      legIndex: currentLeg,
-      hasStarted,
-      finished,
+      legIndex: state.legIndex,
+      hasStarted: state.hasStarted,
+      finished: state.finished,
       taskPercent,
       timeMs: point.time.getTime(),
       displayAlt: 0,
@@ -252,11 +215,18 @@ export function enrichTrackWithTaskProgress(
     };
   });
 
-  attachPlaybackFieldsToPoints(enrichedPoints);
+  attachPlaybackFieldsToPoints(enrichedPoints, verification.deadline?.getTime());
 
   const displayPilotName = extractPilotDisplayName(track);
   const flyingModeDetection =
     circlingDetection ?? circlingDetectionFromPreferences(createDefaultPreferences());
+
+  const finishTime = verification.goalCrossTime ?? verification.essCrossTime ?? undefined;
+  const nextTurnpointMilestones = buildPilotNextTurnpointMilestones(
+    verification,
+    route,
+    taskStartMs,
+  );
 
   return {
     id: track.id,
@@ -270,6 +240,9 @@ export function enrichTrackWithTaskProgress(
     gliderType: track.gliderType ?? parseGliderTypeFromHeader(track.igcHeader ?? ''),
     igcHeader: track.igcHeader,
     flyingModeTimeline: computeFlyingModeTimeline(enrichedPoints, flyingModeDetection),
+    verification,
+    nextTurnpointMilestones,
+    taskStartMs,
   };
 }
 
@@ -277,14 +250,19 @@ export function enrichTrackWithTaskProgress(
  * Single pass filling the values playback reads every frame. Display altitude carries the
  * last usable reading forward, matching what a per-frame backward scan used to resolve.
  */
-function attachPlaybackFieldsToPoints(points: EnrichedTrackPoint[]): void {
+function attachPlaybackFieldsToPoints(points: EnrichedTrackPoint[], deadlineMs?: number): void {
   let lastFlyingDisplayAlt: number | null = null;
   let cumulativeDistanceM = 0;
   let maxTaskPercentSoFar = -1;
   let altAtMaxTaskPercentSoFar = 0;
+  let frozenMaxPercent = false;
 
   for (let index = 0; index < points.length; index += 1) {
     const point = points[index];
+
+    if (deadlineMs !== undefined && point.timeMs > deadlineMs) {
+      frozenMaxPercent = true;
+    }
 
     if (isFlyingAltitudeMeters(point.alt)) {
       lastFlyingDisplayAlt = clampDisplayAltitudeMeters(point.alt);
@@ -298,7 +276,7 @@ function attachPlaybackFieldsToPoints(points: EnrichedTrackPoint[]): void {
     }
     point.cumulativeDistanceM = cumulativeDistanceM;
 
-    if (point.taskPercent >= maxTaskPercentSoFar) {
+    if (!frozenMaxPercent && point.taskPercent >= maxTaskPercentSoFar) {
       maxTaskPercentSoFar = point.taskPercent;
       altAtMaxTaskPercentSoFar = point.displayAlt;
     }
@@ -307,37 +285,25 @@ function attachPlaybackFieldsToPoints(points: EnrichedTrackPoint[]): void {
   }
 }
 
-export function getNextTurnpoint(
-  legIndex: number,
-  finished: boolean,
-  hasStarted: boolean,
+function nextTurnpointFieldsAtTime(
+  track: EnrichedFlightTrack,
   route: OptimizedRoute,
-): { name: string; number: number | null; radiusM: number | null } {
-  if (finished) return { name: 'Goal', number: null, radiusM: route.goalRadius };
-
-  const turnpoints = route.progressTurnpoints;
-  if (turnpoints.length === 0) return { name: '—', number: null, radiusM: null };
-
-  const nextIndex = hasStarted ? legIndex + 1 : 1;
-  if (nextIndex >= turnpoints.length) {
-    return { name: 'Goal', number: null, radiusM: route.goalRadius };
+  timeMs: number,
+): { nextTurnpointName: string; nextTurnpointNumber: number | null; nextTurnpointRadiusM: number | null } {
+  const target = lookupPilotNextTurnpointTarget(
+    track.nextTurnpointMilestones,
+    route,
+    track.taskStartMs,
+    timeMs,
+  );
+  if (!target) {
+    return { nextTurnpointName: '—', nextTurnpointNumber: null, nextTurnpointRadiusM: null };
   }
-
-  const next = turnpoints[nextIndex];
   return {
-    name: next?.name ?? '—',
-    number: next?.number ?? null,
-    radiusM: next?.radius ?? null,
+    nextTurnpointName: target.name,
+    nextTurnpointNumber: target.number,
+    nextTurnpointRadiusM: target.radiusM,
   };
-}
-
-export function getNextTurnpointName(
-  legIndex: number,
-  finished: boolean,
-  hasStarted: boolean,
-  route: OptimizedRoute,
-): string {
-  return getNextTurnpoint(legIndex, finished, hasStarted, route).name;
 }
 
 export function formatTurnpointRadiusParenthetical(radiusM: number | null | undefined): string {
@@ -423,7 +389,7 @@ export function getTrackSnapshotAtTime(
   if (t < points[0]!.timeMs) {
     const first = points[0]!;
     const launchAlt = track.launchAltitudeM ?? first.displayAlt;
-    const nextTurnpoint = getNextTurnpoint(first.legIndex, false, false, route);
+    const nextFields = nextTurnpointFieldsAtTime(track, route, t);
     return {
       lat: first.lat,
       lon: first.lon,
@@ -433,9 +399,7 @@ export function getTrackSnapshotAtTime(
       landed: false,
       hasStarted: false,
       finished: false,
-      nextTurnpointName: nextTurnpoint.name,
-      nextTurnpointNumber: nextTurnpoint.number,
-      nextTurnpointRadiusM: nextTurnpoint.radiusM,
+      ...nextFields,
     };
   }
 
@@ -458,12 +422,7 @@ export function getTrackSnapshotAtTime(
     taskPercent = state.taskPercent + (next.taskPercent - state.taskPercent) * ratio;
   }
 
-  const nextTurnpoint = getNextTurnpoint(
-    state.legIndex,
-    state.finished,
-    state.hasStarted,
-    route,
-  );
+  const nextFields = nextTurnpointFieldsAtTime(track, route, t);
 
   return {
     lat,
@@ -474,9 +433,7 @@ export function getTrackSnapshotAtTime(
     landed: isLandedAtTime(track.landingTime ?? getTrackEndTime(track.points), time),
     hasStarted: state.hasStarted,
     finished: state.finished,
-    nextTurnpointName: nextTurnpoint.name,
-    nextTurnpointNumber: nextTurnpoint.number,
-    nextTurnpointRadiusM: nextTurnpoint.radiusM,
+    ...nextFields,
   };
 }
 
@@ -563,9 +520,19 @@ export function getPilotSssExitTime(track: EnrichedFlightTrack): Date | undefine
   return track.points.find((point) => point.hasStarted)?.time;
 }
 
-/** Whole seconds from task start gate to SSS exit, or null if not crossed. */
+/** Whole seconds: start gate minus SSS exit (negative = crossed after the gate). */
 export function getPilotSssCrossDelaySec(track: EnrichedFlightTrack, taskStart: Date): number | null {
-  const exitTime = getPilotSssExitTime(track);
-  if (!exitTime) return null;
-  return Math.max(0, Math.round((exitTime.getTime() - taskStart.getTime()) / 1000));
+  const crossTime = track.verification.sssCrossTime;
+  if (!crossTime) return null;
+  const gateTime = track.verification.assignedStartGateTime ?? taskStart;
+  return Math.round((gateTime.getTime() - crossTime.getTime()) / 1000);
+}
+
+/** MM:SS offset from start gate; minus = after gate (e.g. -01:23). */
+export function formatSssCrossDelaySec(gateMinusCrossSec: number): string {
+  if (gateMinusCrossSec === 0) return '00:00';
+  if (gateMinusCrossSec < 0) {
+    return `-${formatDuration(Math.abs(gateMinusCrossSec) * 1000)}`;
+  }
+  return `+${formatDuration(gateMinusCrossSec * 1000)}`;
 }

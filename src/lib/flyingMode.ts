@@ -1,6 +1,7 @@
 import { bearingDegrees, formatDuration, normalizeAngleDelta } from './geo';
 import type { AppPreferences } from './preferences';
-import { formatVerticalSpeed } from './preferences';
+import { formatVerticalSpeed, glideDisplayColor, glideToneClass, varioDisplayColor, varioToneClass } from './preferences';
+import { metricIconHtml } from './metricIconHtml';
 import type { EnrichedTrackPoint } from './taskProgress';
 
 export type FlyingMode = 'circling' | 'glide';
@@ -11,12 +12,18 @@ export interface FlyingModeSecondState {
   thermalGainM: number;
   /** Seconds since the current circling segment started. */
   circlingDurationSec: number;
+  /** Seconds since the current glide segment started. */
+  glideDurationSec: number;
   /** Mean climb rate over the current circling segment (m/s). */
   averageThermalVarioMps: number;
   /** L/D over the recent sample window, when altitude was lost. */
   glideRatio: number | null;
   /** Mean L/D since the current glide segment started. */
   averageGlideRatio: number | null;
+  /** Horizontal distance since the current glide segment started (m). */
+  glideDistanceM: number;
+  /** Mean ground speed over the current glide segment (m/s). */
+  glideSpeedMps: number;
 }
 
 export interface FlyingModeTimeline {
@@ -236,9 +243,12 @@ function emptySecondState(): FlyingModeSecondState {
     mode: 'glide',
     thermalGainM: 0,
     circlingDurationSec: 0,
+    glideDurationSec: 0,
     averageThermalVarioMps: 0,
     glideRatio: null,
     averageGlideRatio: null,
+    glideDistanceM: 0,
+    glideSpeedMps: 0,
   };
 }
 
@@ -261,6 +271,7 @@ export function computeFlyingModeTimeline(
   let mode: FlyingMode = 'glide';
   let circlingStartMs = startTimeMs;
   let circlingStartAlt = points[0].displayAlt;
+  let glideStartMs = startTimeMs;
   let glideStartAlt = points[0].displayAlt;
   let glideStartDist = points[0].cumulativeDistanceM;
 
@@ -296,12 +307,14 @@ export function computeFlyingModeTimeline(
         circlingStartMs = timeMs;
         circlingStartAlt = sample.displayAlt;
       } else {
+        glideStartMs = timeMs;
         glideStartAlt = sample.displayAlt;
         glideStartDist = sample.cumulativeDistanceM;
       }
     }
 
     const circlingDurationSec = Math.max(0, (timeMs - circlingStartMs) / 1000);
+    const glideDurationSec = Math.max(0, (timeMs - glideStartMs) / 1000);
     const thermalGainM = sample.displayAlt - circlingStartAlt;
     const averageThermalVarioMps =
       mode === 'circling' && circlingDurationSec > 0 ? thermalGainM / circlingDurationSec : 0;
@@ -318,13 +331,21 @@ export function computeFlyingModeTimeline(
           )
         : null;
 
+    const glideDistanceM =
+      mode === 'glide' ? Math.max(0, sample.cumulativeDistanceM - glideStartDist) : 0;
+    const glideSpeedMps =
+      mode === 'glide' && glideDurationSec > 0 ? glideDistanceM / glideDurationSec : 0;
+
     seconds.push({
       mode,
       thermalGainM: mode === 'circling' ? thermalGainM : 0,
       circlingDurationSec: mode === 'circling' ? circlingDurationSec : 0,
+      glideDurationSec: mode === 'glide' ? glideDurationSec : 0,
       averageThermalVarioMps: mode === 'circling' ? averageThermalVarioMps : 0,
       glideRatio,
       averageGlideRatio: averageGlideRatioValue,
+      glideDistanceM,
+      glideSpeedMps,
     });
   }
 
@@ -360,4 +381,108 @@ export function formatFlyingModeMapLine(
     return `${gain} · avg ${avg} · ${time}`;
   }
   return `L/D ${formatGlideRatioShort(state.glideRatio)} · avg ${formatGlideRatioShort(state.averageGlideRatio)}`;
+}
+
+function escapeFlyingModeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Map marker HTML: avg vario tinted green / red. */
+export function formatFlyingModeMapHtml(
+  state: FlyingModeSecondState | null,
+  preferences: AppPreferences,
+): string {
+  if (!state) return '';
+  if (state.mode === 'circling') {
+    const gainSign = state.thermalGainM >= 0 ? '+' : '';
+    const gain = `${gainSign}${Math.round(state.thermalGainM)} m`;
+    const avg = formatVerticalSpeed(state.averageThermalVarioMps, preferences.verticalSpeedUnit);
+    const time = formatDuration(state.circlingDurationSec * 1000);
+    const tone = varioToneClass(state.averageThermalVarioMps).trim();
+    const avgClass = tone ? `competitor-popup-vario ${tone}` : 'competitor-popup-vario';
+    return (
+      `${escapeFlyingModeHtml(gain)} · avg ` +
+      `<span class="${avgClass.trim()}">${escapeFlyingModeHtml(avg)}</span>` +
+      ` · ${escapeFlyingModeHtml(time)}`
+    );
+  }
+  const line = formatFlyingModeMapLine(state, preferences);
+  return `<span class="competitor-mode-glide">${escapeFlyingModeHtml(line)}</span>`;
+}
+
+export interface ColoredTextSegment {
+  text: string;
+  fill?: string;
+}
+
+export function flyingModeLabelSegments(
+  state: FlyingModeSecondState | null,
+  preferences: AppPreferences,
+): ColoredTextSegment[] {
+  if (!state) return [];
+  if (state.mode === 'circling') {
+    const gainSign = state.thermalGainM >= 0 ? '+' : '';
+    const gain = `${gainSign}${Math.round(state.thermalGainM)} m`;
+    const avg = formatVerticalSpeed(state.averageThermalVarioMps, preferences.verticalSpeedUnit);
+    const time = formatDuration(state.circlingDurationSec * 1000);
+    const varioColor = varioDisplayColor(state.averageThermalVarioMps);
+    return [
+      { text: gain },
+      { text: ' · avg ' },
+      { text: avg, fill: varioColor ?? '#475569' },
+      { text: ` · ${time}` },
+    ];
+  }
+  return [
+    { text: 'L/D ' },
+    {
+      text: formatGlideRatioShort(state.glideRatio),
+      fill: glideDisplayColor(state.glideRatio),
+    },
+    { text: ' · avg ' },
+    {
+      text: formatGlideRatioShort(state.averageGlideRatio),
+      fill: glideDisplayColor(state.averageGlideRatio),
+    },
+  ];
+}
+
+export function flyingModeLabelSegmentsKey(segments: ColoredTextSegment[]): string {
+  return JSON.stringify(segments);
+}
+
+const MAP_STAT_ICON_PX = 12;
+
+/** Altitude row under the pilot name on map markers. */
+export function formatMapPilotAltStatHtml(altText: string): string {
+  return `${metricIconHtml('alt', MAP_STAT_ICON_PX)}<span>${escapeFlyingModeHtml(altText)}</span>`;
+}
+
+/** Glide L/D or live vario under altitude on map markers (all pilots). */
+export function formatMapPilotModeStatHtml(
+  state: FlyingModeSecondState | null,
+  verticalSpeedMps: number,
+  preferences: AppPreferences,
+  landed: boolean,
+): string {
+  if (landed || !state) return '';
+  if (state.mode === 'circling') {
+    const value = formatVerticalSpeed(verticalSpeedMps, preferences.verticalSpeedUnit);
+    const tone = varioToneClass(verticalSpeedMps).trim();
+    const valueClass = tone ? `competitor-popup-vario ${tone}` : 'competitor-popup-vario';
+    return (
+      `${metricIconHtml('vario', MAP_STAT_ICON_PX)}` +
+      `<span class="${valueClass.trim()}">${escapeFlyingModeHtml(value)}</span>`
+    );
+  }
+  const ld = formatGlideRatioShort(state.glideRatio);
+  const glideClass = `competitor-glide${glideToneClass(state.glideRatio)}`.trim();
+  return (
+    `${metricIconHtml('glide', MAP_STAT_ICON_PX)}` +
+    `<span class="${glideClass}">${escapeFlyingModeHtml(ld)}</span>`
+  );
 }

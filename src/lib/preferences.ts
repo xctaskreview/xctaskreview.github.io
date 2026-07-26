@@ -239,6 +239,41 @@ export function formatVerticalSpeedValue(mps: number, unit: VerticalSpeedUnit): 
   return mps.toFixed(1);
 }
 
+/** CSS class suffix for live vario tone (green up / red down). */
+export function varioToneClass(mps: number): ' climbing' | ' sinking' | '' {
+  if (mps > 0) return ' climbing';
+  if (mps < 0) return ' sinking';
+  return '';
+}
+
+export const VARIO_POSITIVE_COLOR = '#059669';
+export const VARIO_NEGATIVE_COLOR = '#dc2626';
+
+export function varioDisplayColor(mps: number): string | null {
+  if (mps > 0) return VARIO_POSITIVE_COLOR;
+  if (mps < 0) return VARIO_NEGATIVE_COLOR;
+  return null;
+}
+
+export const GLIDE_GOOD_MIN = 10;
+export const GLIDE_BAD_MAX = 7;
+export const GLIDE_NEUTRAL_COLOR = '#0f172a';
+
+/** CSS class suffix for L/D tone (good &gt; 10, bad &lt; 7, else neutral). */
+export function glideToneClass(ratio: number | null): ' glide-good' | ' glide-bad' | ' glide-neutral' | '' {
+  if (ratio == null || !Number.isFinite(ratio) || ratio <= 0) return ' glide-neutral';
+  if (ratio > GLIDE_GOOD_MIN) return ' glide-good';
+  if (ratio < GLIDE_BAD_MAX) return ' glide-bad';
+  return ' glide-neutral';
+}
+
+export function glideDisplayColor(ratio: number | null): string {
+  if (ratio == null || !Number.isFinite(ratio) || ratio <= 0) return GLIDE_NEUTRAL_COLOR;
+  if (ratio > GLIDE_GOOD_MIN) return VARIO_POSITIVE_COLOR;
+  if (ratio < GLIDE_BAD_MAX) return VARIO_NEGATIVE_COLOR;
+  return GLIDE_NEUTRAL_COLOR;
+}
+
 export function distanceAxisLabel(unit: DistanceUnit): string {
   return unit === 'mi' ? 'Task (mi)' : 'Task (km)';
 }

@@ -29,6 +29,7 @@ import {
   loadIgcFiles,
 } from './lib/tracks';
 import { buildTaskFieldTimeline, computeLeadPercentagesFromTimeline } from './lib/taskTimeline';
+import { buildTaskNextTurnpointTimeline } from './lib/nextTurnpoint';
 import type { CivlImportResult } from './lib/civl';
 import type { XcdemonImportResult } from './lib/xcdemon';
 import type { FlightTrack, TaskTiming, XcTask } from './lib/types';
@@ -328,6 +329,14 @@ export default function App() {
     [enrichedTracks, timing.taskStart, timing.trackEnd],
   );
 
+  const nextTurnpointTimeline = useMemo(
+    () =>
+      route
+        ? buildTaskNextTurnpointTimeline(enrichedTracks, route, timing.taskStart)
+        : { taskStartMs: timing.taskStart?.getTime() ?? 0, milestones: [] },
+    [enrichedTracks, route, timing.taskStart],
+  );
+
   const turnpointReachMarkers = useMemo(
     () =>
       timing.taskStart && enrichedTracks.length > 0 && route
@@ -352,9 +361,12 @@ export default function App() {
   );
 
   const sliderTurnpointReachMarkers = useMemo(() => {
-    const withoutTp1 = turnpointReachMarkers.filter((marker) => marker.number !== 1);
     if (!sssExitTp1Marker) return turnpointReachMarkers;
-    return [sssExitTp1Marker, ...withoutTp1];
+    const withoutSss = turnpointReachMarkers.filter(
+      (marker) =>
+        marker.index !== sssExitTp1Marker.index && marker.number !== sssExitTp1Marker.number,
+    );
+    return [sssExitTp1Marker, ...withoutSss];
   }, [turnpointReachMarkers, sssExitTp1Marker]);
 
   const pilotSssCrossDelaySec = useMemo(() => {
@@ -708,7 +720,16 @@ export default function App() {
   }, []);
 
   const onProgressFocusTrack = useCallback((trackId: string) => {
-    setProgressFocusTrackId((current) => (current === trackId ? null : trackId));
+    setProgressFocusTrackId((current) => {
+      if (current === trackId) {
+        setSelectedPilotTrackId(null);
+        setMapDataActivePanel((panel) => (panel === 'pilot-detail' ? null : panel));
+        return null;
+      }
+      setSelectedPilotTrackId(trackId);
+      setMapDataActivePanel('pilot-detail');
+      return trackId;
+    });
   }, []);
 
   const onSelectPilotTrack = useCallback((trackId: string) => {
@@ -954,7 +975,8 @@ const onSessionBundleExport = useCallback(async () => {
         )}
 
         {route && (
-          <TimeControls
+          <>
+            <TimeControls
             currentTime={currentTime}
             timing={timing}
             turnpointReachMarkers={sliderTurnpointReachMarkers}
@@ -970,6 +992,7 @@ const onSessionBundleExport = useCallback(async () => {
             onEdit={() => setView('welcome')}
             onOpenAppMenu={() => setAppMenuOpen(true)}
           />
+          </>
         )}
 
         <div
@@ -998,6 +1021,7 @@ const onSessionBundleExport = useCallback(async () => {
               progressFocusTrackId={progressFocusTrackId}
               progressFocusColor={progressFocusColor}
               selectedPilotTrackId={selectedPilotTrackId}
+              onProgressFocusTrack={onProgressFocusTrack}
               onSelectPilotTrack={onSelectPilotTrack}
               onClosePilotDetail={onClosePilotDetail}
               mapDataActivePanel={mapDataActivePanel}
@@ -1005,6 +1029,7 @@ const onSessionBundleExport = useCallback(async () => {
               legStatistics={legStatistics}
               taskStart={timing.taskStart}
               fieldTimeline={fieldTimeline}
+              nextTurnpointTimeline={nextTurnpointTimeline}
               taskProgressMarkerRef={taskProgressMarkerRef}
               turnpointReachMarkers={turnpointReachMarkers}
             />
@@ -1040,7 +1065,7 @@ const onSessionBundleExport = useCallback(async () => {
                 playbackEndTime={timing.trackEnd}
                 onTimeChange={setCurrentTime}
                 progressFocusTrackId={progressFocusTrackId}
-                onSelectPilotTrack={onSelectPilotTrack}
+                onProgressFocusTrack={onProgressFocusTrack}
                 selectedPilotTrackId={selectedPilotTrackId}
                 altitudeMin={altitudeRange.min}
                 altitudeMax={altitudeRange.max}

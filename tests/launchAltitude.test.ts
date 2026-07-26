@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { estimateLaunchAltitudeMetersFromTracks } from '../src/lib/geo';
 import type { EnrichedFlightTrack, EnrichedTrackPoint } from '../src/lib/taskProgress';
 import { getTrackSnapshotAtTime } from '../src/lib/taskProgress';
-import { computeFlyingModeTimeline } from '../src/lib/flyingMode';
+import { EMPTY_PILOT_VERIFICATION } from './helpers/emptyVerification';
 import type { OptimizedRoute } from '../src/lib/types';
 
 const route = {
@@ -58,6 +58,8 @@ describe('getTrackSnapshotAtTime before log start', () => {
       launchAltitudeM: 995,
       points: [point(startMs + 60_000, 1010)],
       flyingModeTimeline: { startTimeMs: startMs + 60_000, seconds: [] },
+      verification: EMPTY_PILOT_VERIFICATION,
+      nextTurnpointMilestones: [],
     };
 
     const snapshot = getTrackSnapshotAtTime(track, new Date(startMs), route);

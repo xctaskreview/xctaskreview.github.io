@@ -33,12 +33,13 @@ describe('SSS exit timing', () => {
 
     const marker = computeFleetSssExitTp1Marker(enriched, route, taskStart, circles);
     expect(marker).not.toBeNull();
-    expect(marker!.number).toBe(1);
+    expect(marker!.number).toBe(route.progressTurnpoints[0]?.number ?? 1);
+    expect(marker!.index).toBe(0);
     expect(marker!.time.getTime() - taskStart.getTime()).toBeGreaterThan(SSS_EXIT_TP1_MIN_DELAY_MS);
 
     const wilson = enriched.find((t) => t.pilotName.toLowerCase().includes('wilson'));
     expect(wilson).toBeTruthy();
-    expect(getPilotSssCrossDelaySec(wilson!, taskStart)).toBe(122);
+    expect(getPilotSssCrossDelaySec(wilson!, taskStart)).toBe(-122);
   });
 
   it('hides TP1 marker when fleet exits within 10s of gate', () => {

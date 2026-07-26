@@ -10,6 +10,7 @@ import {
   PATH_CHUNK_SIZE,
 } from '../src/lib/pilotTrail';
 import { getPilotMaxProgressAtTime, type EnrichedFlightTrack } from '../src/lib/taskProgress';
+import { EMPTY_PILOT_VERIFICATION } from './helpers/emptyVerification';
 import type { OptimizedRoute } from '../src/lib/types';
 
 const emptyRoute: OptimizedRoute = {
@@ -25,6 +26,7 @@ const emptyRoute: OptimizedRoute = {
   progressTurnpoints: [],
   sssIndex: 0,
   goalIndex: 0,
+  essTurnpointIndex: null,
   sssCenter: { lat: 0, lon: 0 },
   sssRadius: 0,
   goalCenter: { lat: 0, lon: 0 },
@@ -59,6 +61,8 @@ function buildTrack(pointCount: number): EnrichedFlightTrack {
     fileName: 'pilot.igc',
     points,
     flyingModeTimeline: { startTimeMs: START_MS, seconds: [] },
+    verification: EMPTY_PILOT_VERIFICATION,
+    nextTurnpointMilestones: [],
   };
 }
 

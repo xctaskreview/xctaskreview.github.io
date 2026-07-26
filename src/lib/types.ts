@@ -116,7 +116,10 @@ export interface OptimizedRoute {
   progressTotalDistance: number;
   progressTurnpoints: ProgressTurnpoint[];
   sssIndex: number;
+  /** Index of the physical goal turnpoint in `task.turnpoints`. */
   goalIndex: number;
+  /** ESS turnpoint index when the task defines one; otherwise null. */
+  essTurnpointIndex: number | null;
   sssCenter: LatLon;
   sssRadius: number;
   goalCenter: LatLon;
@@ -146,9 +149,12 @@ export interface CompetitorSnapshot {
   flyingMode: FlyingMode;
   thermalGainM: number;
   circlingDurationSec: number;
+  glideDurationSec: number;
   averageThermalVarioMps: number;
   glideRatio: number | null;
   averageGlideRatio: number | null;
+  glideDistanceM: number;
+  glideSpeedMps: number;
 }
 
 export interface TaskTiming {

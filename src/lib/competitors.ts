@@ -48,9 +48,12 @@ export function buildCompetitorSnapshots(
         flyingMode: flyingModeState?.mode ?? 'glide',
         thermalGainM: flyingModeState?.thermalGainM ?? 0,
         circlingDurationSec: flyingModeState?.circlingDurationSec ?? 0,
+        glideDurationSec: flyingModeState?.glideDurationSec ?? 0,
         averageThermalVarioMps: flyingModeState?.averageThermalVarioMps ?? 0,
         glideRatio: flyingModeState?.glideRatio ?? null,
         averageGlideRatio: flyingModeState?.averageGlideRatio ?? null,
+        glideDistanceM: flyingModeState?.glideDistanceM ?? 0,
+        glideSpeedMps: flyingModeState?.glideSpeedMps ?? 0,
       },
     ];
   });

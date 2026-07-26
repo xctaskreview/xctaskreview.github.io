@@ -83,5 +83,8 @@ describe('computeFlyingModeTimeline', () => {
     expect(late!.glideRatio).not.toBeNull();
     expect(late!.glideRatio!).toBeGreaterThan(5);
     expect(late!.averageGlideRatio).not.toBeNull();
+    expect(late!.glideDurationSec).toBeGreaterThan(20);
+    expect(late!.glideDistanceM).toBeGreaterThan(20_000);
+    expect(late!.glideSpeedMps).toBeGreaterThan(30);
   });
 });

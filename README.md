@@ -59,6 +59,18 @@ For a fork or local Pages setup, enable GitHub Pages from the repository’s **S
 
 Task progress is measured along the optimized route between turnpoint fixes, not center-to-center between turnpoints.
 
+## Competition rules (FAI S7A / CIVL GAP)
+
+This app is a **visual debrief tool**, not an official scorer. During review it applies **GAP-style** ideas where useful:
+
+- Turnpoint **enter/exit** crossings (SSS direction from the task file; other cylinders default to enter)
+- Separate **ESS** and **goal** cylinders when the task defines both
+- **Start gate** assignment and **early start** hints when multiple gates or an early SSS exit are detected
+- **Task deadline** from the task file caps stored progress after the deadline time
+- Selected pilot **Task verification** panel: SSS / ESS / goal times, speed-section duration, crossing sequence, log warnings (e.g. fix interval)
+
+Official task points, time points, lead coefficient, penalties, and airspace checks require **CIVL GAP** and an approved scorer such as [FS](http://fs.fai.org).
+
 ## Links
 
 - **Repository:** [github.com/xctaskreview/xctaskreview.github.io](https://github.com/xctaskreview/xctaskreview.github.io)

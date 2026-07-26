@@ -1,4 +1,5 @@
 import L from 'leaflet';
+import { pointOnCylinderToward, haversine } from './geo';
 import type { LatLon, OptimizedRoute, ProgressTurnpoint, RoutePoint } from './types';
 
 export const TASK_PROGRESS_COLOR = '#059669';
@@ -76,7 +77,7 @@ export function isStartTurnpoint(circle: RoutePoint, route: OptimizedRoute): boo
 
 export function isGoalTurnpoint(circle: RoutePoint, route: OptimizedRoute): boolean {
   if (matchesGoal(circle, route)) return true;
-  if (circle.type === 'ESS') return true;
+  if (circle.type === 'ESS') return false;
   const index = getProgressIndexForCircle(circle, route);
   return index >= 0 && index === route.progressTurnpoints.length - 1;
 }
@@ -173,6 +174,13 @@ export function getTaggedTurnpointProgressIndices(
 
   const targetDistance = (progressPercent / 100) * route.progressTotalDistance;
   for (let i = 0; i < route.progressCumulativeDistances.length; i += 1) {
+    if (i === 0) {
+      const firstLegEnd = route.progressCumulativeDistances[1];
+      if (firstLegEnd !== undefined && targetDistance >= firstLegEnd) {
+        tagged.add(0);
+      }
+      continue;
+    }
     if (targetDistance >= route.progressCumulativeDistances[i]) {
       tagged.add(i);
     }
@@ -205,7 +213,7 @@ export function buildCompletedRouteSegments(
   for (let legIndex = 0; legIndex < route.progressLegDistances.length; legIndex += 1) {
     const legStartDistance = route.progressCumulativeDistances[legIndex] ?? 0;
     const legEndDistance = route.progressCumulativeDistances[legIndex + 1] ?? legStartDistance;
-    const legStart = route.progressPoints[legIndex];
+    const legStart = progressLegStartPoint(route, legIndex) ?? route.progressPoints[legIndex];
     const legEnd = route.progressPoints[legIndex + 1] ?? legStart;
 
     if (targetDistance >= legEndDistance) {
@@ -245,7 +253,7 @@ export function getProgressRouteLegs(route: OptimizedRoute): RouteLegSegment[] {
   for (let legIndex = 0; legIndex < route.progressLegDistances.length; legIndex += 1) {
     const from = route.progressTurnpoints[legIndex];
     const to = route.progressTurnpoints[legIndex + 1];
-    const start = route.progressPoints[legIndex];
+    const start = progressLegStartPoint(route, legIndex);
     const end = route.progressPoints[legIndex + 1];
     if (!from || !to || !start || !end) continue;
 
@@ -274,6 +282,40 @@ export function getPostGoalRouteSegments(route: OptimizedRoute): [LatLon, LatLon
   return segments;
 }
 
+export function progressLegStartPoint(route: OptimizedRoute, legIndex: number): LatLon | null {
+  const end = route.progressPoints[legIndex + 1];
+  const nominal = route.progressPoints[legIndex];
+  if (!nominal) return null;
+  if (legIndex !== 0 || !end) return nominal;
+  return pointOnCylinderToward(route.sssCenter, route.sssRadius, end);
+}
+
+/** Leg 0 runs from the SSS cylinder exit; shorten leg 0 and rebuild progress cumulatives. */
+export function adjustProgressDistancesForSssCylinderExit(route: OptimizedRoute): void {
+  if (route.progressLegDistances.length === 0 || route.progressPoints.length < 2) return;
+
+  const legEnd = route.progressPoints[1];
+  const legStart = progressLegStartPoint(route, 0);
+  if (!legEnd || !legStart) return;
+
+  route.progressLegDistances[0] = haversine(legStart, legEnd);
+
+  const cumulative = [0];
+  for (const leg of route.progressLegDistances) {
+    cumulative.push(cumulative[cumulative.length - 1]! + leg);
+  }
+  route.progressCumulativeDistances = cumulative;
+  route.progressTotalDistance =
+    cumulative[cumulative.length - 1]! + route.progressGoalApproachDistance;
+
+  for (let i = 0; i < route.progressTurnpoints.length; i += 1) {
+    const at = route.progressCumulativeDistances[i] ?? 0;
+    route.progressTurnpoints[i]!.taskPercent =
+      route.progressTotalDistance > 0 ? (at / route.progressTotalDistance) * 100 : 0;
+    route.progressTurnpoints[i]!.taskKm = at / 1000;
+  }
+}
+
 export function getLeaderNextLegSegment(
   route: OptimizedRoute,
   legIndex: number,
@@ -283,7 +325,7 @@ export function getLeaderNextLegSegment(
   if (!hasStarted || finished) return null;
   if (legIndex < 0 || legIndex >= route.progressLegDistances.length) return null;
 
-  const start = route.progressPoints[legIndex];
+  const start = progressLegStartPoint(route, legIndex);
   const end = route.progressPoints[legIndex + 1];
   if (!start || !end) return null;
 

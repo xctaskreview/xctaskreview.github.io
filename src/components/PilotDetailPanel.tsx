@@ -5,10 +5,13 @@ import {
   formatDistance,
   formatGroundSpeed,
   formatVerticalSpeed,
+  glideToneClass,
+  varioToneClass,
 } from '../lib/preferences';
 import type { CompetitorSnapshot } from '../lib/types';
 import { getTaskDistanceBehindLeaderKm, type ScoreboardEntry } from '../lib/scoreboardDisplay';
-import { formatNextTurnpointDisplay } from '../lib/taskProgress';
+import { formatNextTurnpointDisplay, formatSssCrossDelaySec } from '../lib/taskProgress';
+import { LeaderboardMetricLabel } from './LeaderboardMetricLabel';
 
 interface PilotDetailPanelProps {
   entry: ScoreboardEntry | null;
@@ -28,8 +31,6 @@ export function PilotDetailPanel({
   if (!expanded || !entry) return null;
 
   const distanceBehindKm = getTaskDistanceBehindLeaderKm(entry, competitors);
-  const varioClass =
-    entry.verticalSpeedMps > 0.2 ? ' climbing' : entry.verticalSpeedMps < -0.2 ? ' sinking' : '';
   const isCircling = entry.flyingMode === 'circling';
 
   const formatGlideRatio = (ratio: number | null) =>
@@ -46,7 +47,9 @@ export function PilotDetailPanel({
             </div>
           )}
           <div>
-            <dt>Dist</dt>
+            <dt>
+              <LeaderboardMetricLabel metric="task" label="Dist" />
+            </dt>
             <dd>
               {formatDistance(entry.taskKm, preferences.distanceUnit)}
               <span className="competitor-popup-muted"> ({Math.round(entry.taskPercent)}%)</span>
@@ -59,20 +62,28 @@ export function PilotDetailPanel({
             </div>
           )}
           <div>
-            <dt>Lead</dt>
-            <dd>{entry.leadPercent.toFixed(1)} %</dd>
+            <dt>
+              <LeaderboardMetricLabel metric="lead" />
+            </dt>
+            <dd>{entry.leadPercent.toFixed(1)} % time</dd>
           </div>
           <div>
-            <dt>Alt</dt>
+            <dt>
+              <LeaderboardMetricLabel metric="alt" />
+            </dt>
             <dd>{formatAltitude(entry.alt, preferences.altitudeUnit)}</dd>
           </div>
           <div>
-            <dt>Speed</dt>
+            <dt>
+              <LeaderboardMetricLabel metric="speed" />
+            </dt>
             <dd>{formatGroundSpeed(entry.groundSpeedMps, preferences.speedUnit)}</dd>
           </div>
           <div>
-            <dt>Vario</dt>
-            <dd className={`competitor-popup-vario${varioClass}`}>
+            <dt>
+              <LeaderboardMetricLabel metric="vario" />
+            </dt>
+            <dd className={`competitor-popup-vario${varioToneClass(entry.verticalSpeedMps)}`}>
               {formatVerticalSpeed(entry.verticalSpeedMps, preferences.verticalSpeedUnit)}
             </dd>
           </div>
@@ -96,8 +107,10 @@ export function PilotDetailPanel({
                 <dd>{formatDuration(entry.circlingDurationSec * 1000)}</dd>
               </div>
               <div>
-                <dt>Avg vario</dt>
-                <dd>
+                <dt>
+                  <LeaderboardMetricLabel metric="vario" label="Avg vario" />
+                </dt>
+                <dd className={`competitor-popup-vario${varioToneClass(entry.averageThermalVarioMps)}`}>
                   {formatVerticalSpeed(entry.averageThermalVarioMps, preferences.verticalSpeedUnit)}
                 </dd>
               </div>
@@ -105,25 +118,51 @@ export function PilotDetailPanel({
           ) : (
             <>
               <div>
-                <dt>Glide</dt>
-                <dd>{formatGlideRatio(entry.glideRatio)}</dd>
+                <dt>
+                  <LeaderboardMetricLabel metric="glide" />
+                </dt>
+                <dd className={`competitor-glide${glideToneClass(entry.glideRatio)}`}>
+                  {formatGlideRatio(entry.glideRatio)}
+                </dd>
               </div>
               <div>
-                <dt>Avg glide</dt>
-                <dd>{formatGlideRatio(entry.averageGlideRatio)}</dd>
+                <dt>
+                  <LeaderboardMetricLabel metric="glide" label="Glide time" />
+                </dt>
+                <dd>{formatDuration(entry.glideDurationSec * 1000)}</dd>
+              </div>
+              <div>
+                <dt>
+                  <LeaderboardMetricLabel metric="task" label="Glide distance" />
+                </dt>
+                <dd>{formatDistance(entry.glideDistanceM / 1000, preferences.distanceUnit)}</dd>
+              </div>
+              <div>
+                <dt>
+                  <LeaderboardMetricLabel metric="speed" label="Glide speed" />
+                </dt>
+                <dd>{formatGroundSpeed(entry.glideSpeedMps, preferences.speedUnit)}</dd>
+              </div>
+              <div>
+                <dt>
+                  <LeaderboardMetricLabel metric="glide" label="Avg glide" />
+                </dt>
+                <dd className={`competitor-glide${glideToneClass(entry.averageGlideRatio)}`}>
+                  {formatGlideRatio(entry.averageGlideRatio)}
+                </dd>
               </div>
             </>
           )}
           <div>
             <dt>Crossed SSS</dt>
             <dd>
-              {sssCrossDelaySec !== null
-                ? `-${formatDuration(sssCrossDelaySec * 1000)}`
-                : '—'}
+              {sssCrossDelaySec !== null ? formatSssCrossDelaySec(sssCrossDelaySec) : '—'}
             </dd>
           </div>
           <div>
-            <dt>Next TP</dt>
+            <dt>
+              <LeaderboardMetricLabel metric="nextTp" />
+            </dt>
             <dd>
               {formatNextTurnpointDisplay(
                 entry.nextTurnpointName,

@@ -55,7 +55,7 @@ import {
   metersToAltitudeUnit,
   normalizePilotTrailLengthM,
 } from '../lib/preferences';
-import { formatFlyingModeMapLine, getFlyingModeStateAtTime } from '../lib/flyingMode';
+import { flyingModeLabelSegments, flyingModeLabelSegmentsKey, getFlyingModeStateAtTime } from '../lib/flyingMode';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
 import { getPilotMaxProgressAtTime, getTrackSnapshotAtTime, resolveSeekTimeForTaskPercent, chartMaxTaskPercentForDisplay, chartTaskPercentAtSnapshot } from '../lib/taskProgress';
 import type { TaskFieldTimeline } from '../lib/taskTimeline';
@@ -78,8 +78,27 @@ const CHART_PILOT_LABEL_COLOR = '#000000';
 const CHART_PILOT_ALT_LABEL_Y = '16';
 const CHART_PILOT_MODE_LABEL_Y = '28';
 const CHART_PILOT_SUB_LABEL_SIZE = '9';
-const CHART_PILOT_MODE_CIRCLING = '#15803d';
-const CHART_PILOT_MODE_GLIDE = '#1d4ed8';
+const CHART_PILOT_SUB_LABEL_DEFAULT = '#475569';
+
+function applySvgTextSegments(
+  textEl: SVGTextElement,
+  segments: { text: string; fill?: string }[],
+  defaultFill = CHART_PILOT_SUB_LABEL_DEFAULT,
+): void {
+  textEl.replaceChildren();
+  if (segments.length === 0) {
+    return;
+  }
+  textEl.setAttribute('fill', segments[0].fill ?? defaultFill);
+  for (const segment of segments) {
+    const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    tspan.textContent = segment.text;
+    if (segment.fill) {
+      tspan.setAttribute('fill', segment.fill);
+    }
+    textEl.append(tspan);
+  }
+}
 
 /** Fixed layout so vertical resize does not shift the plot area horizontally. */
 const CHART_Y_AXIS_WIDTH = 56;
@@ -160,7 +179,7 @@ export interface AltitudeChartProps {
   playbackEndTime: Date;
   onTimeChange: (time: Date) => void;
   progressFocusTrackId: string | null;
-  onSelectPilotTrack: (trackId: string) => void;
+  onProgressFocusTrack: (trackId: string) => void;
   selectedPilotTrackId: string | null;
   altitudeMin: number;
   altitudeMax: number;
@@ -329,7 +348,7 @@ interface LiveLayerHosts {
 function createPilotNodes(
   track: EnrichedFlightTrack,
   trophyHref: string,
-  onSelect: (trackId: string) => void,
+  onToggleProgressFocus: (trackId: string) => void,
 ): LivePilotNodes {
   const pilotGroup = createSvgElement('g');
   pilotGroup.setAttribute('class', 'chart-pilot-marker');
@@ -404,13 +423,14 @@ function createPilotNodes(
   futureTrailPath.setAttribute('visibility', 'hidden');
   futureTrailPath.setAttribute('stroke-dasharray', '0 1');
 
-  const select = (event: Event) => {
+  const toggleProgressFocus = (event: Event) => {
     event.stopPropagation();
     event.preventDefault();
-    onSelect(track.id);
+    onToggleProgressFocus(track.id);
   };
-  pilotGroup.addEventListener('click', select);
-  maxGroup.addEventListener('click', select);
+  pilotCircle.addEventListener('click', toggleProgressFocus);
+  pilotLabel.addEventListener('click', toggleProgressFocus);
+  pilotTrophy.addEventListener('click', toggleProgressFocus);
 
   return {
     trackId: track.id,
@@ -486,7 +506,7 @@ interface ChartLiveSettings {
   pausedTime: Date;
   suspendLiveUpdates: boolean;
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
-  onPilotSelectRef: RefObject<(trackId: string) => void>;
+  onProgressFocusRef: RefObject<(trackId: string) => void>;
   onProgressPercentRef: RefObject<(progressPercent: number) => void>;
 }
 
@@ -521,7 +541,7 @@ function ChartLiveLayer({
   pausedTime,
   suspendLiveUpdates,
   taskProgressMarkerRef,
-  onPilotSelectRef,
+  onProgressFocusRef,
   onProgressPercentRef,
   xAxisMap,
   yAxisMap,
@@ -672,7 +692,7 @@ function ChartLiveLayer({
       let entry = pool.get(track.id);
       if (!entry) {
         entry = createPilotNodes(track, trophyHref, (trackId) =>
-          onPilotSelectRef.current?.(trackId),
+          onProgressFocusRef.current?.(trackId),
         );
         pool.set(track.id, entry);
       }
@@ -694,7 +714,7 @@ function ChartLiveLayer({
     }
 
     entriesRef.current = ordered;
-  }, [enrichedTracks, onPilotSelectRef, trophyId, syncFutureTrailPathD]);
+  }, [enrichedTracks, onProgressFocusRef, trophyId, syncFutureTrailPathD]);
 
   useEffect(() => {
     const pool = poolRef.current;
@@ -926,18 +946,13 @@ function ChartLiveLayer({
           setVisibility(entry.pilotAltLabel, true);
 
           const modeState = getFlyingModeStateAtTime(entry.track.flyingModeTimeline, time);
-          const modeLine = formatFlyingModeMapLine(modeState, framePreferences);
-          const modeFill =
-            modeState?.mode === 'circling' ? CHART_PILOT_MODE_CIRCLING : CHART_PILOT_MODE_GLIDE;
-          if (entry.writtenModeLine !== modeLine) {
-            entry.writtenModeLine = modeLine;
-            entry.pilotModeLabel.textContent = modeLine;
+          const modeSegments = flyingModeLabelSegments(modeState, framePreferences);
+          const modeKey = flyingModeLabelSegmentsKey(modeSegments);
+          if (entry.writtenModeLine !== modeKey) {
+            entry.writtenModeLine = modeKey;
+            applySvgTextSegments(entry.pilotModeLabel, modeSegments);
           }
-          if (entry.writtenModeFill !== modeFill) {
-            entry.writtenModeFill = modeFill;
-            entry.pilotModeLabel.setAttribute('fill', modeFill);
-          }
-          if (modeLine) {
+          if (modeSegments.length > 0) {
             setVisibility(entry.pilotModeLabel, true);
           } else {
             setVisibility(entry.pilotModeLabel, false);
@@ -1353,7 +1368,7 @@ export const AltitudeChart = memo(function AltitudeChart({
   playbackEndTime,
   onTimeChange,
   progressFocusTrackId,
-  onSelectPilotTrack,
+  onProgressFocusTrack,
   selectedPilotTrackId,
   altitudeMin,
   altitudeMax,
@@ -1826,8 +1841,8 @@ export const AltitudeChart = memo(function AltitudeChart({
     setTaggedProgressPercent(progressPercent);
   }, [turnpoints, startTurnpointNumber, goalTurnpointNumber]);
 
-  const onPilotSelectRef = useRef(onSelectPilotTrack);
-  onPilotSelectRef.current = onSelectPilotTrack;
+  const onProgressFocusRef = useRef(onProgressFocusTrack);
+  onProgressFocusRef.current = onProgressFocusTrack;
 
   // Recharts clones every child on every render, so the layer settings travel by ref instead
   // of through a closure that would change the <Customized> component identity each frame.
@@ -1850,7 +1865,7 @@ export const AltitudeChart = memo(function AltitudeChart({
     pausedTime,
     suspendLiveUpdates,
     taskProgressMarkerRef,
-    onPilotSelectRef,
+    onProgressFocusRef,
     onProgressPercentRef,
   };
 

@@ -8,6 +8,7 @@ import {
 } from '../src/lib/taskTimeline';
 import type { EnrichedFlightTrack, EnrichedTrackPoint } from '../src/lib/taskProgress';
 import { computeFlyingModeTimeline } from '../src/lib/flyingMode';
+import { EMPTY_PILOT_VERIFICATION } from './helpers/emptyVerification';
 import { createDefaultPreferences } from '../src/lib/preferences';
 
 const TASK_START_MS = Date.UTC(2026, 0, 1, 12, 0, 0);
@@ -46,6 +47,8 @@ function buildTrack(id: string, percentPerSecond: number, seconds: number): Enri
         turnRateDegPerS: createDefaultPreferences().circlingTurnRateDegPerS,
       },
     ),
+    verification: EMPTY_PILOT_VERIFICATION,
+    nextTurnpointMilestones: [],
   };
 }
 

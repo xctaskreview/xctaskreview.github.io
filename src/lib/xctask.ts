@@ -1,5 +1,6 @@
 import type { EditableTurnpointRow, LatLon, OptimizedRoute, RoutePoint, TaskEditDraft, Turnpoint, TurnpointTypeOption, XcTask } from './types';
 import { computeOptimizedRoute } from './route';
+import { adjustProgressDistancesForSssCylinderExit } from './taskMapStyle';
 import { haversine, parseIsoDate, parseLocalTimeOnDate, parseUtcTimeOnDate } from './geo';
 import { getBrowserTimeZone } from './taskTimezone';
 
@@ -397,14 +398,18 @@ export function getStartIndex(task: XcTask): number {
   return 0;
 }
 
-export function getGoalIndex(task: XcTask): number {
+export function getEssTurnpointIndex(task: XcTask): number | null {
+  const essIndex = task.turnpoints.findIndex((tp) => tp.type === 'ESS');
+  if (essIndex >= 0) return essIndex;
   const esSuffixIndex = task.turnpoints.findIndex((tp) =>
     isEndTurnpointLabel(getTurnpointLabel(tp)),
   );
-  if (esSuffixIndex >= 0) return esSuffixIndex;
-  const essIndex = task.turnpoints.findIndex((tp) => tp.type === 'ESS');
-  if (essIndex >= 0) return essIndex;
-  return task.turnpoints.length - 1;
+  return esSuffixIndex >= 0 ? esSuffixIndex : null;
+}
+
+/** Index of the goal turnpoint (last control in a classic race task). */
+export function getGoalIndex(task: XcTask): number {
+  return Math.max(0, task.turnpoints.length - 1);
 }
 
 export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
@@ -420,6 +425,7 @@ export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
 
   const startIndex = getStartIndex(task);
   const goalIndex = getGoalIndex(task);
+  const essTurnpointIndex = getEssTurnpointIndex(task);
 
   const progressPoints = fixes.slice(startIndex, goalIndex + 1);
   const progressLegDistances = legDistances.slice(startIndex, goalIndex);
@@ -427,8 +433,7 @@ export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
   for (const leg of progressLegDistances) {
     progressCumulativeDistances.push(progressCumulativeDistances[progressCumulativeDistances.length - 1] + leg);
   }
-  const progressGoalApproachDistance =
-    goalIndex < legDistances.length ? (legDistances[goalIndex] ?? 0) : 0;
+  const progressGoalApproachDistance = 0;
   const progressTotalDistance =
     progressCumulativeDistances[progressCumulativeDistances.length - 1] + progressGoalApproachDistance;
 
@@ -446,7 +451,7 @@ export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
   const sssTp = task.turnpoints[startIndex];
   const goalTp = task.turnpoints[goalIndex];
 
-  return {
+  const route: OptimizedRoute = {
     points: fixes,
     legDistances,
     totalDistance,
@@ -459,26 +464,51 @@ export function buildOptimizedRoute(task: XcTask): OptimizedRoute {
     progressTurnpoints,
     sssIndex: startIndex,
     goalIndex,
+    essTurnpointIndex,
     sssCenter: { lat: sssTp.waypoint.lat, lon: sssTp.waypoint.lon },
     sssRadius: sssTp.radius,
     goalCenter: { lat: goalTp.waypoint.lat, lon: goalTp.waypoint.lon },
     goalRadius: goalTp.radius,
   };
+
+  adjustProgressDistancesForSssCylinderExit(route);
+  return route;
 }
 
-export function getTaskStartTime(task: XcTask, referenceDate: Date): Date | undefined {
-  const gate = task.sss?.timeGates?.[0];
-  if (!gate) return undefined;
+export function parseTaskTimeOnReferenceDate(
+  timeGate: string,
+  task: XcTask,
+  referenceDate: Date,
+): Date | undefined {
+  const trimmedGate = timeGate.trim();
+  if (!trimmedGate) return undefined;
 
-  const trimmedGate = gate.trim();
-  const date =
-    task.eventDate !== undefined ? parseIsoDate(task.eventDate) : referenceDate;
+  const date = task.eventDate !== undefined ? parseIsoDate(task.eventDate) : referenceDate;
 
   if (/Z$/i.test(trimmedGate)) {
     return parseUtcTimeOnDate(trimmedGate, date);
   }
 
   return parseLocalTimeOnDate(trimmedGate, date, resolveTaskTimeZone(task));
+}
+
+export function getTaskStartGateTimes(task: XcTask, referenceDate: Date): Date[] {
+  const gates = task.sss?.timeGates ?? [];
+  return gates
+    .map((gate) => parseTaskTimeOnReferenceDate(gate, task, referenceDate))
+    .filter((time): time is Date => time !== undefined)
+    .sort((a, b) => a.getTime() - b.getTime());
+}
+
+export function getTaskDeadlineTime(task: XcTask, referenceDate: Date): Date | undefined {
+  const deadline = task.goal?.deadline?.trim();
+  if (!deadline) return undefined;
+  return parseTaskTimeOnReferenceDate(deadline, task, referenceDate);
+}
+
+export function getTaskStartTime(task: XcTask, referenceDate: Date): Date | undefined {
+  const gates = getTaskStartGateTimes(task, referenceDate);
+  return gates[0];
 }
 
 export function getUniqueTurnpointCircles(task: XcTask): RoutePoint[] {
