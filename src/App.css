@@ -451,12 +451,64 @@ button.app-home-link {
 .welcome-title {
   margin: 0 0 12px;
   font-size: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .welcome-title .app-home-link {
-  gap: 10px;
+  gap: 12px;
   font-size: inherit;
   font-weight: inherit;
+  min-width: 0;
+  flex: 1;
+}
+
+.welcome-title .app-home-link .ui-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.welcome-title-install {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+  width: auto;
+  padding: 0 12px 0 10px;
+  margin: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #2563eb;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.welcome-title-install-label {
+  white-space: nowrap;
+}
+
+.welcome-title-install .ui-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.welcome-title-install:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.welcome-install-hint {
+  margin: -4px 0 12px;
+  max-width: none;
+  text-align: left;
 }
 
 .welcome-lead {
@@ -858,10 +910,8 @@ button.welcome-task-name.welcome-task-editable {
   font-size: 0.95rem;
 }
 
-.welcome-task-file {
+.welcome-task-speed-section {
   margin-top: 6px;
-  color: #94a3b8;
-  font-size: 0.85rem;
 }
 
 .welcome-task-edit {
@@ -1078,7 +1128,8 @@ html.turnpoint-drag-active .welcome-scroll {
   border-color: #93c5fd;
 }
 
-.welcome-task-edit-type-trigger.goal {
+.welcome-task-edit-type-trigger.goal,
+.welcome-task-edit-type-trigger.ess {
   color: #dc2626;
   background: #fef2f2;
   border-color: #fca5a5;
@@ -1127,7 +1178,8 @@ html.turnpoint-drag-active .welcome-scroll {
   box-shadow: inset 0 0 0 2px #2563eb;
 }
 
-.welcome-task-edit-type-option.goal.selected {
+.welcome-task-edit-type-option.goal.selected,
+.welcome-task-edit-type-option.ess.selected {
   background: #fef2f2;
   box-shadow: inset 0 0 0 2px #dc2626;
 }
@@ -1165,7 +1217,9 @@ html.turnpoint-drag-active .welcome-scroll {
 }
 
 .welcome-task-edit-type-icon.goal,
-.welcome-task-edit-type-letter.goal {
+.welcome-task-edit-type-letter.goal,
+.welcome-task-edit-type-icon.ess,
+.welcome-task-edit-type-letter.ess {
   color: #dc2626;
   background: rgba(220, 38, 38, 0.1);
   box-shadow: inset 0 0 0 1.5px rgba(220, 38, 38, 0.45);
@@ -1255,9 +1309,22 @@ html.turnpoint-drag-active .welcome-scroll {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   background: white;
+  font: inherit;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
   font-weight: 500;
   color: #0f172a;
   min-width: 8.5rem;
+}
+
+.welcome-task-edit-start input::-webkit-datetime-edit,
+.welcome-task-edit-start input::-webkit-datetime-edit-fields-wrapper,
+.welcome-task-edit-start input::-webkit-datetime-edit-hour-field,
+.welcome-task-edit-start input::-webkit-datetime-edit-minute-field,
+.welcome-task-edit-start input::-webkit-datetime-edit-second-field,
+.welcome-task-edit-start input::-webkit-datetime-edit-ampm-field {
+  font: inherit;
+  font-variant-numeric: tabular-nums;
 }
 
 .welcome-task-edit-timezone {
@@ -2486,6 +2553,12 @@ html.turnpoint-drag-active .welcome-scroll {
 
 .time-controls-row .slider-shell {
   order: 4;
+  flex: 1;
+  min-width: 0;
+}
+
+.time-controls-row .time-controls-edit-button {
+  order: 6;
 }
 
 .time-controls-row .current-time-block {
@@ -3917,6 +3990,15 @@ button.app-home-link.time-controls-home-link:hover {
     margin-bottom: 8px;
   }
 
+  .welcome-title-install {
+    width: 36px;
+    padding: 0;
+  }
+
+  .welcome-title-install-label {
+    display: none;
+  }
+
   .welcome-lead {
     margin-bottom: 12px;
     font-size: 0.95rem;
@@ -4154,10 +4236,15 @@ button.app-home-link.time-controls-home-link:hover {
     margin-left: auto;
   }
 
+  .time-controls-toolbar .time-controls-edit-button {
+    flex-shrink: 0;
+  }
+
   .time-controls-row .play-button,
   .time-controls-row .speed-control,
   .time-controls-row .slider-shell,
   .time-controls-row .current-time-block,
+  .time-controls-row .time-controls-edit-button,
   .time-controls-review-nav {
     order: unset;
   }

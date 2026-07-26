@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  ANDROID_INSTALL_HINT,
+  GENERIC_INSTALL_HINT,
   IOS_INSTALL_HINT,
   canPromptNativeInstall,
+  isAndroidDevice,
   isIosDevice,
   isStandaloneApp,
   promptNativeInstall,
-  subscribeToInstallPrompt,
 } from './pwaInstall';
 
 export function usePwaInstall() {
   const [installed, setInstalled] = useState(() => isStandaloneApp());
-  const [nativeInstallReady, setNativeInstallReady] = useState(canPromptNativeInstall);
   const [hint, setHint] = useState<string | null>(null);
 
   useEffect(() => {
@@ -19,15 +20,15 @@ export function usePwaInstall() {
       return;
     }
 
-    return subscribeToInstallPrompt(() => {
-      setNativeInstallReady(true);
-    });
+    const onInstalled = () => setInstalled(true);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => window.removeEventListener('appinstalled', onInstalled);
   }, []);
 
   const handleInstallClick = useCallback(async () => {
     setHint(null);
 
-    if (nativeInstallReady && canPromptNativeInstall()) {
+    if (canPromptNativeInstall()) {
       const accepted = await promptNativeInstall();
       if (accepted) {
         setInstalled(true);
@@ -40,8 +41,13 @@ export function usePwaInstall() {
       return;
     }
 
-    setHint('Install is not available in this browser yet. Try Chrome or Edge on desktop or Android.');
-  }, [nativeInstallReady]);
+    if (isAndroidDevice()) {
+      setHint(ANDROID_INSTALL_HINT);
+      return;
+    }
+
+    setHint(GENERIC_INSTALL_HINT);
+  }, []);
 
   return { installed, hint, handleInstallClick };
 }

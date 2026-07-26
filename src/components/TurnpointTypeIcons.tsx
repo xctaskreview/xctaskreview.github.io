@@ -10,6 +10,14 @@ export function TurnpointStartIcon({ className }: TurnpointTypeLetterProps) {
   );
 }
 
+export function TurnpointEssIcon({ className }: TurnpointTypeLetterProps) {
+  return (
+    <span className={['welcome-task-edit-type-letter', className].filter(Boolean).join(' ')} aria-hidden="true">
+      E
+    </span>
+  );
+}
+
 export function TurnpointGoalIcon({ className }: TurnpointTypeLetterProps) {
   return (
     <span className={['welcome-task-edit-type-letter', className].filter(Boolean).join(' ')} aria-hidden="true">

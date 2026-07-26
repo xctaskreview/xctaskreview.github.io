@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Clock, Flag, Gauge, Pause, PencilLine, Play, Timer, Trophy } from 'lucide-react';
+import { ArrowLeft, Clock, Flag, Gauge, Pause, Play, Timer, Trophy } from 'lucide-react';
 import { formatDuration, formatTime } from '../lib/geo';
 import type { TurnpointReachMarker } from '../lib/taskProgressMarker';
 import type { TaskTiming } from '../lib/types';
@@ -124,14 +124,6 @@ export function TimeControls({
           {onEdit && (
             <div className="time-controls-review-nav">
               <AppHomeLink className="time-controls-home-link" iconSize="sm" onOpenMenu={onOpenAppMenu} />
-              <button
-                type="button"
-                className="time-controls-edit-button"
-                aria-label="Edit task"
-                onClick={onEdit}
-              >
-                <Icon icon={PencilLine} size="sm" />
-              </button>
             </div>
           )}
           <button
@@ -176,6 +168,17 @@ export function TimeControls({
               </div>
             )}
           </div>
+
+          {onEdit && (
+            <button
+              type="button"
+              className="time-controls-edit-button"
+              aria-label="Back to task"
+              onClick={onEdit}
+            >
+              <Icon icon={ArrowLeft} size="sm" />
+            </button>
+          )}
         </div>
 
         <div className="slider-shell">

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { EditableTurnpointRow, TurnpointTypeOption } from '../lib/types';
 import { canOfferGoalType, canOfferStartType } from '../lib/xctask';
-import { TurnpointGoalIcon, TurnpointStartIcon } from './TurnpointTypeIcons';
+import { TurnpointEssIcon, TurnpointStartIcon } from './TurnpointTypeIcons';
 
 interface TurnpointTypePickerProps {
   turnpointIndex: number;
@@ -49,7 +49,7 @@ export function TurnpointTypePicker({
     <div className="welcome-task-edit-type-picker-wrap" ref={wrapRef}>
       <button
         type="button"
-        className={`welcome-task-edit-type-trigger${value === 'SSS' ? ' start' : ''}${value === 'ESS' ? ' goal' : ''}`}
+        className={`welcome-task-edit-type-trigger${value === 'SSS' ? ' start' : ''}${value === 'ESS' ? ' ess' : ''}`}
         aria-expanded={open}
         aria-haspopup="true"
         aria-label={`Turnpoint ${turnpointIndex + 1} type`}
@@ -58,7 +58,7 @@ export function TurnpointTypePicker({
         {value === 'SSS' ? (
           <TurnpointStartIcon className="start" />
         ) : value === 'ESS' ? (
-          <TurnpointGoalIcon className="goal" />
+          <TurnpointEssIcon className="ess" />
         ) : (
           <span className="welcome-task-edit-type-none" aria-hidden="true">
             —
@@ -97,12 +97,12 @@ export function TurnpointTypePicker({
           {showGoal && (
             <button
               type="button"
-              className={`welcome-task-edit-type-option goal${value === 'ESS' ? ' selected' : ''}`}
+              className={`welcome-task-edit-type-option ess${value === 'ESS' ? ' selected' : ''}`}
               aria-pressed={value === 'ESS'}
-              aria-label="Goal turnpoint"
+              aria-label="ESS turnpoint"
               onClick={() => apply('ESS')}
             >
-              <TurnpointGoalIcon className="goal" />
+              <TurnpointEssIcon className="ess" />
             </button>
           )}
         </div>

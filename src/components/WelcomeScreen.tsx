@@ -11,6 +11,7 @@ import {
   MapPinned,
   Save,
   Search,
+  Smartphone,
   Trash2,
   Users,
   X,
@@ -19,8 +20,13 @@ import { extractGliderType, extractPilotDisplayName, extractPilotFileName } from
 import type { CivlImportResult } from '../lib/civl';
 import type { XcdemonImportResult } from '../lib/xcdemon';
 import type { TaskHistoryEntry } from '../lib/taskHistory';
-import { getTaskDisplayInfo } from '../lib/xctask';
+import {
+  buildOptimizedRoute,
+  getTaskDisplayInfo,
+  getTaskScoringDistanceM,
+} from '../lib/xctask';
 import type { AppPreferences } from '../lib/preferences';
+import { formatDistanceValue } from '../lib/preferences';
 import { AppHomeLink } from './AppHomeLink';
 import { CivlImportDialog } from './CivlImportDialog';
 import { FileDropZone } from './FileDropZone';
@@ -28,6 +34,7 @@ import { CivlButtonContent, Icon, IconButtonContent, XcdemonButtonContent } from
 import { TaskEditForm } from './TaskEditForm';
 import { TaskHistoryDialog } from './TaskHistoryDialog';
 import { XcdemonImportDialog } from './XcdemonImportDialog';
+import { usePwaInstall } from '../lib/usePwaInstall';
 
 interface WelcomeScreenProps {
   task: XcTask | null;
@@ -106,6 +113,14 @@ export function WelcomeScreen({
   const taskDisplay = task ? getTaskDisplayInfo(task, taskFileName) : null;
   const displayedLocation = taskLocationLabel ?? task?.location ?? '';
 
+  const speedSectionKm = useMemo(() => {
+    if (!task) return null;
+    const scoringM = getTaskScoringDistanceM(buildOptimizedRoute(task));
+    return scoringM > 0 ? scoringM / 1000 : null;
+  }, [task]);
+
+  const speedSectionUnitLabel = preferences.distanceUnit === 'mi' ? 'mi' : 'km';
+
   const beginTaskFieldEdit = (field: 'name' | 'location') => {
     if (!task || !taskDisplay) return;
     setEditingTaskField(field);
@@ -152,6 +167,7 @@ export function WelcomeScreen({
   const noneFilteredSelected =
     filteredTrackIds.length > 0 && filteredTrackIds.every((id) => !enabledTrackIds.has(id));
   const someFilteredSelected = !allFilteredSelected && !noneFilteredSelected;
+  const { installed, hint, handleInstallClick } = usePwaInstall();
 
   return (
     <div className="welcome-screen">
@@ -159,7 +175,20 @@ export function WelcomeScreen({
         <div className="welcome-card">
         <h1 className="welcome-title">
           <AppHomeLink iconSize="md" onOpenMenu={onOpenAppMenu} />
+          {!installed && (
+            <button
+              type="button"
+              className="welcome-title-install"
+              aria-label="Install app"
+              title="Install app"
+              onClick={() => void handleInstallClick()}
+            >
+              <Icon icon={Smartphone} size="sm" />
+              <span className="welcome-title-install-label">Install app</span>
+            </button>
+          )}
         </h1>
+        {hint && <p className="app-install-hint welcome-install-hint">{hint}</p>}
         <p className="welcome-lead">
           Load a competition task and competitor tracklogs to replay the race on a shared timeline.
         </p>
@@ -300,8 +329,11 @@ export function WelcomeScreen({
                     {displayedLocation || 'Add location'}
                   </button>
                 )}
-                {taskFileName && taskDisplay.name !== taskFileName.replace(/\.(xctsk|json)$/i, '') && (
-                  <div className="welcome-task-file">{taskFileName}</div>
+                {speedSectionKm !== null && (
+                  <div className="welcome-task-meta welcome-task-speed-section">
+                    Speed section:{' '}
+                    {formatDistanceValue(speedSectionKm, preferences.distanceUnit)} {speedSectionUnitLabel}
+                  </div>
                 )}
                 <TaskEditForm
                   task={task}

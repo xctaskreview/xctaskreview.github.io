@@ -3,6 +3,25 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+let deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
+const installPromptListeners = new Set<() => void>();
+
+function notifyInstallPromptAvailable(): void {
+  installPromptListeners.forEach((listener) => listener());
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event as BeforeInstallPromptEvent;
+    notifyInstallPromptAvailable();
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+  });
+}
+
 export function isStandaloneApp(): boolean {
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
@@ -10,41 +29,32 @@ export function isStandaloneApp(): boolean {
   );
 }
 
-export function isIosDevice(): boolean {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+export function isIosDevice(userAgent: string = navigator.userAgent): boolean {
+  return /iphone|ipad|ipod/i.test(userAgent);
+}
+
+export function isAndroidDevice(userAgent: string = navigator.userAgent): boolean {
+  return /android/i.test(userAgent);
 }
 
 export function registerServiceWorker(): void {
   if (!('serviceWorker' in navigator)) return;
 
-  window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js').catch(() => {
-      // Ignore registration failures in unsupported contexts.
-    });
+  void navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {
+    // Ignore registration failures in unsupported contexts.
   });
 }
 
 export function subscribeToInstallPrompt(onAvailable: () => void): () => void {
-  const handleBeforeInstallPrompt = (event: Event) => {
-    event.preventDefault();
-    deferredInstallPrompt = event as BeforeInstallPromptEvent;
+  installPromptListeners.add(onAvailable);
+  if (deferredInstallPrompt) {
     onAvailable();
-  };
-
-  const handleAppInstalled = () => {
-    deferredInstallPrompt = null;
-  };
-
-  window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-  window.addEventListener('appinstalled', handleAppInstalled);
+  }
 
   return () => {
-    window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.removeEventListener('appinstalled', handleAppInstalled);
+    installPromptListeners.delete(onAvailable);
   };
 }
-
-let deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
 
 export function canPromptNativeInstall(): boolean {
   return deferredInstallPrompt !== null;
@@ -61,3 +71,9 @@ export async function promptNativeInstall(): Promise<boolean> {
 
 export const IOS_INSTALL_HINT =
   'On iPhone or iPad: tap Share in Safari, then choose “Add to Home Screen”.';
+
+export const ANDROID_INSTALL_HINT =
+  'To install: open Chrome’s menu (⋮), then tap “Install app” or “Add to Home screen”.';
+
+export const GENERIC_INSTALL_HINT =
+  'Install is not available in this browser yet. Use Chrome or Edge on desktop or Android, or add this page to your home screen from the browser menu.';
