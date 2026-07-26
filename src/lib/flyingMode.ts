@@ -261,7 +261,6 @@ export function computeFlyingModeTimeline(
   let mode: FlyingMode = 'glide';
   let circlingStartMs = startTimeMs;
   let circlingStartAlt = points[0].displayAlt;
-  let glideStartMs = startTimeMs;
   let glideStartAlt = points[0].displayAlt;
   let glideStartDist = points[0].cumulativeDistanceM;
 
@@ -297,7 +296,6 @@ export function computeFlyingModeTimeline(
         circlingStartMs = timeMs;
         circlingStartAlt = sample.displayAlt;
       } else {
-        glideStartMs = timeMs;
         glideStartAlt = sample.displayAlt;
         glideStartDist = sample.cumulativeDistanceM;
       }
