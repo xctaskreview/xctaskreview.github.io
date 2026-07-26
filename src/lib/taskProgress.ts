@@ -311,6 +311,11 @@ export function formatTurnpointRadiusParenthetical(radiusM: number | null | unde
   return ` (${Math.round(radiusM)} m)`;
 }
 
+export function formatTurnpointRadiusLabel(radiusM: number | null | undefined): string | null {
+  if (radiusM == null || !Number.isFinite(radiusM) || radiusM <= 0) return null;
+  return `${Math.round(radiusM)} m`;
+}
+
 export function formatNextTurnpointLabel(name: string, number: number | null | undefined): string {
   if (!name || name === '—') return '—';
   if (name === 'Goal') return 'Goal';

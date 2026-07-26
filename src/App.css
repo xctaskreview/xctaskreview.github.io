@@ -2295,6 +2295,24 @@ html.turnpoint-drag-active .welcome-scroll {
   transform: translateY(-50%);
 }
 
+.turnpoint-next-badge {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow:
+    -1px -1px 0 rgba(255, 255, 255, 0.95),
+    1px -1px 0 rgba(255, 255, 255, 0.95),
+    -1px 1px 0 rgba(255, 255, 255, 0.95),
+    1px 1px 0 rgba(255, 255, 255, 0.95);
+}
+
 .turnpoint-label {
   position: absolute;
   top: 50%;
@@ -3526,7 +3544,9 @@ button.app-home-link.time-controls-home-link:hover {
 
 .scoreboard-row.pilot-hidden .scoreboard-glider,
 .scoreboard-row.pilot-hidden .scoreboard-muted,
-.scoreboard-row.pilot-hidden .scoreboard-next-tp-name {
+.scoreboard-row.pilot-hidden .scoreboard-next-tp-number,
+.scoreboard-row.pilot-hidden .scoreboard-next-tp-name,
+.scoreboard-row.pilot-hidden .scoreboard-next-tp-radius {
   color: #cbd5e1;
 }
 
@@ -3612,6 +3632,23 @@ button.app-home-link.time-controls-home-link:hover {
   min-width: 0;
 }
 
+.scoreboard-next-tp-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.scoreboard-next-tp-number {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1.15;
+}
+
 .scoreboard-task-inner {
   display: flex;
   flex-direction: column;
@@ -3684,6 +3721,14 @@ button.app-home-link.time-controls-home-link:hover {
   font-size: 0.78rem;
   font-weight: 600;
   color: #334155;
+}
+
+.scoreboard-next-tp-radius {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.15;
 }
 
 .scoreboard-muted {

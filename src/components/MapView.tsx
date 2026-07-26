@@ -137,17 +137,17 @@ function TurnpointCircle({
     if (!layer || !layerRefs.current) return;
 
     layerRefs.current.circles.set(key, layer);
+    layer.setStyle(getTurnpointCirclePathOptions(circle, route, false));
     return () => {
       layerRefs.current?.circles.delete(key);
     };
-  }, [key, layerRefs]);
+  }, [key, layerRefs, circle, route]);
 
   return (
     <Circle
       ref={circleRef}
       center={[circle.lat, circle.lon]}
       radius={circle.radius}
-      pathOptions={getTurnpointCirclePathOptions(circle, route, false)}
     >
       <Popup>{formatTurnpointPopup(circle, route, reachMarker, taskStart, distanceUnit)}</Popup>
     </Circle>

@@ -5,7 +5,6 @@ import {
   COMPLETED_LEG_WEIGHT,
   DEFAULT_TURNPOINT_COLOR,
   GOAL_COLOR,
-  LANDING_COLOR,
   NEXT_TURNPOINT_FILL_OPACITY,
   PROGRESS_INDICATOR_OPACITY,
   PROGRESS_INDICATOR_WEIGHT,
@@ -202,31 +201,31 @@ const LEGEND_ITEMS: LegendItem[] = [
   {
     key: 'start',
     label: 'Start (SSS)',
-    description: 'Start cylinder',
+    description: 'Start of speed section',
     swatch: <TurnpointCircleSwatch color={START_COLOR} />,
   },
   {
     key: 'ess',
-    label: 'ESS / Goal',
-    description: 'End-of-speed-section or goal cylinder',
+    label: 'End (ESS)',
+    description: 'End of speed section',
     swatch: <TurnpointCircleSwatch color={GOAL_COLOR} />,
   },
   {
     key: 'tp',
     label: 'Turnpoint',
-    description: 'Standard turnpoint cylinder and marker',
+    description: '',
     swatch: <TurnpointCircleSwatch color={DEFAULT_TURNPOINT_COLOR} showCross />,
   },
   {
     key: 'completed-tp',
-    label: 'Completed turnpoint',
-    description: 'Turnpoint already reached by the field',
+    label: 'Tagged turnpoint',
+    description: "Leader's tagged TP",
     swatch: <TurnpointCircleSwatch color={TASK_PROGRESS_LINE_COLOR} showCross />,
   },
   {
     key: 'next-tp',
     label: 'Next turnpoint',
-    description: 'Leader’s upcoming turnpoint',
+    description: "Leader's next turnpoint",
     swatch: (
       <TurnpointCircleSwatch
         color={DEFAULT_TURNPOINT_COLOR}
@@ -249,37 +248,10 @@ const LEGEND_ITEMS: LegendItem[] = [
     ),
   },
   {
-    key: 'completed-leg',
-    label: 'Completed leg',
-    description: 'Leg that was completed',
-    swatch: (
-      <RouteLineSwatch
-        color={ROUTE_LEG_COLOR}
-        weight={ROUTE_LEG_WEIGHT}
-        dashArray={ROUTE_DASH_ARRAY}
-        backgroundColor={TASK_PROGRESS_LINE_COLOR}
-        backgroundWeight={COMPLETED_LEG_WEIGHT}
-        backgroundOpacity={COMPLETED_LEG_OPACITY}
-      />
-    ),
-  },
-  {
     key: 'progress',
     label: 'Progress indicator',
-    description: "Leader's progress along leg",
+    description: "Leader's task progress",
     swatch: <ProgressIndicatorSwatch />,
-  },
-  {
-    key: 'non-task-tp',
-    label: 'Out-of-task turnpoint',
-    description: 'Turnpoint before start or after goal',
-    swatch: (
-      <TurnpointCircleSwatch
-        color={LANDING_COLOR}
-        dashArray={ROUTE_DASH_ARRAY}
-        showCross
-      />
-    ),
   },
 ];
 
@@ -306,7 +278,9 @@ export function MapLegend() {
                 <div className="map-legend-swatch">{item.swatch}</div>
                 <div className="map-legend-copy">
                   <span className="map-legend-label">{item.label}</span>
-                  <span className="map-legend-description">{item.description}</span>
+                  {item.description ? (
+                    <span className="map-legend-description">{item.description}</span>
+                  ) : null}
                 </div>
               </li>
             ))}

@@ -19,6 +19,7 @@ import type { CompetitorSnapshot } from '../lib/types';
 import { Icon } from './Icon';
 import { LeaderboardMetricLabel } from './LeaderboardMetricLabel';
 import { sortScoreboardEntriesForDisplay, type ScoreboardEntry } from '../lib/scoreboardDisplay';
+import { formatTurnpointRadiusLabel } from '../lib/taskProgress';
 
 const UPDATE_INTERVAL_MS = 1000;
 const ROW_HEIGHT = 56;
@@ -206,6 +207,7 @@ export function Scoreboard({
             const visible = enabledTrackIds.has(entry.id);
             const isSelected = selectedPilotTrackId === entry.id;
 
+            const nextTpRadius = formatTurnpointRadiusLabel(entry.nextTurnpointRadiusM);
             return (
               <div
                 key={entry.id}
@@ -290,8 +292,20 @@ export function Scoreboard({
                   {formatVerticalSpeedValue(entry.verticalSpeedMps, preferences.verticalSpeedUnit)}
                 </span>
                 <span className="scoreboard-cell scoreboard-next-tp" role="cell">
-                  <span className="scoreboard-next-tp-name">
-                    {entry.nextTurnpointName ?? '—'}
+                  <span className="scoreboard-next-tp-inner">
+                    {!entry.nextTurnpointName || entry.nextTurnpointName === '—' ? (
+                      <span className="scoreboard-next-tp-name">—</span>
+                    ) : (
+                      <>
+                        {entry.nextTurnpointNumber != null && (
+                          <span className="scoreboard-next-tp-number">{entry.nextTurnpointNumber}</span>
+                        )}
+                        <span className="scoreboard-next-tp-name">{entry.nextTurnpointName}</span>
+                        {nextTpRadius && (
+                          <span className="scoreboard-next-tp-radius">{nextTpRadius}</span>
+                        )}
+                      </>
+                    )}
                   </span>
                 </span>
               </div>

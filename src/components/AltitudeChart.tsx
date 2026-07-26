@@ -61,7 +61,7 @@ import { getPilotMaxProgressAtTime, getTrackSnapshotAtTime, resolveSeekTimeForTa
 import type { TaskFieldTimeline } from '../lib/taskTimeline';
 import { TROPHY_ICON_PATHS, TROPHY_ICON_VIEW_SIZE } from '../lib/trophyIcon';
 import { getTrackColor } from '../lib/tracks';
-import { GOAL_COLOR, START_COLOR, TASK_PROGRESS_LINE_COLOR } from '../lib/taskMapStyle';
+import { DEFAULT_TURNPOINT_COLOR, START_COLOR, TASK_PROGRESS_LINE_COLOR } from '../lib/taskMapStyle';
 import type { TaskProgressMarker, TurnpointReachMarker } from '../lib/taskProgressMarker';
 import { formatTurnpointHoverLabel } from '../lib/turnpointTooltip';
 import type { OptimizedRoute, ProgressTurnpoint } from '../lib/types';
@@ -1945,7 +1945,7 @@ export const AltitudeChart = memo(function AltitudeChart({
               const strokeColor = isStart
                 ? START_COLOR
                 : isGoal
-                  ? GOAL_COLOR
+                  ? DEFAULT_TURNPOINT_COLOR
                   : tagged
                     ? TASK_PROGRESS_LINE_COLOR
                     : '#64748b';

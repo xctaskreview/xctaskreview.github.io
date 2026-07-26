@@ -63,7 +63,7 @@ export function isNonTaskTurnpoint(circle: RoutePoint, route: OptimizedRoute): b
 }
 
 export function getDefaultTurnpointColor(circle: RoutePoint, route: OptimizedRoute): string {
-  if (matchesGoal(circle, route)) return GOAL_COLOR;
+  if (matchesGoal(circle, route)) return DEFAULT_TURNPOINT_COLOR;
   if (circle.type === 'SSS') return START_COLOR;
   if (circle.type === 'ESS') return GOAL_COLOR;
   if (isNonTaskTurnpoint(circle, route)) return LANDING_COLOR;
@@ -109,12 +109,13 @@ export function getTurnpointCirclePathOptions(
   fillHighlight = false,
   progressColor: string = TASK_PROGRESS_COLOR,
 ): L.PathOptions {
-  const color = getTurnpointColor(circle, route, tagged, progressColor);
-  const highlightNext = fillHighlight && !tagged;
+  const showAsTagged = tagged && !fillHighlight;
+  const color = getTurnpointColor(circle, route, showAsTagged, progressColor);
+  const highlightNext = fillHighlight;
 
   return {
     color,
-    weight: TURNPOINT_CIRCLE_WEIGHT,
+    weight: highlightNext ? TURNPOINT_CIRCLE_WEIGHT + 1 : TURNPOINT_CIRCLE_WEIGHT,
     fillColor: highlightNext ? progressColor : color,
     fillOpacity: highlightNext ? NEXT_TURNPOINT_FILL_OPACITY : TURNPOINT_FILL_OPACITY,
     dashArray: isNonTaskTurnpoint(circle, route) ? ROUTE_DASH_ARRAY : undefined,
@@ -125,6 +126,27 @@ export function turnpointIcon(color: string, name: string): L.DivIcon {
   return L.divIcon({
     className: 'turnpoint-marker-container',
     html: `<div class="turnpoint-marker-column">
+      <div class="turnpoint-cross" style="color:${color}"></div>
+      <span class="turnpoint-label" style="color:${color}">${escapeHtml(name)}</span>
+    </div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+}
+
+export function turnpointNextIcon(
+  color: string,
+  name: string,
+  tpNumber: number | null,
+): L.DivIcon {
+  const badge =
+    tpNumber != null
+      ? `Next · TP ${tpNumber}`
+      : 'Next TP';
+  return L.divIcon({
+    className: 'turnpoint-marker-container turnpoint-marker-next',
+    html: `<div class="turnpoint-marker-column">
+      <span class="turnpoint-next-badge" style="color:${color}">${escapeHtml(badge)}</span>
       <div class="turnpoint-cross" style="color:${color}"></div>
       <span class="turnpoint-label" style="color:${color}">${escapeHtml(name)}</span>
     </div>`,
@@ -149,13 +171,48 @@ export function findCircleForProgressIndex(
   route: OptimizedRoute,
   circles: RoutePoint[],
 ): RoutePoint | undefined {
+  if (progressIndex < 0 || progressIndex >= route.progressTurnpoints.length) {
+    return undefined;
+  }
+
+  const tp = route.progressTurnpoints[progressIndex];
+  const center = route.progressPoints[progressIndex];
+  if (tp && center) {
+    const candidates = circles.filter(
+      (circle) => circle.name === tp.name && circle.radius === tp.radius,
+    );
+    if (candidates.length === 1) {
+      return candidates[0];
+    }
+    if (candidates.length > 1) {
+      let best: RoutePoint | undefined;
+      let bestDistance = Infinity;
+      for (const circle of candidates) {
+        const distance = haversine(circle, center);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = circle;
+        }
+      }
+      if (best) return best;
+    }
+
+    const byGeometry = circles.find(
+      (circle) =>
+        circle.name === tp.name &&
+        circle.radius === tp.radius &&
+        Math.abs(circle.lat - center.lat) < 1e-5 &&
+        Math.abs(circle.lon - center.lon) < 1e-5,
+    );
+    if (byGeometry) return byGeometry;
+  }
+
   for (const circle of circles) {
     if (getProgressIndexForCircle(circle, route) === progressIndex) {
       return circle;
     }
   }
 
-  const tp = route.progressTurnpoints[progressIndex];
   if (tp?.number !== undefined) {
     return circles.find((circle) => circle.number === tp.number);
   }

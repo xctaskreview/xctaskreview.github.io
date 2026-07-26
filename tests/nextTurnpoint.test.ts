@@ -174,4 +174,52 @@ describe('next turnpoint milestones', () => {
         ?.progressIndex,
     ).toBe(1);
   });
+
+  it('counts in-sequence TP enters before the task start gate when advancing next TP', () => {
+    const task = parseXcTask(readFileSync(JAPIRA_FIXTURE, 'utf8'));
+    const route = buildOptimizedRoute(task);
+    const taskStart = getTaskStartTime(task, new Date('2026-03-21T12:00:00.000Z'))!;
+    const taskStartMs = taskStart.getTime();
+    const startIndex = route.sssIndex;
+
+    const tp5Index = startIndex + 4;
+    const enterTp5Ms = taskStartMs - 30_000;
+
+    const milestones = buildPilotNextTurnpointMilestones(
+      {
+        ...EMPTY_PILOT_VERIFICATION,
+        crossings: [
+          {
+            turnpointIndex: startIndex,
+            name: 'JP001',
+            role: 'SSS',
+            direction: 'EXIT',
+            time: new Date(taskStartMs - 120_000),
+            inSequence: true,
+          },
+          {
+            turnpointIndex: tp5Index,
+            name: 'TP5',
+            role: 'TURN',
+            direction: 'ENTER',
+            time: new Date(enterTp5Ms),
+            inSequence: true,
+          },
+        ],
+        sssCrossTime: new Date(taskStartMs - 120_000),
+      },
+      route,
+      taskStartMs,
+    );
+
+    const afterGateMs = taskStartMs + 60_000;
+    const target = lookupPilotNextTurnpointTarget(
+      milestones,
+      route,
+      taskStartMs,
+      afterGateMs,
+    );
+    expect(target?.progressIndex).toBe(5);
+    expect(target?.number).toBe(route.progressTurnpoints[5]?.number);
+  });
 });

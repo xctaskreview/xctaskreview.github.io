@@ -11,6 +11,7 @@ import {
   getTaggedTurnpointProgressIndices,
   getTurnpointCirclePathOptions,
   NEXT_TURNPOINT_FILL_OPACITY,
+  TASK_PROGRESS_LINE_COLOR,
   TURNPOINT_FILL_OPACITY,
 } from '../src/lib/taskMapStyle';
 
@@ -80,11 +81,14 @@ describe('findCircleForProgressIndex', () => {
 });
 
 describe('getTurnpointCirclePathOptions', () => {
-  it('drops next-TP highlight once tagged', () => {
+  it('keeps next-TP highlight styling when the cylinder is also field-tagged', () => {
     const tp = circles.find((c) => c.number === 5)!;
     const highlighted = getTurnpointCirclePathOptions(tp, route, false, true);
-    const tagged = getTurnpointCirclePathOptions(tp, route, true, true);
+    const taggedAndNext = getTurnpointCirclePathOptions(tp, route, true, true);
+    const taggedOnly = getTurnpointCirclePathOptions(tp, route, true, false);
     expect(highlighted.fillOpacity).toBe(NEXT_TURNPOINT_FILL_OPACITY);
-    expect(tagged.fillOpacity).toBe(TURNPOINT_FILL_OPACITY);
+    expect(taggedAndNext.fillOpacity).toBe(NEXT_TURNPOINT_FILL_OPACITY);
+    expect(taggedAndNext.color).toBe(highlighted.color);
+    expect(taggedOnly.color).toBe(TASK_PROGRESS_LINE_COLOR);
   });
 });

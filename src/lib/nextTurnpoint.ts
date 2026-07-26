@@ -61,7 +61,6 @@ export function buildPilotNextTurnpointMilestones(
 
   for (const crossing of verification.crossings) {
     if (!crossing.inSequence) continue;
-    if (crossing.time.getTime() < taskStartMs) continue;
 
     if (crossing.role === 'SSS') continue;
 
@@ -186,6 +185,10 @@ export function resolveMapNextTurnpointCircle(
   target: NextTurnpointTarget | null,
 ): RoutePoint | undefined {
   if (!target) return undefined;
+
+  const byProgress = findCircleForProgressIndex(target.progressIndex, route, circles);
+  if (byProgress) return byProgress;
+
   if (target.number != null) {
     const byNumber = circles.find((circle) => circle.number === target.number);
     if (byNumber) return byNumber;
@@ -198,5 +201,5 @@ export function resolveMapNextTurnpointCircle(
         circle.radius === route.goalRadius,
     );
   }
-  return findCircleForProgressIndex(target.progressIndex, route, circles);
+  return undefined;
 }
