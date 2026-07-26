@@ -290,6 +290,11 @@ function nextTurnpointFieldsAtTime(
   route: OptimizedRoute,
   timeMs: number,
 ): { nextTurnpointName: string; nextTurnpointNumber: number | null; nextTurnpointRadiusM: number | null } {
+  const goalCrossMs = track.verification.goalCrossTime?.getTime();
+  if (goalCrossMs !== undefined && timeMs >= goalCrossMs) {
+    return { nextTurnpointName: '—', nextTurnpointNumber: null, nextTurnpointRadiusM: null };
+  }
+
   const target = lookupPilotNextTurnpointTarget(
     track.nextTurnpointMilestones,
     route,

@@ -307,12 +307,12 @@ interface MapViewProps {
   allEnrichedTracks: EnrichedFlightTrack[];
   trackColors: Record<string, string>;
   currentTimeRef: RefObject<Date>;
-  leadPercentages: Map<string, number>;
   fitKey: string;
   preferences: AppPreferences;
   playing: boolean;
   pausedTime: Date;
   scoreboardCompetitors: CompetitorSnapshot[];
+  scoreboardRankingTimeMs: number;
   enabledTrackIds: Set<string>;
   onToggleTrack: (trackId: string, enabled: boolean) => void;
   progressFocusTrackId: string | null;
@@ -341,12 +341,12 @@ export function MapView({
   allEnrichedTracks,
   trackColors,
   currentTimeRef,
-  leadPercentages,
   fitKey,
   preferences,
   playing,
   pausedTime,
   scoreboardCompetitors,
+  scoreboardRankingTimeMs,
   enabledTrackIds,
   onToggleTrack,
   progressFocusTrackId,
@@ -384,11 +384,11 @@ export function MapView({
         ? getScoreboardEntryForTrack(
             selectedPilotTrackId,
             scoreboardCompetitors,
-            leadPercentages,
             enabledTrackIds,
+            scoreboardRankingTimeMs,
           )
         : null,
-    [selectedPilotTrackId, scoreboardCompetitors, leadPercentages, enabledTrackIds],
+    [selectedPilotTrackId, scoreboardCompetitors, enabledTrackIds, scoreboardRankingTimeMs],
   );
 
   return (
@@ -425,7 +425,6 @@ export function MapView({
           fieldTimeline={fieldTimeline}
           nextTurnpointTimeline={nextTurnpointTimeline}
           taskProgressMarkerRef={taskProgressMarkerRef}
-          leadPercentages={leadPercentages}
           progressFocusTrackId={progressFocusTrackId}
           progressFocusColor={progressFocusColor}
           selectedPilotTrackId={selectedPilotTrackId}
@@ -435,7 +434,7 @@ export function MapView({
       <MapLegend />
       <MapDataPanels
         competitors={scoreboardCompetitors}
-        leadPercentages={leadPercentages}
+        rankingTimeMs={scoreboardRankingTimeMs}
         enabledTrackIds={enabledTrackIds}
         onToggleTrack={onToggleTrack}
         progressFocusTrackId={progressFocusTrackId}

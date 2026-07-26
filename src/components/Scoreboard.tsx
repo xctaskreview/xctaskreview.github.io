@@ -25,7 +25,7 @@ const ROW_HEIGHT = 56;
 
 interface ScoreboardProps {
   competitors: CompetitorSnapshot[];
-  leadPercentages: Map<string, number>;
+  rankingTimeMs: number;
   enabledTrackIds: Set<string>;
   onToggleTrack: (trackId: string, enabled: boolean) => void;
   progressFocusTrackId: string | null;
@@ -125,7 +125,7 @@ function ScoreboardPilotName({ pilotName, firstName }: { pilotName: string; firs
 
 export function Scoreboard({
   competitors,
-  leadPercentages,
+  rankingTimeMs,
   enabledTrackIds,
   onToggleTrack,
   progressFocusTrackId,
@@ -137,15 +137,8 @@ export function Scoreboard({
 }: ScoreboardProps) {
   const displayedCompetitors = useThrottledCompetitors(competitors, playing, UPDATE_INTERVAL_MS);
   const entries = useMemo(
-    () =>
-      sortScoreboardEntriesForDisplay(
-        displayedCompetitors.map((entry) => ({
-          ...entry,
-          leadPercent: leadPercentages.get(entry.id) ?? 0,
-        })),
-        enabledTrackIds,
-      ),
-    [displayedCompetitors, leadPercentages, enabledTrackIds],
+    () => sortScoreboardEntriesForDisplay(displayedCompetitors, enabledTrackIds, rankingTimeMs),
+    [displayedCompetitors, enabledTrackIds, rankingTimeMs],
   );
   const { rankById, renderEntries } = useMemo(() => buildScoreboardLayout(entries), [entries]);
 
@@ -175,12 +168,6 @@ export function Scoreboard({
             <span className="scoreboard-header-stack">
               <LeaderboardMetricLabel metric="task" className="scoreboard-header-label" />
               <span className="scoreboard-header-unit">{distanceUnitLabel}</span>
-            </span>
-          </span>
-          <span className="scoreboard-cell scoreboard-lead" role="columnheader">
-            <span className="scoreboard-header-stack">
-              <LeaderboardMetricLabel metric="lead" className="scoreboard-header-label" />
-              <span className="scoreboard-header-unit">% time</span>
             </span>
           </span>
           <span className="scoreboard-cell scoreboard-alt" role="columnheader">
@@ -289,9 +276,6 @@ export function Scoreboard({
                     <span>{formatDistanceValue(entry.taskKm, preferences.distanceUnit)}</span>
                     <span className="scoreboard-muted">{Math.round(entry.taskPercent)}%</span>
                   </span>
-                </span>
-                <span className="scoreboard-cell scoreboard-lead" role="cell">
-                  {entry.leadPercent.toFixed(1)}%
                 </span>
                 <span className="scoreboard-cell scoreboard-alt" role="cell">
                   {formatAltitudeValue(entry.alt, preferences.altitudeUnit)}

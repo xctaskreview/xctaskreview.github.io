@@ -15,7 +15,7 @@ export type MapDataActivePanel = ActivePanel;
 
 interface MapDataPanelsProps {
   competitors: CompetitorSnapshot[];
-  leadPercentages: Map<string, number>;
+  rankingTimeMs: number;
   enabledTrackIds: Set<string>;
   onToggleTrack: (trackId: string, enabled: boolean) => void;
   progressFocusTrackId: string | null;
@@ -34,7 +34,7 @@ interface MapDataPanelsProps {
 
 export function MapDataPanels({
   competitors,
-  leadPercentages,
+  rankingTimeMs,
   enabledTrackIds,
   onToggleTrack,
   progressFocusTrackId,
@@ -151,7 +151,7 @@ export function MapDataPanels({
 
       <Scoreboard
         competitors={competitors}
-        leadPercentages={leadPercentages}
+        rankingTimeMs={rankingTimeMs}
         enabledTrackIds={enabledTrackIds}
         onToggleTrack={onToggleTrack}
         progressFocusTrackId={progressFocusTrackId}

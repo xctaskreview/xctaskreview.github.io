@@ -212,7 +212,6 @@ interface LiveCompetitorLayerProps {
   fieldTimeline: TaskFieldTimeline;
   nextTurnpointTimeline: TaskNextTurnpointTimeline;
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
-  leadPercentages: Map<string, number>;
   progressFocusTrackId: string | null;
   progressFocusColor: string | null;
   selectedPilotTrackId: string | null;
@@ -234,7 +233,6 @@ export function LiveCompetitorLayer({
   fieldTimeline,
   nextTurnpointTimeline,
   taskProgressMarkerRef,
-  leadPercentages,
   progressFocusTrackId,
   progressFocusColor,
   selectedPilotTrackId,
@@ -259,7 +257,6 @@ export function LiveCompetitorLayer({
   const taskStartRef = useRef(taskStart);
   const fieldTimelineRef = useRef(fieldTimeline);
   const nextTurnpointTimelineRef = useRef(nextTurnpointTimeline);
-  const leadPercentagesRef = useRef(leadPercentages);
   const progressFocusTrackIdRef = useRef(progressFocusTrackId);
   const progressFocusColorRef = useRef(progressFocusColor);
   const selectedPilotTrackIdRef = useRef(selectedPilotTrackId);
@@ -279,7 +276,6 @@ export function LiveCompetitorLayer({
   taskStartRef.current = taskStart;
   fieldTimelineRef.current = fieldTimeline;
   nextTurnpointTimelineRef.current = nextTurnpointTimeline;
-  leadPercentagesRef.current = leadPercentages;
   progressFocusTrackIdRef.current = progressFocusTrackId;
   progressFocusColorRef.current = progressFocusColor;
   selectedPilotTrackIdRef.current = selectedPilotTrackId;

@@ -145,7 +145,8 @@ export interface CompetitorSnapshot {
   nextTurnpointName: string;
   nextTurnpointNumber: number | null;
   nextTurnpointRadiusM: number | null;
-  leadPercent: number;
+  /** Verified ESS (or goal) crossing time; used for ranking after finish at playback time. */
+  speedSectionFinishMs: number | null;
   flyingMode: FlyingMode;
   thermalGainM: number;
   circlingDurationSec: number;

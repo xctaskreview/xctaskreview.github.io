@@ -2,6 +2,8 @@ import { computeSpeedsAtTime } from './geo';
 import { getFlyingModeStateAtTime } from './flyingMode';
 import type { EnrichedFlightTrack } from './taskProgress';
 import { getTrackColor, getTrackSnapshotAtTime } from './tracks';
+import { compareCompetitorsForRanking } from './scoreboardDisplay';
+import { getPilotSpeedSectionFinishTime } from './taskVerification';
 import type { CompetitorSnapshot, OptimizedRoute } from './types';
 
 export function buildCompetitorSnapshots(
@@ -25,6 +27,7 @@ export function buildCompetitorSnapshots(
         : { groundSpeedMps: 0, verticalSpeedMps: 0 };
 
     const flyingModeState = getFlyingModeStateAtTime(track.flyingModeTimeline, currentTime);
+    const speedSectionFinishMs = getPilotSpeedSectionFinishTime(track)?.getTime() ?? null;
 
     return [
       {
@@ -44,7 +47,7 @@ export function buildCompetitorSnapshots(
         nextTurnpointName: snapshot.nextTurnpointName,
         nextTurnpointNumber: snapshot.nextTurnpointNumber,
         nextTurnpointRadiusM: snapshot.nextTurnpointRadiusM,
-        leadPercent: 0,
+        speedSectionFinishMs,
         flyingMode: flyingModeState?.mode ?? 'glide',
         thermalGainM: flyingModeState?.thermalGainM ?? 0,
         circlingDurationSec: flyingModeState?.circlingDurationSec ?? 0,
@@ -65,22 +68,32 @@ export function computeCompetitorPositions(
   route: OptimizedRoute,
   currentTime: Date,
 ): Map<string, number> {
-  const ranked: { id: string; pilotName: string; taskPercent: number }[] = [];
+  const timeMs = currentTime.getTime();
+  const ranked: {
+    id: string;
+    pilotName: string;
+    taskPercent: number;
+    taskKm: number;
+    speedSectionFinishMs: number | null;
+  }[] = [];
 
   for (const track of tracks) {
     const snapshot = getTrackSnapshotAtTime(track, currentTime, route);
     if (!snapshot) continue;
-    ranked.push({ id: track.id, pilotName: track.pilotName, taskPercent: snapshot.taskPercent });
+    ranked.push({
+      id: track.id,
+      pilotName: track.pilotName,
+      taskPercent: snapshot.taskPercent,
+      taskKm: (snapshot.taskPercent / 100) * (route.progressTotalDistance / 1000),
+      speedSectionFinishMs: getPilotSpeedSectionFinishTime(track)?.getTime() ?? null,
+    });
   }
 
-  ranked.sort((a, b) => {
-    if (b.taskPercent !== a.taskPercent) return b.taskPercent - a.taskPercent;
-    return a.pilotName.localeCompare(b.pilotName);
-  });
+  ranked.sort((a, b) => compareCompetitorsForRanking(a, b, timeMs));
 
   const positions = new Map<string, number>();
   for (let index = 0; index < ranked.length; index += 1) {
-    positions.set(ranked[index].id, index + 1);
+    positions.set(ranked[index]!.id, index + 1);
   }
 
   return positions;

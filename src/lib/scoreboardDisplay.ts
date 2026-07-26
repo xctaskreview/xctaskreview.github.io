@@ -31,9 +31,40 @@ function compareScoreboardCompetitors(a: CompetitorSnapshot, b: CompetitorSnapsh
   return a.pilotName.localeCompare(b.pilotName);
 }
 
-export function sortScoreboardEntries(competitors: CompetitorSnapshot[]): ScoreboardEntry[] {
+type RankingFields = Pick<
+  CompetitorSnapshot,
+  'taskKm' | 'taskPercent' | 'pilotName' | 'speedSectionFinishMs'
+>;
+
+function hasFinishedSpeedSectionAtTime(entry: RankingFields, rankingTimeMs: number): boolean {
+  return entry.speedSectionFinishMs !== null && entry.speedSectionFinishMs <= rankingTimeMs;
+}
+
+/** Finishers by ESS time (earlier first); others by task progress. */
+export function compareCompetitorsForRanking(
+  a: RankingFields,
+  b: RankingFields,
+  rankingTimeMs: number,
+): number {
+  const aFinished = hasFinishedSpeedSectionAtTime(a, rankingTimeMs);
+  const bFinished = hasFinishedSpeedSectionAtTime(b, rankingTimeMs);
+
+  if (aFinished && bFinished) {
+    const byEss = a.speedSectionFinishMs! - b.speedSectionFinishMs!;
+    if (byEss !== 0) return byEss;
+    return a.pilotName.localeCompare(b.pilotName);
+  }
+  if (aFinished !== bFinished) return aFinished ? -1 : 1;
+
+  return compareScoreboardCompetitors(a as CompetitorSnapshot, b as CompetitorSnapshot);
+}
+
+export function sortScoreboardEntries(
+  competitors: CompetitorSnapshot[],
+  rankingTimeMs: number,
+): ScoreboardEntry[] {
   return [...competitors]
-    .sort(compareScoreboardCompetitors)
+    .sort((a, b) => compareCompetitorsForRanking(a, b, rankingTimeMs))
     .map((entry, index) => ({
       ...entry,
       position: index + 1,
@@ -44,13 +75,14 @@ export function sortScoreboardEntries(competitors: CompetitorSnapshot[]): Scoreb
 export function sortScoreboardEntriesForDisplay(
   competitors: CompetitorSnapshot[],
   visibleTrackIds: Set<string>,
+  rankingTimeMs: number,
 ): ScoreboardEntry[] {
   const visible = competitors.filter((entry) => visibleTrackIds.has(entry.id));
   const hidden = competitors.filter((entry) => !visibleTrackIds.has(entry.id));
 
-  const visibleEntries = sortScoreboardEntries(visible);
+  const visibleEntries = sortScoreboardEntries(visible, rankingTimeMs);
   const hiddenEntries = [...hidden]
-    .sort(compareScoreboardCompetitors)
+    .sort((a, b) => compareCompetitorsForRanking(a, b, rankingTimeMs))
     .map((entry) => ({ ...entry, position: 0 }));
 
   return [...visibleEntries, ...hiddenEntries];
@@ -71,14 +103,14 @@ export function getTaskDistanceBehindLeaderKm(
 export function getScoreboardEntryForTrack(
   trackId: string,
   competitors: CompetitorSnapshot[],
-  leadPercentages: Map<string, number>,
   visibleTrackIds: Set<string>,
+  rankingTimeMs: number,
 ): ScoreboardEntry | null {
-  const withLead = competitors.map((entry) => ({
-    ...entry,
-    leadPercent: leadPercentages.get(entry.id) ?? 0,
-  }));
-  return sortScoreboardEntriesForDisplay(withLead, visibleTrackIds).find((entry) => entry.id === trackId) ?? null;
+  return (
+    sortScoreboardEntriesForDisplay(competitors, visibleTrackIds, rankingTimeMs).find(
+      (entry) => entry.id === trackId,
+    ) ?? null
+  );
 }
 
 export function formatCompetitorLeaderboardPopupHtml(
@@ -112,7 +144,6 @@ export function formatCompetitorLeaderboardPopupHtml(
     `<dl class="competitor-popup-stats">` +
     `<div>${metricDtHtml('task', `Task (${distanceUnitLabel})`)}<dd>${formatDistanceValue(entry.taskKm, preferences.distanceUnit)}` +
     `<span class="competitor-popup-muted"> (${Math.round(entry.taskPercent)}%)</span></dd></div>` +
-    `<div>${metricDtHtml('lead', 'Lead (% time)')}<dd>${entry.leadPercent.toFixed(1)}</dd></div>` +
     `<div>${metricDtHtml('alt', `Alt (${altitudeUnitLabel})`)}<dd>${formatAltitudeValue(entry.alt, preferences.altitudeUnit)}</dd></div>` +
     `<div>${metricDtHtml('speed', `Speed (${speedUnit})`)}<dd>${formatGroundSpeedValue(entry.groundSpeedMps, preferences.speedUnit)}</dd></div>` +
     `<div>${metricDtHtml('vario', `Vario (${varioUnitLabel})`)}<dd class="competitor-popup-vario${varioClass}">${formatVerticalSpeedValue(entry.verticalSpeedMps, preferences.verticalSpeedUnit)}</dd></div>` +

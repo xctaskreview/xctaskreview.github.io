@@ -28,7 +28,7 @@ import {
   getTrackColor,
   loadIgcFiles,
 } from './lib/tracks';
-import { buildTaskFieldTimeline, computeLeadPercentagesFromTimeline } from './lib/taskTimeline';
+import { buildTaskFieldTimeline } from './lib/taskTimeline';
 import { buildTaskNextTurnpointTimeline } from './lib/nextTurnpoint';
 import type { CivlImportResult } from './lib/civl';
 import type { XcdemonImportResult } from './lib/xcdemon';
@@ -469,17 +469,6 @@ export default function App() {
     return () => cancelAnimationFrame(rafId);
   }, [playing, preferences.playbackSpeed, timing.trackEnd, enrichedTracks.length]);
 
-  const leadSecond = Math.floor(currentTime.getTime() / 1000);
-
-  // Counting whole seconds off the precomputed leader track, refreshed once per second.
-  const leadPercentages = useMemo(
-    () =>
-      showReview
-        ? computeLeadPercentagesFromTimeline(fieldTimeline, leadSecond * 1000)
-        : new Map<string, number>(),
-    [showReview, fieldTimeline, leadSecond],
-  );
-
   const chartTime = useThrottledDate(currentTime, playing, 500);
 
   const scoreboardCompetitors = useMemo(() => {
@@ -487,6 +476,8 @@ export default function App() {
     const time = playing ? chartTime : currentTime;
     return buildCompetitorSnapshots(allEnrichedTracks, trackColors, route, time, true);
   }, [allEnrichedTracks, trackColors, route, playing, chartTime, currentTime]);
+
+  const scoreboardRankingTimeMs = (playing ? chartTime : currentTime).getTime();
 
   const altitudeRange = useMemo(
     () => computeChartAltitudeRange(enrichedTracks, preferences.altitudeUnit),
@@ -1017,7 +1008,6 @@ const onSessionBundleExport = useCallback(async () => {
               allEnrichedTracks={allEnrichedTracks}
               trackColors={trackColors}
               currentTimeRef={currentTimeRef}
-              leadPercentages={leadPercentages}
               fitKey={taskFitKey || 'task'}
               preferences={preferences}
               taskTimeZone={taskTimeZone}
@@ -1025,6 +1015,7 @@ const onSessionBundleExport = useCallback(async () => {
               playing={playing}
               pausedTime={currentTime}
               scoreboardCompetitors={scoreboardCompetitors}
+              scoreboardRankingTimeMs={scoreboardRankingTimeMs}
               enabledTrackIds={enabledTrackIds}
               onToggleTrack={onToggleTrack}
               progressFocusTrackId={progressFocusTrackId}

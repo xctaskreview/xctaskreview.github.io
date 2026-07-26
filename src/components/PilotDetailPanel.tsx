@@ -63,12 +63,6 @@ export function PilotDetailPanel({
           )}
           <div>
             <dt>
-              <LeaderboardMetricLabel metric="lead" />
-            </dt>
-            <dd>{entry.leadPercent.toFixed(1)} % time</dd>
-          </div>
-          <div>
-            <dt>
               <LeaderboardMetricLabel metric="alt" />
             </dt>
             <dd>{formatAltitude(entry.alt, preferences.altitudeUnit)}</dd>
