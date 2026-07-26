@@ -30,6 +30,10 @@ export function PilotDetailPanel({
   const distanceBehindKm = getTaskDistanceBehindLeaderKm(entry, competitors);
   const varioClass =
     entry.verticalSpeedMps > 0.2 ? ' climbing' : entry.verticalSpeedMps < -0.2 ? ' sinking' : '';
+  const isCircling = entry.flyingMode === 'circling';
+
+  const formatGlideRatio = (ratio: number | null) =>
+    ratio != null && Number.isFinite(ratio) && ratio > 0 ? `${ratio.toFixed(1)}:1` : '—';
 
   return (
     <div className="pilot-detail-panel">
@@ -72,6 +76,44 @@ export function PilotDetailPanel({
               {formatVerticalSpeed(entry.verticalSpeedMps, preferences.verticalSpeedUnit)}
             </dd>
           </div>
+          <div>
+            <dt>Mode</dt>
+            <dd className={isCircling ? 'pilot-detail-mode-circling' : 'pilot-detail-mode-glide'}>
+              {isCircling ? 'Circling' : 'On glide'}
+            </dd>
+          </div>
+          {isCircling ? (
+            <>
+              <div>
+                <dt>Thermal gain</dt>
+                <dd>
+                  {entry.thermalGainM >= 0 ? '+' : ''}
+                  {Math.round(entry.thermalGainM)} m
+                </dd>
+              </div>
+              <div>
+                <dt>Circle time</dt>
+                <dd>{formatDuration(entry.circlingDurationSec * 1000)}</dd>
+              </div>
+              <div>
+                <dt>Avg vario</dt>
+                <dd>
+                  {formatVerticalSpeed(entry.averageThermalVarioMps, preferences.verticalSpeedUnit)}
+                </dd>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <dt>Glide</dt>
+                <dd>{formatGlideRatio(entry.glideRatio)}</dd>
+              </div>
+              <div>
+                <dt>Avg glide</dt>
+                <dd>{formatGlideRatio(entry.averageGlideRatio)}</dd>
+              </div>
+            </>
+          )}
           <div>
             <dt>Crossed SSS</dt>
             <dd>

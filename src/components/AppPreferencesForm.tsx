@@ -1,9 +1,12 @@
-import { Eye, Gauge, Map, Mountain, Route, Ruler, Settings2, TrendingUp } from 'lucide-react';
+import { Eye, Gauge, Map, Mountain, RotateCw, Route, Ruler, Settings2, TrendingUp } from 'lucide-react';
 import type { AppPreferences } from '../lib/preferences';
 import {
+  createDefaultPreferences,
   getMapTypeOptions,
   getSpeedUnitOptions,
   getVerticalSpeedUnitOptions,
+  normalizeCirclingDetectionSampleSec,
+  normalizeCirclingTurnRateDegPerS,
   normalizePilotTrailLengthM,
 } from '../lib/preferences';
 import { Icon, IconLabel } from './Icon';
@@ -26,15 +29,38 @@ interface AppPreferencesFormProps {
   preferences: AppPreferences;
   onPreferencesChange: (preferences: AppPreferences) => void;
   showHeading?: boolean;
+  circlingDetectionDirty?: boolean;
+  onRecomputeCirclingDetection?: () => void;
+  onRestoreCirclingDefaults?: () => void;
 }
 
 export function AppPreferencesForm({
   preferences,
   onPreferencesChange,
   showHeading = true,
+  circlingDetectionDirty = false,
+  onRecomputeCirclingDetection,
+  onRestoreCirclingDefaults,
 }: AppPreferencesFormProps) {
   const updatePreference = <K extends keyof AppPreferences>(key: K, value: AppPreferences[K]) => {
     onPreferencesChange({ ...preferences, [key]: value });
+  };
+
+  const defaultCirclingPreferences = createDefaultPreferences();
+  const circlingAtDefaults =
+    preferences.circlingDetectionSampleSec === defaultCirclingPreferences.circlingDetectionSampleSec &&
+    preferences.circlingTurnRateDegPerS === defaultCirclingPreferences.circlingTurnRateDegPerS;
+
+  const restoreCirclingDefaults = () => {
+    if (onRestoreCirclingDefaults) {
+      onRestoreCirclingDefaults();
+      return;
+    }
+    onPreferencesChange({
+      ...preferences,
+      circlingDetectionSampleSec: defaultCirclingPreferences.circlingDetectionSampleSec,
+      circlingTurnRateDegPerS: defaultCirclingPreferences.circlingTurnRateDegPerS,
+    });
   };
 
   return (
@@ -140,6 +166,64 @@ export function AppPreferencesForm({
           />
           <IconLabel icon={Eye}>Full pilot path</IconLabel>
         </label>
+
+        <div className="welcome-pref-circling-row">
+          <div className="welcome-pref-circling-title">
+            <IconLabel icon={RotateCw}>Circling</IconLabel>
+            {!circlingAtDefaults && (
+              <button
+                type="button"
+                className="welcome-pref-circling-restore"
+                onClick={restoreCirclingDefaults}
+              >
+                Restore defaults
+              </button>
+            )}
+          </div>
+          <div className="welcome-pref-circling-fields">
+            <label className="welcome-pref-field">
+              <span>Sample window (s)</span>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                step={1}
+                value={preferences.circlingDetectionSampleSec}
+                onChange={(e) =>
+                  updatePreference(
+                    'circlingDetectionSampleSec',
+                    normalizeCirclingDetectionSampleSec(Number(e.target.value)),
+                  )
+                }
+              />
+            </label>
+            <label className="welcome-pref-field">
+              <span>Turn rate (°/s)</span>
+              <input
+                type="number"
+                min={0.5}
+                max={30}
+                step={0.5}
+                value={preferences.circlingTurnRateDegPerS}
+                onChange={(e) =>
+                  updatePreference(
+                    'circlingTurnRateDegPerS',
+                    normalizeCirclingTurnRateDegPerS(Number(e.target.value)),
+                  )
+                }
+              />
+            </label>
+          </div>
+          {circlingDetectionDirty && onRecomputeCirclingDetection && (
+            <button
+              type="button"
+              className="welcome-pref-circling-recompute"
+              onClick={onRecomputeCirclingDetection}
+            >
+              Recompute circling detection
+            </button>
+          )}
+        </div>
       </div>
     </section>
   );

@@ -400,6 +400,25 @@ export function isLandedAtTime(landingTime: Date | undefined, time: Date): boole
   return landingTime !== undefined && time.getTime() >= landingTime.getTime();
 }
 
+/** Initial bearing from `from` to `to`, degrees clockwise from north. */
+export function bearingDegrees(from: LatLon, to: LatLon): number {
+  const lat1 = (from.lat * Math.PI) / 180;
+  const lat2 = (to.lat * Math.PI) / 180;
+  const dLon = ((to.lon - from.lon) * Math.PI) / 180;
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+/** Signed smallest difference between headings in degrees. */
+export function normalizeAngleDelta(degrees: number): number {
+  let delta = degrees % 360;
+  if (delta > 180) delta -= 360;
+  if (delta < -180) delta += 360;
+  return delta;
+}
+
 export const COMPETITOR_COLORS = [
   '#e6194b',
   '#3cb44b',

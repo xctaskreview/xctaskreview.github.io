@@ -38,7 +38,7 @@ import {
   type ChartPathPixels,
   type ChartPlotRect,
 } from '../lib/chartAltitude';
-import { clampChartAltitudeDisplay, LANDED_COLOR } from '../lib/geo';
+import { clampChartAltitudeDisplay, clampDisplayAltitudeMeters, LANDED_COLOR } from '../lib/geo';
 import {
   buildPilotChartFullPathGeometry,
   buildPilotChartTrailPoints,
@@ -50,10 +50,12 @@ import {
 import type { AppPreferences } from '../lib/preferences';
 import {
   buildChartAltitudeTicks,
+  formatAltitude,
   kmToDistanceUnit,
   metersToAltitudeUnit,
   normalizePilotTrailLengthM,
 } from '../lib/preferences';
+import { formatFlyingModeMapLine, getFlyingModeStateAtTime } from '../lib/flyingMode';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
 import { getPilotMaxProgressAtTime, getTrackSnapshotAtTime, resolveSeekTimeForTaskPercent, chartMaxTaskPercentForDisplay, chartTaskPercentAtSnapshot } from '../lib/taskProgress';
 import type { TaskFieldTimeline } from '../lib/taskTimeline';
@@ -73,6 +75,11 @@ const PILOT_MARKER_LANDED_OPACITY = 0.7;
 const TRAIL_OPACITY = 0.8;
 const TRAIL_LANDED_OPACITY = 0.55;
 const CHART_PILOT_LABEL_COLOR = '#000000';
+const CHART_PILOT_ALT_LABEL_Y = '16';
+const CHART_PILOT_MODE_LABEL_Y = '28';
+const CHART_PILOT_SUB_LABEL_SIZE = '9';
+const CHART_PILOT_MODE_CIRCLING = '#15803d';
+const CHART_PILOT_MODE_GLIDE = '#1d4ed8';
 
 /** Fixed layout so vertical resize does not shift the plot area horizontally. */
 const CHART_Y_AXIS_WIDTH = 56;
@@ -271,6 +278,8 @@ interface LivePilotNodes {
   pilotCircle: SVGCircleElement;
   pilotTrophy: SVGUseElement;
   pilotLabel: SVGTextElement;
+  pilotAltLabel: SVGTextElement;
+  pilotModeLabel: SVGTextElement;
   maxGroup: SVGGElement;
   maxCircle: SVGCircleElement;
   linkPath: SVGPathElement;
@@ -284,6 +293,9 @@ interface LivePilotNodes {
   writtenFutureDash: string;
   writtenColor: string;
   writtenLabelX: string;
+  writtenAltLine: string;
+  writtenModeLine: string;
+  writtenModeFill: string;
   writtenMarkerRadius: string;
   writtenLanded: boolean | null;
   pilotVisible: boolean;
@@ -303,6 +315,7 @@ interface LivePilotNodes {
   frameMaxY: number;
   frameLinkVisible: boolean;
   frameTrailD: string;
+  frameAltM: number;
 }
 
 interface LiveLayerHosts {
@@ -347,6 +360,23 @@ function createPilotNodes(
   pilotLabel.textContent = track.firstName;
   pilotGroup.append(pilotLabel);
 
+  const pilotAltLabel = createSvgElement('text');
+  pilotAltLabel.setAttribute('y', CHART_PILOT_ALT_LABEL_Y);
+  pilotAltLabel.setAttribute('font-size', CHART_PILOT_SUB_LABEL_SIZE);
+  pilotAltLabel.setAttribute('font-weight', '600');
+  pilotAltLabel.setAttribute('fill', '#475569');
+  pilotAltLabel.setAttribute('stroke', 'none');
+  pilotAltLabel.setAttribute('visibility', 'hidden');
+  pilotGroup.append(pilotAltLabel);
+
+  const pilotModeLabel = createSvgElement('text');
+  pilotModeLabel.setAttribute('y', CHART_PILOT_MODE_LABEL_Y);
+  pilotModeLabel.setAttribute('font-size', CHART_PILOT_SUB_LABEL_SIZE);
+  pilotModeLabel.setAttribute('font-weight', '600');
+  pilotModeLabel.setAttribute('stroke', 'none');
+  pilotModeLabel.setAttribute('visibility', 'hidden');
+  pilotGroup.append(pilotModeLabel);
+
   const maxGroup = createSvgElement('g');
   maxGroup.setAttribute('class', 'chart-max-progress-marker');
   maxGroup.setAttribute('visibility', 'hidden');
@@ -390,6 +420,8 @@ function createPilotNodes(
     pilotCircle,
     pilotTrophy,
     pilotLabel,
+    pilotAltLabel,
+    pilotModeLabel,
     maxGroup,
     maxCircle,
     linkPath,
@@ -402,6 +434,9 @@ function createPilotNodes(
     writtenFutureDash: UNWRITTEN,
     writtenColor: UNWRITTEN,
     writtenLabelX: UNWRITTEN,
+    writtenAltLine: UNWRITTEN,
+    writtenModeLine: UNWRITTEN,
+    writtenModeFill: UNWRITTEN,
     writtenMarkerRadius: UNWRITTEN,
     writtenLanded: null,
     pilotVisible: false,
@@ -420,6 +455,7 @@ function createPilotNodes(
     frameMaxY: 0,
     frameLinkVisible: false,
     frameTrailD: '',
+    frameAltM: 0,
   };
 }
 
@@ -444,6 +480,7 @@ interface ChartLiveSettings {
   fullPathTrackId: string | null;
   fullPath: SelectedFullPath | null;
   progressFocusTrackId: string | null;
+  selectedPilotTrackId: string | null;
   currentTimeRef: RefObject<Date>;
   playing: boolean;
   pausedTime: Date;
@@ -478,6 +515,7 @@ function ChartLiveLayer({
   fullPathTrackId,
   fullPath,
   progressFocusTrackId,
+  selectedPilotTrackId,
   currentTimeRef,
   playing,
   pausedTime,
@@ -679,6 +717,7 @@ function ChartLiveLayer({
       const frameFullPath = live?.fullPath ?? fullPath;
       const frameFullPathPixels = fullPathPixelsRef.current;
       const frameProgressFocusTrackId = live?.progressFocusTrackId ?? progressFocusTrackId;
+      const frameSelectedPilotTrackId = live?.selectedPilotTrackId ?? selectedPilotTrackId;
 
       const entries = entriesRef.current;
       const { distanceUnit, altitudeUnit } = framePreferences;
@@ -708,6 +747,7 @@ function ChartLiveLayer({
 
         entry.frameVisible = true;
         entry.frameLanded = snapshot.landed;
+        entry.frameAltM = snapshot.alt;
         entry.frameX = xScale(distance);
         entry.frameY = yScale(altitude);
 
@@ -869,6 +909,50 @@ function ChartLiveLayer({
         if (entry.writtenLabelX !== labelX) {
           entry.writtenLabelX = labelX;
           entry.pilotLabel.setAttribute('x', labelX);
+          entry.pilotAltLabel.setAttribute('x', labelX);
+          entry.pilotModeLabel.setAttribute('x', labelX);
+        }
+
+        const isSelectedPilot = entry.trackId === frameSelectedPilotTrackId;
+        if (isSelectedPilot) {
+          const altLine = formatAltitude(
+            clampDisplayAltitudeMeters(entry.frameAltM),
+            framePreferences.altitudeUnit,
+          );
+          if (entry.writtenAltLine !== altLine) {
+            entry.writtenAltLine = altLine;
+            entry.pilotAltLabel.textContent = altLine;
+          }
+          setVisibility(entry.pilotAltLabel, true);
+
+          const modeState = getFlyingModeStateAtTime(entry.track.flyingModeTimeline, time);
+          const modeLine = formatFlyingModeMapLine(modeState, framePreferences);
+          const modeFill =
+            modeState?.mode === 'circling' ? CHART_PILOT_MODE_CIRCLING : CHART_PILOT_MODE_GLIDE;
+          if (entry.writtenModeLine !== modeLine) {
+            entry.writtenModeLine = modeLine;
+            entry.pilotModeLabel.textContent = modeLine;
+          }
+          if (entry.writtenModeFill !== modeFill) {
+            entry.writtenModeFill = modeFill;
+            entry.pilotModeLabel.setAttribute('fill', modeFill);
+          }
+          if (modeLine) {
+            setVisibility(entry.pilotModeLabel, true);
+          } else {
+            setVisibility(entry.pilotModeLabel, false);
+          }
+        } else {
+          if (entry.writtenAltLine !== UNWRITTEN && entry.writtenAltLine !== '') {
+            entry.writtenAltLine = '';
+            entry.pilotAltLabel.textContent = '';
+          }
+          setVisibility(entry.pilotAltLabel, false);
+          if (entry.writtenModeLine !== UNWRITTEN && entry.writtenModeLine !== '') {
+            entry.writtenModeLine = '';
+            entry.pilotModeLabel.textContent = '';
+          }
+          setVisibility(entry.pilotModeLabel, false);
         }
 
         if (entry.frameHasMax) {
@@ -1056,6 +1140,7 @@ function ChartLiveLayer({
       altitudeMax,
       fullPathTrackId,
       progressFocusTrackId,
+      selectedPilotTrackId,
       taskProgressMarkerRef,
       onProgressPercentRef,
     ],
@@ -1759,6 +1844,7 @@ export const AltitudeChart = memo(function AltitudeChart({
     fullPathTrackId,
     fullPath: selectedFullPath,
     progressFocusTrackId,
+    selectedPilotTrackId,
     currentTimeRef,
     playing,
     pausedTime,

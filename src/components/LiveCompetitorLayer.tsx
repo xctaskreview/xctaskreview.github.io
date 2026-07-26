@@ -35,6 +35,7 @@ import {
   type PilotFullPathGeometry,
 } from '../lib/pilotTrail';
 import { type EnrichedFlightTrack } from '../lib/taskProgress';
+import { formatFlyingModeMapLine, getFlyingModeStateAtTime } from '../lib/flyingMode';
 import { fieldLeaderIdAt, type TaskFieldTimeline } from '../lib/taskTimeline';
 import {
   computeTaskProgressMarker,
@@ -56,7 +57,7 @@ function escapeHtml(text: string): string {
 function formatCompetitorMapLabelHtml(position: number, firstName: string): string {
   const name = escapeHtml(firstName);
   if (position === 1) {
-    return `${trophyIconHtml(12)}<span>${name}</span>`;
+    return `${trophyIconHtml(14)}<span>${name}</span>`;
   }
   return `#${position} ${name}`;
 }
@@ -117,6 +118,7 @@ function createCompetitorIcon(
       <div class="${labelBoxClass}">
         <span class="competitor-label">${escapeHtml(firstName)}</span>
         <span class="competitor-alt">${escapeHtml(altitudeLabel)}</span>
+        <span class="competitor-mode"></span>
       </div>
     </div>`,
     iconSize: [0, 0],
@@ -126,7 +128,7 @@ function createCompetitorIcon(
 
 function readMarkerDomRefs(marker: L.Marker): Pick<
   MarkerEntry,
-  'labelBoxEl' | 'labelEl' | 'altEl' | 'markerEl' | 'columnEl'
+  'labelBoxEl' | 'labelEl' | 'altEl' | 'modeEl' | 'markerEl' | 'columnEl'
 > {
   const element = marker.getElement();
   return {
@@ -135,6 +137,7 @@ function readMarkerDomRefs(marker: L.Marker): Pick<
     labelBoxEl: element?.querySelector<HTMLDivElement>('.competitor-label-box') ?? null,
     labelEl: element?.querySelector<HTMLSpanElement>('.competitor-label') ?? null,
     altEl: element?.querySelector<HTMLSpanElement>('.competitor-alt') ?? null,
+    modeEl: element?.querySelector<HTMLSpanElement>('.competitor-mode') ?? null,
   };
 }
 
@@ -143,6 +146,7 @@ interface MarkerEntry {
   labelBoxEl: HTMLDivElement | null;
   labelEl: HTMLSpanElement | null;
   altEl: HTMLSpanElement | null;
+  modeEl: HTMLSpanElement | null;
   markerEl: HTMLDivElement | null;
   columnEl: HTMLDivElement | null;
   color: string;
@@ -477,12 +481,14 @@ export function LiveCompetitorLayer({
       const labelBoxEl = element?.querySelector<HTMLDivElement>('.competitor-label-box') ?? null;
       const labelEl = element?.querySelector<HTMLSpanElement>('.competitor-label') ?? null;
       const altEl = element?.querySelector<HTMLSpanElement>('.competitor-alt') ?? null;
+      const modeEl = element?.querySelector<HTMLSpanElement>('.competitor-mode') ?? null;
 
       markers.set(track.id, {
         marker,
         labelBoxEl,
         labelEl,
         altEl,
+        modeEl,
         markerEl,
         columnEl,
         color,
@@ -694,6 +700,21 @@ export function LiveCompetitorLayer({
 
         if (entry.altEl) {
           entry.altEl.textContent = altLabel;
+        }
+      }
+
+      const isSelectedPilot = track.id === selectedPilotTrackIdRef.current;
+      if (entry.modeEl) {
+        if (isSelectedPilot) {
+          const modeState = getFlyingModeStateAtTime(track.flyingModeTimeline, time);
+          const line = formatFlyingModeMapLine(modeState, prefs);
+          entry.modeEl.textContent = line;
+          entry.modeEl.classList.toggle('competitor-mode--circling', modeState?.mode === 'circling');
+          entry.modeEl.classList.toggle('competitor-mode--glide', modeState?.mode === 'glide');
+          entry.modeEl.style.display = line ? '' : 'none';
+        } else {
+          entry.modeEl.textContent = '';
+          entry.modeEl.style.display = 'none';
         }
       }
 

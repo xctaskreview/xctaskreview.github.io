@@ -9,6 +9,13 @@ import {
   isLandedAtTime,
 } from './geo';
 import { attachLegTimingsToTracks, type PilotLegTiming } from './legStatistics';
+import {
+  circlingDetectionFromPreferences,
+  computeFlyingModeTimeline,
+  type CirclingDetectionSettings,
+  type FlyingModeTimeline,
+} from './flyingMode';
+import { createDefaultPreferences, type CirclingDetectionPreferences } from './preferences';
 import { extractPilotDisplayName, parseGliderTypeFromHeader, pilotFirstName } from './igc';
 import { findFirstTimeFieldReachedPercent, type TaskFieldTimeline } from './taskTimeline';
 
@@ -47,6 +54,8 @@ export interface EnrichedFlightTrack {
   legTimings?: PilotLegTiming[];
   /** Fleet launch level derived from early fixes; used before a pilot's log begins. */
   launchAltitudeM?: number | null;
+  /** Per-second circling vs glide metrics for the full track. */
+  flyingModeTimeline: FlyingModeTimeline;
 }
 
 interface TurnpointCylinder {
@@ -164,6 +173,7 @@ export function enrichTrackWithTaskProgress(
   task: XcTask,
   route: OptimizedRoute,
   taskStart?: Date,
+  circlingDetection?: CirclingDetectionSettings,
 ): EnrichedFlightTrack {
   const goalIndex = route.goalIndex;
   const turnpoints: TurnpointCylinder[] = task.turnpoints.map((tp, index) => ({
@@ -245,6 +255,8 @@ export function enrichTrackWithTaskProgress(
   attachPlaybackFieldsToPoints(enrichedPoints);
 
   const displayPilotName = extractPilotDisplayName(track);
+  const flyingModeDetection =
+    circlingDetection ?? circlingDetectionFromPreferences(createDefaultPreferences());
 
   return {
     id: track.id,
@@ -257,6 +269,7 @@ export function enrichTrackWithTaskProgress(
     landingTime: track.landingTime ?? getTrackEndTime(track.points),
     gliderType: track.gliderType ?? parseGliderTypeFromHeader(track.igcHeader ?? ''),
     igcHeader: track.igcHeader,
+    flyingModeTimeline: computeFlyingModeTimeline(enrichedPoints, flyingModeDetection),
   };
 }
 
@@ -529,10 +542,17 @@ export function enrichTracksWithTaskProgress(
   task: XcTask,
   route: OptimizedRoute,
   taskStart?: Date,
+  preferences?: CirclingDetectionPreferences,
 ): EnrichedFlightTrack[] {
   const launchAltitudeM = estimateLaunchAltitudeMetersFromTracks(tracks);
+  const circlingDetection = preferences
+    ? circlingDetectionFromPreferences({
+        ...createDefaultPreferences(),
+        ...preferences,
+      })
+    : circlingDetectionFromPreferences(createDefaultPreferences());
   const enriched = tracks.map((track) => {
-    const entry = enrichTrackWithTaskProgress(track, task, route, taskStart);
+    const entry = enrichTrackWithTaskProgress(track, task, route, taskStart, circlingDetection);
     return launchAltitudeM == null ? entry : { ...entry, launchAltitudeM };
   });
   return attachLegTimingsToTracks(enriched, route, taskStart);

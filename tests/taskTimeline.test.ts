@@ -7,6 +7,8 @@ import {
   findFirstTimeFieldReachedPercent,
 } from '../src/lib/taskTimeline';
 import type { EnrichedFlightTrack, EnrichedTrackPoint } from '../src/lib/taskProgress';
+import { computeFlyingModeTimeline } from '../src/lib/flyingMode';
+import { createDefaultPreferences } from '../src/lib/preferences';
 
 const TASK_START_MS = Date.UTC(2026, 0, 1, 12, 0, 0);
 
@@ -31,7 +33,20 @@ function buildTrack(id: string, percentPerSecond: number, seconds: number): Enri
     };
   });
 
-  return { id, pilotName: id, firstName: id, fileName: `${id}.igc`, points };
+  return {
+    id,
+    pilotName: id,
+    firstName: id,
+    fileName: `${id}.igc`,
+    points,
+    flyingModeTimeline: computeFlyingModeTimeline(
+      points,
+      {
+        sampleMs: createDefaultPreferences().circlingDetectionSampleSec * 1000,
+        turnRateDegPerS: createDefaultPreferences().circlingTurnRateDegPerS,
+      },
+    ),
+  };
 }
 
 describe('buildTaskFieldTimeline', () => {

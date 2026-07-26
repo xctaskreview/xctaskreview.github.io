@@ -1,4 +1,5 @@
 import { computeSpeedsAtTime } from './geo';
+import { getFlyingModeStateAtTime } from './flyingMode';
 import type { EnrichedFlightTrack } from './taskProgress';
 import { getTrackColor, getTrackSnapshotAtTime } from './tracks';
 import type { CompetitorSnapshot, OptimizedRoute } from './types';
@@ -23,6 +24,8 @@ export function buildCompetitorSnapshots(
         ? computeSpeedsAtTime(track.points, currentTime)
         : { groundSpeedMps: 0, verticalSpeedMps: 0 };
 
+    const flyingModeState = getFlyingModeStateAtTime(track.flyingModeTimeline, currentTime);
+
     return [
       {
         id: track.id,
@@ -42,6 +45,12 @@ export function buildCompetitorSnapshots(
         nextTurnpointNumber: snapshot.nextTurnpointNumber,
         nextTurnpointRadiusM: snapshot.nextTurnpointRadiusM,
         leadPercent: 0,
+        flyingMode: flyingModeState?.mode ?? 'glide',
+        thermalGainM: flyingModeState?.thermalGainM ?? 0,
+        circlingDurationSec: flyingModeState?.circlingDurationSec ?? 0,
+        averageThermalVarioMps: flyingModeState?.averageThermalVarioMps ?? 0,
+        glideRatio: flyingModeState?.glideRatio ?? null,
+        averageGlideRatio: flyingModeState?.averageGlideRatio ?? null,
       },
     ];
   });

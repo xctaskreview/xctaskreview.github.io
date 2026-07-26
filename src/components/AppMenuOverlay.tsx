@@ -13,6 +13,9 @@ interface AppMenuOverlayProps {
   onClose: () => void;
   preferences: AppPreferences;
   onPreferencesChange: (preferences: AppPreferences) => void;
+  circlingDetectionDirty?: boolean;
+  onRecomputeCirclingDetection?: () => void;
+  onRestoreCirclingDefaults?: () => void;
 }
 
 export function AppMenuOverlay({
@@ -20,6 +23,9 @@ export function AppMenuOverlay({
   onClose,
   preferences,
   onPreferencesChange,
+  circlingDetectionDirty = false,
+  onRecomputeCirclingDetection,
+  onRestoreCirclingDefaults,
 }: AppMenuOverlayProps) {
   const suppressDismissUntilRef = useRef(0);
   const onCloseRef = useRef(onClose);
@@ -93,6 +99,9 @@ export function AppMenuOverlay({
           <AppPreferencesForm
             preferences={preferences}
             onPreferencesChange={onPreferencesChange}
+            circlingDetectionDirty={circlingDetectionDirty}
+            onRecomputeCirclingDetection={onRecomputeCirclingDetection}
+            onRestoreCirclingDefaults={onRestoreCirclingDefaults}
           />
 
           <hr className="app-menu-divider" />

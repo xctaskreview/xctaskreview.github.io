@@ -34,11 +34,7 @@ const emptyRoute: OptimizedRoute = {
 const START_MS = Date.UTC(2026, 0, 1, 12, 0, 0);
 
 function buildTrack(pointCount: number): EnrichedFlightTrack {
-  return {
-    id: 'track',
-    pilotName: 'Pilot',
-    fileName: 'pilot.igc',
-    points: Array.from({ length: pointCount }, (_, index) => {
+  const points = Array.from({ length: pointCount }, (_, index) => {
       const taskPercent = (index / pointCount) * 100;
       return {
         lat: 46 + index * 0.0001,
@@ -55,7 +51,14 @@ function buildTrack(pointCount: number): EnrichedFlightTrack {
         maxTaskPercentSoFar: taskPercent,
         altAtMaxTaskPercentSoFar: 1500,
       };
-    }),
+    });
+  return {
+    id: 'track',
+    pilotName: 'Pilot',
+    firstName: 'Pilot',
+    fileName: 'pilot.igc',
+    points,
+    flyingModeTimeline: { startTimeMs: START_MS, seconds: [] },
   };
 }
 

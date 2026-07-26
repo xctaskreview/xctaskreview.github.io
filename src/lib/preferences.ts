@@ -22,11 +22,49 @@ export interface AppPreferences {
   pilotTrailLengthM: number;
   showFutureTrail: boolean;
   playbackSpeed: PlaybackSpeed;
+  /** Heading-change sample window for circling vs glide (seconds). */
+  circlingDetectionSampleSec: number;
+  /** Minimum turn rate (°/s) over the sample window to count as circling. */
+  circlingTurnRateDegPerS: number;
+}
+
+export type CirclingDetectionPreferences = Pick<
+  AppPreferences,
+  'circlingDetectionSampleSec' | 'circlingTurnRateDegPerS'
+>;
+
+export function pickCirclingDetectionPreferences(
+  preferences: AppPreferences,
+): CirclingDetectionPreferences {
+  return {
+    circlingDetectionSampleSec: preferences.circlingDetectionSampleSec,
+    circlingTurnRateDegPerS: preferences.circlingTurnRateDegPerS,
+  };
+}
+
+export function circlingDetectionPreferencesEqual(
+  a: CirclingDetectionPreferences,
+  b: CirclingDetectionPreferences,
+): boolean {
+  return (
+    a.circlingDetectionSampleSec === b.circlingDetectionSampleSec &&
+    a.circlingTurnRateDegPerS === b.circlingTurnRateDegPerS
+  );
 }
 
 export function normalizePilotTrailLengthM(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(20000, Math.round(value)));
+}
+
+export function normalizeCirclingDetectionSampleSec(value: number): number {
+  if (!Number.isFinite(value)) return 25;
+  return Math.max(1, Math.min(60, Math.round(value)));
+}
+
+export function normalizeCirclingTurnRateDegPerS(value: number): number {
+  if (!Number.isFinite(value)) return 7;
+  return Math.max(0.5, Math.min(30, Math.round(value * 10) / 10));
 }
 
 export function createDefaultPreferences(): AppPreferences {
@@ -39,6 +77,8 @@ export function createDefaultPreferences(): AppPreferences {
     pilotTrailLengthM: 0,
     showFutureTrail: false,
     playbackSpeed: 50,
+    circlingDetectionSampleSec: 25,
+    circlingTurnRateDegPerS: 7,
   };
 }
 
@@ -74,6 +114,16 @@ export function normalizePreferences(value: Partial<AppPreferences> | null | und
     showFutureTrail: value.showFutureTrail === true,
     playbackSpeed: normalizePlaybackSpeed(
       typeof value.playbackSpeed === 'number' ? value.playbackSpeed : defaults.playbackSpeed,
+    ),
+    circlingDetectionSampleSec: normalizeCirclingDetectionSampleSec(
+      typeof value.circlingDetectionSampleSec === 'number'
+        ? value.circlingDetectionSampleSec
+        : defaults.circlingDetectionSampleSec,
+    ),
+    circlingTurnRateDegPerS: normalizeCirclingTurnRateDegPerS(
+      typeof value.circlingTurnRateDegPerS === 'number'
+        ? value.circlingTurnRateDegPerS
+        : defaults.circlingTurnRateDegPerS,
     ),
   };
 }

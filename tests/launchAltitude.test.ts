@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { estimateLaunchAltitudeMetersFromTracks } from '../src/lib/geo';
 import type { EnrichedFlightTrack, EnrichedTrackPoint } from '../src/lib/taskProgress';
 import { getTrackSnapshotAtTime } from '../src/lib/taskProgress';
+import { computeFlyingModeTimeline } from '../src/lib/flyingMode';
 import type { OptimizedRoute } from '../src/lib/types';
 
 const route = {
@@ -56,6 +57,7 @@ describe('getTrackSnapshotAtTime before log start', () => {
       fileName: 'late.igc',
       launchAltitudeM: 995,
       points: [point(startMs + 60_000, 1010)],
+      flyingModeTimeline: { startTimeMs: startMs + 60_000, seconds: [] },
     };
 
     const snapshot = getTrackSnapshotAtTime(track, new Date(startMs), route);

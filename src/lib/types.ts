@@ -123,6 +123,8 @@ export interface OptimizedRoute {
   goalRadius: number;
 }
 
+import type { FlyingMode } from './flyingMode';
+
 export interface CompetitorSnapshot {
   id: string;
   pilotName: string;
@@ -141,6 +143,12 @@ export interface CompetitorSnapshot {
   nextTurnpointNumber: number | null;
   nextTurnpointRadiusM: number | null;
   leadPercent: number;
+  flyingMode: FlyingMode;
+  thermalGainM: number;
+  circlingDurationSec: number;
+  averageThermalVarioMps: number;
+  glideRatio: number | null;
+  averageGlideRatio: number | null;
 }
 
 export interface TaskTiming {

@@ -14,8 +14,11 @@ import {
   createDefaultPreferences,
   loadPersistedPreferences,
   normalizePlaybackSpeed,
+  pickCirclingDetectionPreferences,
+  circlingDetectionPreferencesEqual,
   savePersistedPreferences,
   type AppPreferences,
+  type CirclingDetectionPreferences,
 } from './lib/preferences';
 import {
   assignUniqueTrackColors,
@@ -101,6 +104,9 @@ export default function App() {
     hasStoredPreferencesRef.current = stored !== null;
     return stored ?? EMPTY_APP_STATE.preferences;
   });
+  const [appliedCircling, setAppliedCircling] = useState<CirclingDetectionPreferences>(() =>
+    pickCirclingDetectionPreferences(loadPersistedPreferences() ?? EMPTY_APP_STATE.preferences),
+  );
   const [view, setView] = useState<AppView>('welcome');
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
@@ -118,6 +124,8 @@ export default function App() {
   const [storageReady, setStorageReady] = useState(false);
   const [appMenuOpen, setAppMenuOpen] = useState(false);
   const currentTimeRef = useRef(currentTime);
+  const pendingCirclingRecomputeRef = useRef(false);
+  const circlingRecomputeResumeRef = useRef<{ at: Date; playing: boolean } | null>(null);
   const enabledTrackIdsKey = useMemo(() => [...enabledTrackIds].sort().join('|'), [enabledTrackIds]);
 
   useEffect(() => {
@@ -215,12 +223,58 @@ export default function App() {
     });
   }, [storageReady, tracks]);
 
+  useEffect(() => {
+    if (!taskFitKey) return;
+    setAppliedCircling(pickCirclingDetectionPreferences(preferences));
+  }, [taskFitKey]);
+
+  const circlingDetectionDirty = useMemo(
+    () =>
+      !circlingDetectionPreferencesEqual(
+        pickCirclingDetectionPreferences(preferences),
+        appliedCircling,
+      ),
+    [preferences, appliedCircling],
+  );
+
+  const applyCirclingDetectionNow = useCallback((circling: CirclingDetectionPreferences) => {
+    circlingRecomputeResumeRef.current = {
+      at: new Date(currentTimeRef.current.getTime()),
+      playing,
+    };
+    pendingCirclingRecomputeRef.current = true;
+    if (playing) {
+      setPlaying(false);
+    }
+    setAppliedCircling(circling);
+  }, [playing]);
+
+  const handleRecomputeCirclingDetection = useCallback(() => {
+    applyCirclingDetectionNow(pickCirclingDetectionPreferences(preferences));
+  }, [applyCirclingDetectionNow, preferences]);
+
   const route = useMemo(() => (task ? buildOptimizedRoute(task) : null), [task]);
   const visibleTracks = useMemo(
     () => tracks.filter((track) => enabledTrackIds.has(track.id)),
     [tracks, enabledTrackIds],
   );
   const showReview = view === 'review' && Boolean(task && visibleTracks.length > 0);
+
+  const handleRestoreCirclingDefaults = useCallback(() => {
+    const defaults = pickCirclingDetectionPreferences(createDefaultPreferences());
+    setPreferences((prev) => ({
+      ...prev,
+      circlingDetectionSampleSec: defaults.circlingDetectionSampleSec,
+      circlingTurnRateDegPerS: defaults.circlingTurnRateDegPerS,
+    }));
+    if (showReview) {
+      if (!circlingDetectionPreferencesEqual(appliedCircling, defaults)) {
+        applyCirclingDetectionNow(defaults);
+      }
+    } else {
+      setAppliedCircling(defaults);
+    }
+  }, [showReview, appliedCircling, applyCirclingDetectionNow]);
 
   const taskTimeZone = useMemo(() => (task ? resolveTaskTimeZone(task) : 'UTC'), [task]);
 
@@ -235,8 +289,22 @@ export default function App() {
 
   const allEnrichedTracks = useMemo(() => {
     if (!showReview || !task || !route) return [];
-    return enrichTracksWithTaskProgress(tracks, task, route, taskStart);
-  }, [showReview, tracks, task, route, taskStart]);
+    return enrichTracksWithTaskProgress(tracks, task, route, taskStart, appliedCircling);
+  }, [showReview, tracks, task, route, taskStart, appliedCircling]);
+
+  useEffect(() => {
+    if (!pendingCirclingRecomputeRef.current) return;
+    if (allEnrichedTracks.length === 0) return;
+    pendingCirclingRecomputeRef.current = false;
+    const resume = circlingRecomputeResumeRef.current;
+    circlingRecomputeResumeRef.current = null;
+    if (!resume) return;
+    currentTimeRef.current = resume.at;
+    setCurrentTime(resume.at);
+    if (resume.playing) {
+      setPlaying(true);
+    }
+  }, [allEnrichedTracks, appliedCircling]);
 
   const enrichedTracks = useMemo(
     () => allEnrichedTracks.filter((track) => enabledTrackIds.has(track.id)),
@@ -799,6 +867,9 @@ const onSessionBundleExport = useCallback(async () => {
       onClose={() => setAppMenuOpen(false)}
       preferences={preferences}
       onPreferencesChange={setPreferences}
+      circlingDetectionDirty={showReview && circlingDetectionDirty}
+      onRecomputeCirclingDetection={handleRecomputeCirclingDetection}
+      onRestoreCirclingDefaults={handleRestoreCirclingDefaults}
     />
   );
 

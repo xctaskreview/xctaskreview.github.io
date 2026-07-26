@@ -1907,6 +1907,64 @@ html.turnpoint-drag-active .welcome-scroll {
   cursor: pointer;
 }
 
+.welcome-pref-circling-row {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.welcome-pref-circling-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.welcome-pref-circling-restore {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.welcome-pref-circling-restore:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.welcome-pref-circling-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.welcome-pref-circling-recompute {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 8px 14px;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.welcome-pref-circling-recompute:hover {
+  background: #dbeafe;
+}
+
 .welcome-continue {
   flex: 1;
   display: inline-flex;
@@ -2251,7 +2309,7 @@ html.turnpoint-drag-active .welcome-scroll {
   left: 50%;
   top: calc(100% + 4px);
   transform: translateX(-50%);
-  padding: 3px 7px;
+  padding: 4px 8px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.18);
@@ -2275,7 +2333,7 @@ html.turnpoint-drag-active .welcome-scroll {
   align-items: center;
   gap: 3px;
   color: #0f172a;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -2287,9 +2345,30 @@ html.turnpoint-drag-active .welcome-scroll {
 
 .competitor-alt {
   color: #475569;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.2;
+}
+
+.competitor-mode {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  max-width: 240px;
+  text-align: center;
+  white-space: normal;
+}
+
+.competitor-mode:empty {
+  display: none;
+}
+
+.competitor-mode--circling {
+  color: #15803d;
+}
+
+.competitor-mode--glide {
+  color: #1d4ed8;
 }
 
 .time-controls {
@@ -3141,6 +3220,16 @@ button.app-home-link.time-controls-home-link:hover {
   margin: 0;
 }
 
+.pilot-detail-mode-circling {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.pilot-detail-mode-glide {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
 .pilot-detail-close {
   flex-shrink: 0;
   display: inline-flex;
@@ -3761,6 +3850,10 @@ button.app-home-link.time-controls-home-link:hover {
 
   .welcome-pref-grid {
     gap: 8px;
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-pref-circling-fields {
     grid-template-columns: 1fr;
   }
 
