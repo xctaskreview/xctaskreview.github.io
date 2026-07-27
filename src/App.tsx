@@ -61,11 +61,21 @@ import {
   buildStartTurnpointTooltip,
 } from './lib/turnpointTooltip';
 import { ReviewWalkthrough } from './components/ReviewWalkthrough';
+import { ReviewKeymapDialog } from './components/ReviewKeymapDialog';
+import { PilotQuickSearch, buildPilotQuickSearchEntries } from './components/PilotQuickSearch';
+import { ReviewTimeSeekDialog } from './components/ReviewTimeSeekDialog';
 import {
   isReviewWalkthroughDismissed,
   markReviewWalkthroughDismissed,
   type ReviewWalkthroughStepId,
 } from './lib/reviewWalkthrough';
+import {
+  isEditableKeyboardTarget,
+  isReviewShortcutModifier,
+  reviewStartTime,
+  seekTurnpointTime,
+  stepPlaybackSpeed,
+} from './lib/reviewKeyboard';
 import { useThrottledDate } from './lib/useThrottledDate';
 import './App.css';
 
@@ -176,6 +186,9 @@ export default function App() {
   const reviewStageRef = useRef<HTMLDivElement>(null);
   const [storageReady, setStorageReady] = useState(false);
   const [appMenuOpen, setAppMenuOpen] = useState(false);
+  const [reviewKeymapOpen, setReviewKeymapOpen] = useState(false);
+  const [pilotQuickSearchOpen, setPilotQuickSearchOpen] = useState(false);
+  const [reviewTimeSeekMode, setReviewTimeSeekMode] = useState<'clock' | 'timer' | null>(null);
   const [reviewWalkthroughActive, setReviewWalkthroughActive] = useState(false);
   const walkthroughUiSnapshotRef = useRef<ReviewWalkthroughUiSnapshot | null>(null);
   const [walkthroughLegendForceOpen, setWalkthroughLegendForceOpen] = useState(false);
@@ -448,6 +461,15 @@ export default function App() {
     );
     return [sssExitTp1Marker, ...withoutSss];
   }, [turnpointReachMarkers, sssExitTp1Marker, route]);
+
+  const turnpointSeekTimesMs = useMemo(() => {
+    const times = new Set<number>();
+    times.add(reviewStartTime(timing.taskStart, timing.trackStart).getTime());
+    for (const marker of sliderTurnpointReachMarkers) {
+      times.add(marker.time.getTime());
+    }
+    return [...times].sort((a, b) => a - b);
+  }, [sliderTurnpointReachMarkers, timing.taskStart, timing.trackStart]);
 
   const pilotSssCrossDelaySec = useMemo(() => {
     const delays = new Map<string, number>();
@@ -836,6 +858,15 @@ export default function App() {
     setMapDataActivePanel((current) => (current === 'pilot-detail' ? null : current));
   }, []);
 
+  const toggleLeaderboardPanel = useCallback(() => {
+    setMapDataActivePanel((current) => (current === 'leaderboard' ? null : 'leaderboard'));
+  }, []);
+
+  const pilotQuickSearchEntries = useMemo(
+    () => buildPilotQuickSearchEntries(tracks, trackColors),
+    [tracks, trackColors],
+  );
+
   const onPlaybackSpeedChange = useCallback((playbackSpeed: number) => {
     setPreferences((current) => ({
       ...current,
@@ -852,6 +883,116 @@ export default function App() {
       );
     }
   }, [tracks, selectedPilotTrackId]);
+
+  useEffect(() => {
+    if (
+      !showReview ||
+      reviewWalkthroughActive ||
+      appMenuOpen ||
+      reviewKeymapOpen ||
+      pilotQuickSearchOpen ||
+      reviewTimeSeekMode !== null
+    ) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableKeyboardTarget(event.target)) return;
+      if (isReviewShortcutModifier(event)) return;
+
+      if (event.key === ' ') {
+        event.preventDefault();
+        setPlaying((current) => !current);
+        return;
+      }
+
+      if (event.key === '+' || event.key === '=') {
+        event.preventDefault();
+        onPlaybackSpeedChange(
+          stepPlaybackSpeed(preferences.playbackSpeed, 1),
+        );
+        return;
+      }
+
+      if (event.key === '-' || event.key === '_') {
+        event.preventDefault();
+        onPlaybackSpeedChange(
+          stepPlaybackSpeed(preferences.playbackSpeed, -1),
+        );
+        return;
+      }
+
+      if (event.key === 'l' || event.key === 'L') {
+        event.preventDefault();
+        toggleLeaderboardPanel();
+        return;
+      }
+
+      if (event.key === '/') {
+        event.preventDefault();
+        setPilotQuickSearchOpen(true);
+        return;
+      }
+
+      if (event.key === 'c' || event.key === 'C') {
+        event.preventDefault();
+        setReviewTimeSeekMode('clock');
+        return;
+      }
+
+      if (event.key === 't' || event.key === 'T') {
+        event.preventDefault();
+        setReviewTimeSeekMode('timer');
+        return;
+      }
+
+      if (event.key === 'Backspace') {
+        event.preventDefault();
+        setPlaying(false);
+        setCurrentTime(reviewStartTime(timing.taskStart, timing.trackStart));
+        return;
+      }
+
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        const nextTime = seekTurnpointTime(
+          currentTimeRef.current.getTime(),
+          turnpointSeekTimesMs,
+          event.key === 'ArrowRight' ? 1 : -1,
+        );
+        if (nextTime) {
+          event.preventDefault();
+          setPlaying(false);
+          setCurrentTime(nextTime);
+        }
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        if (selectedPilotTrackId) {
+          event.preventDefault();
+          onClosePilotDetail();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [
+    showReview,
+    reviewWalkthroughActive,
+    appMenuOpen,
+    reviewKeymapOpen,
+    pilotQuickSearchOpen,
+    reviewTimeSeekMode,
+    preferences.playbackSpeed,
+    onPlaybackSpeedChange,
+    toggleLeaderboardPanel,
+    selectedPilotTrackId,
+    onClosePilotDetail,
+    timing.taskStart,
+    timing.trackStart,
+    turnpointSeekTimesMs,
+  ]);
 
 
 const applyPersistedSession = useCallback((session: {
@@ -1139,6 +1280,10 @@ const onSessionBundleExport = useCallback(async () => {
       circlingDetectionDirty={showReview && circlingDetectionDirty}
       onRecomputeCirclingDetection={handleRecomputeCirclingDetection}
       onRestoreCirclingDefaults={handleRestoreCirclingDefaults}
+      onOpenKeymap={() => {
+        setAppMenuOpen(false);
+        setReviewKeymapOpen(true);
+      }}
       onStartWalkthrough={handleAppMenuWalkthrough}
       walkthroughAvailable={canEnterReview}
     />
@@ -1181,6 +1326,7 @@ const onSessionBundleExport = useCallback(async () => {
         />
       </div>
       {errorOverlay}
+      <ReviewKeymapDialog open={reviewKeymapOpen} onClose={() => setReviewKeymapOpen(false)} />
       {appMenuOverlay}
       </>
     );
@@ -1207,6 +1353,8 @@ const onSessionBundleExport = useCallback(async () => {
             onSpeedChange={onPlaybackSpeedChange}
             onEdit={goToWelcome}
             onOpenAppMenu={() => setAppMenuOpen(true)}
+            onOpenClockSeek={() => setReviewTimeSeekMode('clock')}
+            onOpenTimerSeek={() => setReviewTimeSeekMode('timer')}
           />
           </>
         )}
@@ -1312,6 +1460,26 @@ const onSessionBundleExport = useCallback(async () => {
       active={reviewWalkthroughActive}
       onClose={closeReviewWalkthrough}
       onStepChange={handleReviewWalkthroughStep}
+    />
+    <ReviewKeymapDialog open={reviewKeymapOpen} onClose={() => setReviewKeymapOpen(false)} />
+    <PilotQuickSearch
+      open={pilotQuickSearchOpen}
+      entries={pilotQuickSearchEntries}
+      onClose={() => setPilotQuickSearchOpen(false)}
+      onSelect={onSelectPilotTrack}
+    />
+    <ReviewTimeSeekDialog
+      mode={reviewTimeSeekMode ?? 'clock'}
+      open={reviewTimeSeekMode !== null}
+      onClose={() => setReviewTimeSeekMode(null)}
+      onSeek={(time) => {
+        setCurrentTime(time);
+      }}
+      taskTimeZone={taskTimeZone}
+      referenceDate={timing.taskStart ?? timing.trackStart}
+      taskStart={timing.taskStart}
+      trackStart={timing.trackStart}
+      trackEnd={timing.trackEnd}
     />
     {errorOverlay}
     {appMenuOverlay}

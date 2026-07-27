@@ -1,5 +1,5 @@
 import { useEffect, useRef, type MouseEvent } from 'react';
-import { Bug, GitBranch, Map, Smartphone, Wind, X } from 'lucide-react';
+import { Bug, GitBranch, Keyboard, Map, Smartphone, Wind, X } from 'lucide-react';
 import type { AppPreferences } from '../lib/preferences';
 import { usePwaInstall } from '../lib/usePwaInstall';
 import { AppPreferencesForm } from './AppPreferencesForm';
@@ -17,6 +17,7 @@ interface AppMenuOverlayProps {
   onRecomputeCirclingDetection?: () => void;
   onRestoreCirclingDefaults?: () => void;
   onStartWalkthrough?: () => void;
+  onOpenKeymap?: () => void;
   walkthroughAvailable?: boolean;
 }
 
@@ -29,6 +30,7 @@ export function AppMenuOverlay({
   onRecomputeCirclingDetection,
   onRestoreCirclingDefaults,
   onStartWalkthrough,
+  onOpenKeymap,
   walkthroughAvailable = false,
 }: AppMenuOverlayProps) {
   const suppressDismissUntilRef = useRef(0);
@@ -111,6 +113,20 @@ export function AppMenuOverlay({
           <hr className="app-menu-divider" />
 
           <div className="app-menu-section">
+            {onOpenKeymap && (
+              <button
+                type="button"
+                className="app-menu-walkthrough-button"
+                onClick={() => {
+                  onCloseRef.current();
+                  onOpenKeymap();
+                }}
+              >
+                <IconLabel icon={Keyboard} iconSize="sm">
+                  Keymap
+                </IconLabel>
+              </button>
+            )}
             <button
               type="button"
               className="app-menu-walkthrough-button"

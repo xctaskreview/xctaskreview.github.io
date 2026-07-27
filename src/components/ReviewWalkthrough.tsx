@@ -43,7 +43,6 @@ export function ReviewWalkthrough({ active, onClose, onStepChange }: ReviewWalkt
   const [skipHintVisible, setSkipHintVisible] = useState(false);
 
   const step = REVIEW_WALKTHROUGH_STEPS[stepIndex];
-  const isLastStep = stepIndex >= REVIEW_WALKTHROUGH_STEPS.length - 1;
 
   const updateSpotlight = useCallback(() => {
     if (!active || skipHintVisible || !step) {
@@ -92,36 +91,62 @@ export function ReviewWalkthrough({ active, onClose, onStepChange }: ReviewWalkt
     };
   }, [active, updateSpotlight, stepIndex, skipHintVisible]);
 
+  const handleNext = useCallback(() => {
+    setStepIndex((value) => {
+      if (value >= REVIEW_WALKTHROUGH_STEPS.length - 1) {
+        onClose(true);
+        return value;
+      }
+      return value + 1;
+    });
+  }, [onClose]);
+
+  const handleBack = useCallback(() => {
+    setSkipHintVisible(false);
+    setStepIndex((value) => Math.max(0, value - 1));
+  }, []);
+
+  const handleSkipConfirm = useCallback(() => {
+    onClose(false);
+  }, [onClose]);
+
   useEffect(() => {
     if (!active) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault();
         setSkipHintVisible(true);
+        return;
+      }
+
+      if (skipHintVisible) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          onClose(false);
+        }
+        return;
+      }
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        handleBack();
+        return;
+      }
+
+      if (event.key === 'ArrowRight' || event.key === 'Enter') {
+        event.preventDefault();
+        handleNext();
       }
     };
+
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [active]);
+  }, [active, skipHintVisible, handleBack, handleNext, onClose]);
 
   if (!active) return null;
 
-  const handleNext = () => {
-    if (isLastStep) {
-      onClose(true);
-      return;
-    }
-    setStepIndex((value) => value + 1);
-  };
-
-  const handleBack = () => {
-    setSkipHintVisible(false);
-    setStepIndex((value) => Math.max(0, value - 1));
-  };
-
-  const handleSkipConfirm = () => {
-    onClose(false);
-  };
+  const isLastStep = stepIndex >= REVIEW_WALKTHROUGH_STEPS.length - 1;
 
   const tooltipStyle = (() => {
     if (!spotlight || skipHintVisible) {

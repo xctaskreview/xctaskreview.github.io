@@ -27,6 +27,8 @@ interface TimeControlsProps {
   onSpeedChange: (speed: number) => void;
   onEdit?: () => void;
   onOpenAppMenu?: () => void;
+  onOpenClockSeek?: () => void;
+  onOpenTimerSeek?: () => void;
 }
 
 function markerPercent(timing: TaskTiming, markerTime?: Date): number | null {
@@ -107,6 +109,8 @@ export function TimeControls({
   onSpeedChange,
   onEdit,
   onOpenAppMenu,
+  onOpenClockSeek,
+  onOpenTimerSeek,
 }: TimeControlsProps) {
   const startMs = timing.trackStart.getTime();
   const endMs = timing.trackEnd.getTime();
@@ -151,22 +155,53 @@ export function TimeControls({
           </label>
 
           <div className="current-time-block">
-            <div className="current-time-row" aria-label="Current time">
-              <span className="time-metric-label">
-                <Icon icon={Clock} size="xs" />
-                <span className="time-metric-label-text">Time</span>
-              </span>
-              <span className="current-time">{formatTime(displayedTime, timezone)}</span>
-            </div>
-            {taskElapsed && (
-              <div className="current-time-row" aria-label="Elapsed task time">
-                <span className="time-metric-label">
-                  <Icon icon={Timer} size="xs" />
-                  <span className="time-metric-label-text">Elapsed</span>
+            {onOpenClockSeek ? (
+              <button
+                type="button"
+                className="time-seek-row-button current-time-row"
+                title="Set clock time (C)"
+                aria-label={`Current time ${formatTime(displayedTime, timezone)}. Set clock time`}
+                onClick={onOpenClockSeek}
+              >
+                <span className="time-metric-label" aria-hidden="true">
+                  <Icon icon={Clock} size="xs" />
+                  <span className="time-metric-label-text">Time</span>
                 </span>
-                <span className="task-elapsed">{taskElapsed}</span>
+                <span className="current-time">{formatTime(displayedTime, timezone)}</span>
+              </button>
+            ) : (
+              <div className="current-time-row" aria-label="Current time">
+                <span className="time-metric-label">
+                  <Icon icon={Clock} size="xs" />
+                  <span className="time-metric-label-text">Time</span>
+                </span>
+                <span className="current-time">{formatTime(displayedTime, timezone)}</span>
               </div>
             )}
+            {taskElapsed &&
+              (onOpenTimerSeek ? (
+                <button
+                  type="button"
+                  className="time-seek-row-button current-time-row"
+                  title="Set elapsed time (T)"
+                  aria-label={`Elapsed task time ${taskElapsed}. Set elapsed time`}
+                  onClick={onOpenTimerSeek}
+                >
+                  <span className="time-metric-label" aria-hidden="true">
+                    <Icon icon={Timer} size="xs" />
+                    <span className="time-metric-label-text">Elapsed</span>
+                  </span>
+                  <span className="task-elapsed">{taskElapsed}</span>
+                </button>
+              ) : (
+                <div className="current-time-row" aria-label="Elapsed task time">
+                  <span className="time-metric-label">
+                    <Icon icon={Timer} size="xs" />
+                    <span className="time-metric-label-text">Elapsed</span>
+                  </span>
+                  <span className="task-elapsed">{taskElapsed}</span>
+                </div>
+              ))}
           </div>
 
           {onEdit && (
