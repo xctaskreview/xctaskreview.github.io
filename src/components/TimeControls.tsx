@@ -118,7 +118,7 @@ export function TimeControls({
   const taskElapsed = taskElapsedAtTime(timing, displayedTime);
 
   return (
-    <div className="time-controls">
+    <div className="time-controls" data-walkthrough="time-controls">
       <div className="time-controls-row">
         <div className="time-controls-toolbar">
           {onEdit && (
@@ -174,6 +174,7 @@ export function TimeControls({
               type="button"
               className="time-controls-edit-button"
               aria-label="Back to task"
+              data-walkthrough="back-to-task"
               onClick={onEdit}
             >
               <Icon icon={ArrowLeft} size="sm" />

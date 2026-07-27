@@ -9,7 +9,7 @@ import {
   type XcdemonLeagueTask,
 } from '../lib/xcdemon';
 import { useStableCallbackRef } from '../lib/useStableCallbackRef';
-import { Icon, IconButtonContent, XcdemonButtonContent } from './Icon';
+import { Icon } from './Icon';
 import { ImportCatalogPicker } from './ImportCatalogPicker';
 import { ModalDialogBackdrop } from './ModalDialogBackdrop';
 
@@ -37,6 +37,8 @@ export function XcdemonImportDialog({
   const [tasks, setTasks] = useState<XcdemonLeagueTask[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const onErrorRef = useStableCallbackRef(onError);
+  const onImportedRef = useStableCallbackRef(onImported);
+  const onCloseRef = useStableCallbackRef(onClose);
 
   const selectedLeague = useMemo(
     () => archivedLeagues.find((league) => league.leagueId === selectedLeagueId) ?? null,
@@ -107,20 +109,31 @@ export function XcdemonImportDialog({
     [tasks, selectedTaskId],
   );
 
-  const handleImport = async () => {
-    if (!selectedTask) return;
+  useEffect(() => {
+    if (!open || !selectedTask) return;
 
+    let cancelled = false;
     setImporting(true);
-    try {
-      const result = await importXcdemonTask(selectedTask);
-      onImported(result);
-      onClose();
-    } catch (err) {
-      onError(err instanceof Error ? err.message : 'Could not import task from XCDemon.');
-    } finally {
-      setImporting(false);
-    }
-  };
+
+    void importXcdemonTask(selectedTask)
+      .then((result) => {
+        if (cancelled) return;
+        onImportedRef.current(result);
+        onCloseRef.current();
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        onErrorRef.current(err instanceof Error ? err.message : 'Could not import task from XCDemon.');
+        setSelectedTaskId('');
+      })
+      .finally(() => {
+        if (!cancelled) setImporting(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, selectedTask, onCloseRef, onErrorRef, onImportedRef]);
 
   const busy = loadingLeagues || loadingCatalog || importing;
 
@@ -202,46 +215,25 @@ export function XcdemonImportDialog({
             onChange={setSelectedTaskId}
           />
 
-          {(loadingLeagues || loadingCatalog) && (
+          {(loadingLeagues || loadingCatalog || importing) && (
             <p className="xcdemon-dialog-status">
               <Icon icon={LoaderCircle} size="sm" className="spin-icon" />
-              {loadingLeagues ? 'Loading leagues…' : 'Loading tasks…'}
+              {importing
+                ? `Importing ${selectedTask?.label ?? 'task'}…`
+                : loadingLeagues
+                  ? 'Loading leagues…'
+                  : 'Loading tasks…'}
             </p>
           )}
 
-          {!loadingLeagues && !loadingCatalog && selectedLeague && tasks.length === 0 && (
+          {!loadingLeagues && !loadingCatalog && !importing && selectedLeague && tasks.length === 0 && (
             <p className="xcdemon-dialog-hint">No tasks with TASK RESULTS were found for this year.</p>
-          )}
-
-          {selectedTask && (
-            <div className="xcdemon-dialog-summary">
-              <div>{selectedTask.location}</div>
-              <div>{selectedTask.date}</div>
-              <div>{selectedTask.status}</div>
-              {selectedTask.igcZipUrl ? (
-                <div>IGC zip will be imported with the task.</div>
-              ) : (
-                <div className="xcdemon-dialog-warning">This task has results but no IGC zip link.</div>
-              )}
-            </div>
           )}
         </div>
 
         <div className="xcdemon-dialog-actions">
           <button type="button" className="welcome-text-button" onClick={onClose} disabled={importing}>
             Cancel
-          </button>
-          <button
-            type="button"
-            className="welcome-inline-button xcdemon-import-button"
-            disabled={!selectedTask || importing}
-            onClick={() => void handleImport()}
-          >
-            {importing ? (
-              <IconButtonContent icon={LoaderCircle}>Importing…</IconButtonContent>
-            ) : (
-              <XcdemonButtonContent>Import task</XcdemonButtonContent>
-            )}
           </button>
         </div>
       </div>

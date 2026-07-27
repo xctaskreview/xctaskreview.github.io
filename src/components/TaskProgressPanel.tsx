@@ -98,6 +98,7 @@ export function TaskProgressPanel({
   return (
     <div
       id="review-altitude-chart"
+      data-walkthrough="task-progress"
       className={`review-chart-slot${mobileOpen ? ' open' : ''}${minimized ? ' minimized' : ''}`}
       style={
         minimized

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type MouseEvent } from 'react';
-import { Bug, GitBranch, Smartphone, Wind, X } from 'lucide-react';
+import { Bug, GitBranch, Map, Smartphone, Wind, X } from 'lucide-react';
 import type { AppPreferences } from '../lib/preferences';
 import { usePwaInstall } from '../lib/usePwaInstall';
 import { AppPreferencesForm } from './AppPreferencesForm';
@@ -16,6 +16,8 @@ interface AppMenuOverlayProps {
   circlingDetectionDirty?: boolean;
   onRecomputeCirclingDetection?: () => void;
   onRestoreCirclingDefaults?: () => void;
+  onStartWalkthrough?: () => void;
+  walkthroughAvailable?: boolean;
 }
 
 export function AppMenuOverlay({
@@ -26,6 +28,8 @@ export function AppMenuOverlay({
   circlingDetectionDirty = false,
   onRecomputeCirclingDetection,
   onRestoreCirclingDefaults,
+  onStartWalkthrough,
+  walkthroughAvailable = false,
 }: AppMenuOverlayProps) {
   const suppressDismissUntilRef = useRef(0);
   const onCloseRef = useRef(onClose);
@@ -103,6 +107,30 @@ export function AppMenuOverlay({
             onRecomputeCirclingDetection={onRecomputeCirclingDetection}
             onRestoreCirclingDefaults={onRestoreCirclingDefaults}
           />
+
+          <hr className="app-menu-divider" />
+
+          <div className="app-menu-section">
+            <button
+              type="button"
+              className="app-menu-walkthrough-button"
+              disabled={!walkthroughAvailable || !onStartWalkthrough}
+              onClick={() => {
+                if (!onStartWalkthrough || !walkthroughAvailable) return;
+                onCloseRef.current();
+                onStartWalkthrough();
+              }}
+            >
+              <IconLabel icon={Map} iconSize="sm">
+                Walkthrough
+              </IconLabel>
+            </button>
+            {!walkthroughAvailable && (
+              <p className="app-install-hint app-menu-install-hint">
+                Load a task and at least one track to tour the review screen.
+              </p>
+            )}
+          </div>
 
           <hr className="app-menu-divider" />
 

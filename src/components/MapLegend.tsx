@@ -255,22 +255,27 @@ const LEGEND_ITEMS: LegendItem[] = [
   },
 ];
 
-export function MapLegend() {
+interface MapLegendProps {
+  forceOpen?: boolean;
+}
+
+export function MapLegend({ forceOpen = false }: MapLegendProps) {
   const [open, setOpen] = useState(false);
+  const expanded = forceOpen || open;
 
   return (
-    <div className={`map-legend-overlay${open ? ' expanded' : ''}`}>
+    <div className={`map-legend-overlay${expanded ? ' expanded' : ''}`} data-walkthrough="map-legend">
       <button
         type="button"
         className="map-legend-toggle"
-        aria-expanded={open}
+        aria-expanded={expanded}
         aria-controls="map-legend-panel"
         onClick={() => setOpen((prev) => !prev)}
       >
         <IconButtonContent icon={ListTree}>Legend</IconButtonContent>
       </button>
 
-      {open && (
+      {expanded && (
         <div id="map-legend-panel" className="map-legend-panel" role="region" aria-label="Map legend">
           <ul className="map-legend-list">
             {LEGEND_ITEMS.map((item) => (

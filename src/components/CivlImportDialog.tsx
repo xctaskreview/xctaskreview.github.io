@@ -11,7 +11,7 @@ import {
   type CivlYearOption,
 } from '../lib/civl';
 import { useStableCallbackRef } from '../lib/useStableCallbackRef';
-import { CivlButtonContent, Icon, IconButtonContent } from './Icon';
+import { Icon } from './Icon';
 import { ImportCatalogPicker } from './ImportCatalogPicker';
 import { ModalDialogBackdrop } from './ModalDialogBackdrop';
 
@@ -40,6 +40,8 @@ export function CivlImportDialog({
   const [tasks, setTasks] = useState<CivlTask[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const onErrorRef = useStableCallbackRef(onError);
+  const onImportedRef = useStableCallbackRef(onImported);
+  const onCloseRef = useStableCallbackRef(onClose);
 
   useEffect(() => {
     if (!open) return;
@@ -139,6 +141,33 @@ export function CivlImportDialog({
     [tasks, selectedTaskId],
   );
 
+  useEffect(() => {
+    if (!open || !selectedTask) return;
+
+    let cancelled = false;
+    setImporting(true);
+    const importEventName = eventName || selectedEvent?.title;
+
+    void importCivlTask(selectedTask, importEventName)
+      .then((result) => {
+        if (cancelled) return;
+        onImportedRef.current(result);
+        onCloseRef.current();
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        onErrorRef.current(err instanceof Error ? err.message : 'Could not import task from CIVL Comps.');
+        setSelectedTaskId('');
+      })
+      .finally(() => {
+        if (!cancelled) setImporting(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, selectedTask, eventName, selectedEvent, onCloseRef, onErrorRef, onImportedRef]);
+
   const eventOptions = useMemo(() => {
     const all = events.map((event) => ({
       value: String(event.id),
@@ -154,21 +183,6 @@ export function CivlImportDialog({
     setSelectedTaskId('');
     setTasks([]);
     setEventName('');
-  };
-
-  const handleImport = async () => {
-    if (!selectedTask) return;
-
-    setImporting(true);
-    try {
-      const result = await importCivlTask(selectedTask, eventName || selectedEvent?.title);
-      onImported(result);
-      onClose();
-    } catch (err) {
-      onError(err instanceof Error ? err.message : 'Could not import task from CIVL Comps.');
-    } finally {
-      setImporting(false);
-    }
   };
 
   const busy = loadingYears || loadingEvents || loadingTasks || importing;
@@ -252,10 +266,16 @@ export function CivlImportDialog({
             onChange={setSelectedTaskId}
           />
 
-          {(loadingYears || loadingEvents || loadingTasks) && (
+          {(loadingYears || loadingEvents || loadingTasks || importing) && (
             <p className="xcdemon-dialog-status">
               <Icon icon={LoaderCircle} size="sm" className="spin-icon" />
-              {loadingYears ? 'Loading years…' : loadingEvents ? 'Loading events…' : 'Loading tasks…'}
+              {importing
+                ? `Importing ${selectedTask?.label ?? 'task'}…`
+                : loadingYears
+                  ? 'Loading years…'
+                  : loadingEvents
+                    ? 'Loading events…'
+                    : 'Loading tasks…'}
             </p>
           )}
 
@@ -263,40 +283,16 @@ export function CivlImportDialog({
             <p className="xcdemon-dialog-hint">No events with results were found for this year.</p>
           )}
 
-          {!loadingTasks && selectedEvent && tasks.length === 0 && (
+          {!loadingTasks && !importing && selectedEvent && tasks.length === 0 && (
             <p className="xcdemon-dialog-hint">
               No tasks with Overall results and an IGC zip were found for this event.
             </p>
-          )}
-
-          {selectedTask && (
-            <div className="xcdemon-dialog-summary">
-              <div>{selectedTask.name}</div>
-              <div>{selectedTask.date}</div>
-              {selectedTask.igcZipUrl ? (
-                <div>IGC zip will be imported with the task.</div>
-              ) : (
-                <div className="xcdemon-dialog-warning">This task has results but no IGC zip link.</div>
-              )}
-            </div>
           )}
         </div>
 
         <div className="xcdemon-dialog-actions">
           <button type="button" className="welcome-text-button" onClick={onClose} disabled={importing}>
             Cancel
-          </button>
-          <button
-            type="button"
-            className="welcome-inline-button civl-import-button"
-            disabled={!selectedTask || importing}
-            onClick={() => void handleImport()}
-          >
-            {importing ? (
-              <IconButtonContent icon={LoaderCircle}>Importing…</IconButtonContent>
-            ) : (
-              <CivlButtonContent>Import task</CivlButtonContent>
-            )}
           </button>
         </div>
       </div>

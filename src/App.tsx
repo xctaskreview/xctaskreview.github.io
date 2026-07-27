@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { LineChart, X } from 'lucide-react';
+import { LineChart } from 'lucide-react';
 import { AppMenuOverlay } from './components/AppMenuOverlay';
-import { Icon, IconButtonContent } from './components/Icon';
+import { ErrorOverlay } from './components/ErrorOverlay';
+import { IconButtonContent } from './components/Icon';
 import { MapView } from './components/MapView';
 import type { MapDataActivePanel } from './components/MapDataPanels';
 import { TimeControls } from './components/TimeControls';
@@ -59,10 +60,60 @@ import {
   buildFinishTurnpointTooltip,
   buildStartTurnpointTooltip,
 } from './lib/turnpointTooltip';
+import { ReviewWalkthrough } from './components/ReviewWalkthrough';
+import {
+  isReviewWalkthroughDismissed,
+  markReviewWalkthroughDismissed,
+  type ReviewWalkthroughStepId,
+} from './lib/reviewWalkthrough';
 import { useThrottledDate } from './lib/useThrottledDate';
 import './App.css';
 
+interface ReviewWalkthroughUiSnapshot {
+  mapDataActivePanel: MapDataActivePanel | null;
+  taskProgressMinimized: boolean;
+  mobileChartOpen: boolean;
+  playing: boolean;
+  selectedPilotTrackId: string | null;
+}
+
+function isMobileReviewLayout(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(max-width: 800px)').matches;
+}
+
 type AppView = 'welcome' | 'review';
+
+type AppHistoryState = { view: AppView };
+
+function getHistoryView(state: unknown): AppView | null {
+  if (!state || typeof state !== 'object') return null;
+  const view = (state as AppHistoryState).view;
+  return view === 'welcome' || view === 'review' ? view : null;
+}
+
+function ensureWelcomeHistoryEntry(): void {
+  if (getHistoryView(window.history.state) === null) {
+    window.history.replaceState({ view: 'welcome' } satisfies AppHistoryState, '');
+  }
+}
+
+function pushReviewHistoryEntry(): void {
+  if (getHistoryView(window.history.state) !== 'review') {
+    window.history.pushState({ view: 'review' } satisfies AppHistoryState, '');
+  }
+}
+
+function replaceWithWelcomeHistoryEntry(): void {
+  window.history.replaceState({ view: 'welcome' } satisfies AppHistoryState, '');
+}
+
+function backFromReviewHistoryEntry(): boolean {
+  if (getHistoryView(window.history.state) === 'review') {
+    window.history.back();
+    return true;
+  }
+  return false;
+}
 
 const APP_DOCUMENT_TITLE = 'XC Task Review';
 
@@ -125,6 +176,13 @@ export default function App() {
   const reviewStageRef = useRef<HTMLDivElement>(null);
   const [storageReady, setStorageReady] = useState(false);
   const [appMenuOpen, setAppMenuOpen] = useState(false);
+  const [reviewWalkthroughActive, setReviewWalkthroughActive] = useState(false);
+  const walkthroughUiSnapshotRef = useRef<ReviewWalkthroughUiSnapshot | null>(null);
+  const [walkthroughLegendForceOpen, setWalkthroughLegendForceOpen] = useState(false);
+  const [walkthroughStepId, setWalkthroughStepId] = useState<ReviewWalkthroughStepId | null>(null);
+  const [walkthroughDemoPilotTrackId, setWalkthroughDemoPilotTrackId] = useState<string | null>(null);
+  const autoWalkthroughStartedRef = useRef(false);
+  const pendingWalkthroughAfterReviewRef = useRef(false);
   const currentTimeRef = useRef(currentTime);
   const pendingCirclingRecomputeRef = useRef(false);
   const circlingRecomputeResumeRef = useRef<{ at: Date; playing: boolean } | null>(null);
@@ -166,6 +224,7 @@ export default function App() {
           }
           if (persisted.view === 'review') {
             setView('review');
+            pushReviewHistoryEntry();
           }
           if (persisted.taskFileName) {
             setTaskFitKey(`${persisted.taskFileName}-restored`);
@@ -181,6 +240,17 @@ export default function App() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    ensureWelcomeHistoryEntry();
+
+    const onPopState = (event: PopStateEvent) => {
+      setView(getHistoryView(event.state) ?? 'welcome');
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   useLayoutEffect(() => {
@@ -260,7 +330,8 @@ export default function App() {
     () => tracks.filter((track) => enabledTrackIds.has(track.id)),
     [tracks, enabledTrackIds],
   );
-  const showReview = view === 'review' && Boolean(task && visibleTracks.length > 0);
+  const canEnterReview = Boolean(task && visibleTracks.length > 0);
+  const showReview = view === 'review' && canEnterReview;
 
   const handleRestoreCirclingDefaults = useCallback(() => {
     const defaults = pickCirclingDetectionPreferences(createDefaultPreferences());
@@ -600,7 +671,28 @@ export default function App() {
     setTaskLocationLabel(null);
     setTaskLocationLoading(false);
     setView('welcome');
+    if (getHistoryView(window.history.state) === 'review') {
+      replaceWithWelcomeHistoryEntry();
+    }
     syncAppDocumentTitle(null, '');
+  }, []);
+
+  const goToReview = useCallback(() => {
+    setView('review');
+    pushReviewHistoryEntry();
+  }, []);
+
+  const goToWelcome = useCallback(() => {
+    if (!backFromReviewHistoryEntry()) {
+      setView('welcome');
+    }
+  }, []);
+
+  const leaveReviewView = useCallback(() => {
+    setView('welcome');
+    if (getHistoryView(window.history.state) === 'review') {
+      replaceWithWelcomeHistoryEntry();
+    }
   }, []);
 
   const onSetTracksEnabled = useCallback((trackIds: string[], enabled: boolean) => {
@@ -787,9 +879,14 @@ const applyPersistedSession = useCallback((session: {
   if (session.taskProgressHeightPx !== undefined) {
     setTaskProgressHeightPx(normalizeTaskProgressPanelHeight(session.taskProgressHeightPx));
   }
-  setView(session.view === 'review' ? 'review' : 'welcome');
+  if (session.view === 'review') {
+    setView('review');
+    pushReviewHistoryEntry();
+  } else {
+    leaveReviewView();
+  }
   setTaskFitKey(`${session.taskFileName ?? 'task'}-${Date.now()}`);
-}, []);
+}, [leaveReviewView]);
 
 const onHistorySelect = useCallback((entry: TaskHistoryEntry) => {
   setError(null);
@@ -894,12 +991,144 @@ const onSessionBundleExport = useCallback(async () => {
     reviewStageRef.current?.style.setProperty('--task-progress-height', `${height}px`);
   }, []);
 
+  const restoreWalkthroughUi = useCallback(() => {
+    const snapshot = walkthroughUiSnapshotRef.current;
+    if (!snapshot) return;
+    setMapDataActivePanel(snapshot.mapDataActivePanel);
+    setTaskProgressMinimized(snapshot.taskProgressMinimized);
+    setMobileChartOpen(snapshot.mobileChartOpen);
+    setPlaying(snapshot.playing);
+    setSelectedPilotTrackId(snapshot.selectedPilotTrackId);
+    walkthroughUiSnapshotRef.current = null;
+    setWalkthroughLegendForceOpen(false);
+    setWalkthroughStepId(null);
+    setWalkthroughDemoPilotTrackId(null);
+  }, []);
+
+  const closeReviewWalkthrough = useCallback(
+    (_completed: boolean) => {
+      setReviewWalkthroughActive(false);
+      restoreWalkthroughUi();
+      markReviewWalkthroughDismissed();
+    },
+    [restoreWalkthroughUi],
+  );
+
+  const startReviewWalkthrough = useCallback(() => {
+    if (reviewWalkthroughActive) return;
+    walkthroughUiSnapshotRef.current = {
+      mapDataActivePanel,
+      taskProgressMinimized,
+      mobileChartOpen,
+      playing,
+      selectedPilotTrackId,
+    };
+    setWalkthroughDemoPilotTrackId(null);
+    setWalkthroughStepId(null);
+    setPlaying(false);
+    setReviewWalkthroughActive(true);
+  }, [
+    reviewWalkthroughActive,
+    mapDataActivePanel,
+    taskProgressMinimized,
+    mobileChartOpen,
+    playing,
+    selectedPilotTrackId,
+  ]);
+
+  const pickWalkthroughDemoPilotTrackId = useCallback((): string | null => {
+    const candidates = enrichedTracks.filter((track) => enabledTrackIds.has(track.id));
+    if (candidates.length === 0) return null;
+    return candidates[Math.floor(Math.random() * candidates.length)]!.id;
+  }, [enrichedTracks, enabledTrackIds]);
+
+  const handleReviewWalkthroughStep = useCallback(
+    (stepId: ReviewWalkthroughStepId) => {
+      setWalkthroughStepId(stepId);
+      setWalkthroughLegendForceOpen(stepId === 'map-legend');
+      switch (stepId) {
+        case 'leaderboard':
+          setMapDataActivePanel('leaderboard');
+          break;
+        case 'leg-statistics':
+          setMapDataActivePanel('leg-statistics');
+          break;
+        case 'pilot-select': {
+          setMapDataActivePanel('leaderboard');
+          const demoId = walkthroughDemoPilotTrackId ?? pickWalkthroughDemoPilotTrackId();
+          if (demoId) {
+            if (demoId !== walkthroughDemoPilotTrackId) {
+              setWalkthroughDemoPilotTrackId(demoId);
+            }
+            onSelectPilotTrack(demoId);
+          }
+          break;
+        }
+        case 'pilot-stats': {
+          const demoId = walkthroughDemoPilotTrackId ?? pickWalkthroughDemoPilotTrackId();
+          if (demoId) {
+            if (demoId !== walkthroughDemoPilotTrackId) {
+              setWalkthroughDemoPilotTrackId(demoId);
+            }
+            onSelectPilotTrack(demoId);
+          }
+          setMapDataActivePanel('pilot-detail');
+          break;
+        }
+        case 'task-progress':
+          setTaskProgressMinimized(false);
+          if (isMobileReviewLayout()) {
+            setMobileChartOpen(true);
+          }
+          break;
+        default:
+          break;
+      }
+    },
+    [pickWalkthroughDemoPilotTrackId, onSelectPilotTrack, walkthroughDemoPilotTrackId],
+  );
+
+  useEffect(() => {
+    if (!showReview || !storageReady || autoWalkthroughStartedRef.current) return;
+    if (isReviewWalkthroughDismissed()) return;
+    autoWalkthroughStartedRef.current = true;
+    const timer = window.setTimeout(() => {
+      startReviewWalkthrough();
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [showReview, storageReady, startReviewWalkthrough]);
+
+  useEffect(() => {
+    if (!showReview) {
+      autoWalkthroughStartedRef.current = false;
+      return;
+    }
+    if (pendingWalkthroughAfterReviewRef.current) {
+      pendingWalkthroughAfterReviewRef.current = false;
+      window.setTimeout(() => startReviewWalkthrough(), 300);
+    }
+  }, [showReview, startReviewWalkthrough]);
+
+  const handleAppMenuWalkthrough = useCallback(() => {
+    if (!canEnterReview) return;
+    if (showReview) {
+      startReviewWalkthrough();
+      return;
+    }
+    pendingWalkthroughAfterReviewRef.current = true;
+    setView('review');
+  }, [canEnterReview, showReview, startReviewWalkthrough]);
+
   useEffect(() => {
     if (!showReview) return;
     previewTaskProgressHeight(
       taskProgressMinimized ? defaultTaskProgressHeight() : taskProgressHeightPx,
     );
   }, [showReview, taskProgressMinimized, taskProgressHeightPx, previewTaskProgressHeight]);
+
+  const errorOverlay = error ? (
+    <ErrorOverlay message={error} onDismiss={() => setError(null)} />
+  ) : null;
 
   const appMenuOverlay = (
     <AppMenuOverlay
@@ -910,6 +1139,8 @@ const onSessionBundleExport = useCallback(async () => {
       circlingDetectionDirty={showReview && circlingDetectionDirty}
       onRecomputeCirclingDetection={handleRecomputeCirclingDetection}
       onRestoreCirclingDefaults={handleRestoreCirclingDefaults}
+      onStartWalkthrough={handleAppMenuWalkthrough}
+      walkthroughAvailable={canEnterReview}
     />
   );
 
@@ -926,7 +1157,6 @@ const onSessionBundleExport = useCallback(async () => {
           enabledTrackIds={enabledTrackIds}
           trackColors={trackColors}
           preferences={preferences}
-          error={error}
           canContinue={Boolean(task && visibleTracks.length > 0)}
           onTaskFile={(file) => void onTaskFile(file)}
           onTrackFiles={(files) => void onTrackFiles(files)}
@@ -938,8 +1168,7 @@ const onSessionBundleExport = useCallback(async () => {
           onRemoveAllTracks={onRemoveAllTracks}
           onSetTracksEnabled={onSetTracksEnabled}
           onOpenAppMenu={() => setAppMenuOpen(true)}
-          onContinue={() => setView('review')}
-          onDismissError={() => setError(null)}
+          onContinue={goToReview}
           onXcdemonImport={onXcdemonImport}
           onCivlImport={onCivlImport}
           onSessionBundleImport={(file) => void onSessionBundleImport(file)}
@@ -951,6 +1180,7 @@ const onSessionBundleExport = useCallback(async () => {
           onClearTask={onClearTask}
         />
       </div>
+      {errorOverlay}
       {appMenuOverlay}
       </>
     );
@@ -960,20 +1190,6 @@ const onSessionBundleExport = useCallback(async () => {
     <>
     <div className="app-shell review-mode">
       <div className="app review-screen">
-        {error && (
-          <div className="error-banner">
-            <span className="error-message-text">{error}</span>
-            <button
-              type="button"
-              className="error-dismiss"
-              aria-label="Dismiss error"
-              onClick={() => setError(null)}
-            >
-              <Icon icon={X} size="sm" />
-            </button>
-          </div>
-        )}
-
         {route && (
           <>
             <TimeControls
@@ -989,7 +1205,7 @@ const onSessionBundleExport = useCallback(async () => {
             onTimeChange={setCurrentTime}
             onPlayingChange={setPlaying}
             onSpeedChange={onPlaybackSpeedChange}
-            onEdit={() => setView('welcome')}
+            onEdit={goToWelcome}
             onOpenAppMenu={() => setAppMenuOpen(true)}
           />
           </>
@@ -1032,6 +1248,10 @@ const onSessionBundleExport = useCallback(async () => {
               nextTurnpointTimeline={nextTurnpointTimeline}
               taskProgressMarkerRef={taskProgressMarkerRef}
               turnpointReachMarkers={turnpointReachMarkers}
+              walkthroughLegendForceOpen={walkthroughLegendForceOpen}
+              walkthroughPilotSelectTrackId={
+                walkthroughStepId === 'pilot-select' ? walkthroughDemoPilotTrackId : null
+              }
             />
           )}
 
@@ -1088,6 +1308,12 @@ const onSessionBundleExport = useCallback(async () => {
         </div>
       </div>
     </div>
+    <ReviewWalkthrough
+      active={reviewWalkthroughActive}
+      onClose={closeReviewWalkthrough}
+      onStepChange={handleReviewWalkthroughStep}
+    />
+    {errorOverlay}
     {appMenuOverlay}
     </>
   );

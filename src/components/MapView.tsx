@@ -331,6 +331,8 @@ interface MapViewProps {
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
   turnpointReachMarkers: TurnpointReachMarker[];
   pilotSssCrossDelaySec: Map<string, number>;
+  walkthroughLegendForceOpen?: boolean;
+  walkthroughPilotSelectTrackId?: string | null;
 }
 
 export function MapView({
@@ -365,6 +367,8 @@ export function MapView({
   taskProgressMarkerRef,
   turnpointReachMarkers,
   pilotSssCrossDelaySec,
+  walkthroughLegendForceOpen = false,
+  walkthroughPilotSelectTrackId = null,
 }: MapViewProps) {
   const tile = MAP_TILES[preferences.mapType];
   const handleSelectPilot = onSelectPilotTrack;
@@ -392,7 +396,7 @@ export function MapView({
   );
 
   return (
-    <div className="map-panel">
+    <div className="map-panel" data-walkthrough="map-interactions">
       <MapContainer bounds={bounds} scrollWheelZoom className="task-map" key={`${fitKey}-${preferences.mapType}`}>
         <TileLayer attribution={tile.attribution} url={tile.url} />
         {tile.overlay ? (
@@ -431,7 +435,7 @@ export function MapView({
           onPilotMarkerClick={onProgressFocusTrack}
         />
       </MapContainer>
-      <MapLegend />
+      <MapLegend forceOpen={walkthroughLegendForceOpen} />
       <MapDataPanels
         competitors={scoreboardCompetitors}
         rankingTimeMs={scoreboardRankingTimeMs}
@@ -449,6 +453,7 @@ export function MapView({
         taskTimeZone={taskTimeZone}
         pilotSssCrossDelaySec={pilotSssCrossDelaySec}
         playing={playing}
+        walkthroughPilotSelectTrackId={walkthroughPilotSelectTrackId}
       />
     </div>
   );

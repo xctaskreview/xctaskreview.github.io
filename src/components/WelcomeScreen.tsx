@@ -14,7 +14,6 @@ import {
   Smartphone,
   Trash2,
   Users,
-  X,
 } from 'lucide-react';
 import { extractGliderType, extractPilotDisplayName, extractPilotFileName } from '../lib/igc';
 import type { CivlImportResult } from '../lib/civl';
@@ -45,9 +44,7 @@ interface WelcomeScreenProps {
   enabledTrackIds: Set<string>;
   trackColors: Record<string, string>;
   preferences: AppPreferences;
-  error: string | null;
   canContinue: boolean;
-  onDismissError: () => void;
   onTaskFile: (file: File) => void;
   onTrackFiles: (files: FileList | File[]) => void;
   onToggleTrack: (trackId: string, enabled: boolean) => void;
@@ -79,9 +76,7 @@ export function WelcomeScreen({
   enabledTrackIds,
   trackColors,
   preferences,
-  error,
   canContinue,
-  onDismissError,
   onTaskFile,
   onTrackFiles,
   onToggleTrack,
@@ -512,19 +507,6 @@ export function WelcomeScreen({
           </FileDropZone>
         </section>
 
-        {error && (
-          <div className="welcome-error">
-            <span className="error-message-text">{error}</span>
-            <button
-              type="button"
-              className="error-dismiss"
-              aria-label="Dismiss error"
-              onClick={onDismissError}
-            >
-              <Icon icon={X} size="sm" />
-            </button>
-          </div>
-        )}
         </div>
       </div>
 

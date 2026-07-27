@@ -30,6 +30,7 @@ interface MapDataPanelsProps {
   taskTimeZone: string;
   pilotSssCrossDelaySec: Map<string, number>;
   playing: boolean;
+  walkthroughPilotSelectTrackId?: string | null;
 }
 
 export function MapDataPanels({
@@ -49,6 +50,7 @@ export function MapDataPanels({
   taskTimeZone,
   pilotSssCrossDelaySec,
   playing,
+  walkthroughPilotSelectTrackId = null,
 }: MapDataPanelsProps) {
   const showLeaderboard = competitors.length > 0;
   const showLegStatistics = legs.length > 0;
@@ -73,6 +75,7 @@ export function MapDataPanels({
   return (
     <div
       className={`map-data-panels${activePanel ? ` expanded expanded-${activePanel}` : ''}`}
+      {...(pilotDetailExpanded ? { 'data-walkthrough': 'pilot-detail-panel' } : {})}
     >
       <div className="map-data-panels-toggles" role="toolbar" aria-label="Map data panels">
         {showLeaderboard && (
@@ -80,6 +83,7 @@ export function MapDataPanels({
             type="button"
             className={`map-data-panel-toggle${leaderboardExpanded ? ' active' : ''}`}
             aria-expanded={leaderboardExpanded}
+            data-walkthrough="leaderboard"
             onClick={() => togglePanel('leaderboard')}
           >
             <span className="map-data-panel-toggle-text">
@@ -96,6 +100,7 @@ export function MapDataPanels({
             type="button"
             className={`map-data-panel-toggle${legStatisticsExpanded ? ' active' : ''}`}
             aria-expanded={legStatisticsExpanded}
+            data-walkthrough="leg-statistics"
             onClick={() => togglePanel('leg-statistics')}
           >
             <span className="map-data-panel-toggle-text">
@@ -160,6 +165,7 @@ export function MapDataPanels({
         preferences={preferences}
         playing={playing}
         expanded={leaderboardExpanded}
+        walkthroughPilotSelectTrackId={walkthroughPilotSelectTrackId}
       />
       <LegStatisticsTable
         legs={legs}

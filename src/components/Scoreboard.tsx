@@ -35,6 +35,7 @@ interface ScoreboardProps {
   preferences: AppPreferences;
   playing: boolean;
   expanded: boolean;
+  walkthroughPilotSelectTrackId?: string | null;
 }
 
 function useThrottledCompetitors(
@@ -135,6 +136,7 @@ export function Scoreboard({
   preferences,
   playing,
   expanded,
+  walkthroughPilotSelectTrackId = null,
 }: ScoreboardProps) {
   const displayedCompetitors = useThrottledCompetitors(competitors, playing, UPDATE_INTERVAL_MS);
   const entries = useMemo(
@@ -212,6 +214,9 @@ export function Scoreboard({
               <div
                 key={entry.id}
                 className={`scoreboard-row scoreboard-row-selectable${entry.landed ? ' landed' : ''}${visible ? '' : ' pilot-hidden'}${progressFocusTrackId === entry.id ? ' pilot-progress-focus' : ''}${isSelected ? ' pilot-selected' : ''}`}
+                {...(walkthroughPilotSelectTrackId === entry.id
+                  ? { 'data-walkthrough': 'pilot-select' }
+                  : {})}
                 style={{
                   transform: `translateY(${rank * ROW_HEIGHT}px)`,
                   zIndex: entries.length - rank,

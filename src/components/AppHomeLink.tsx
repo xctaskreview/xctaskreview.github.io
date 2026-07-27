@@ -18,7 +18,13 @@ export function AppHomeLink({ className, iconSize = 'sm', onOpenMenu }: AppHomeL
 
   if (onOpenMenu) {
     return (
-      <button type="button" className={classNames} aria-label="Open app menu" onClick={onOpenMenu}>
+      <button
+        type="button"
+        className={classNames}
+        aria-label="Open app menu"
+        data-walkthrough="app-home"
+        onClick={onOpenMenu}
+      >
         {content}
       </button>
     );
