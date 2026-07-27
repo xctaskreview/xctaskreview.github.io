@@ -40,6 +40,10 @@ export function PilotDetailPanel({
     <div className="pilot-detail-panel">
       <div className="pilot-detail-card competitor-popup">
         <dl className="competitor-popup-stats pilot-detail-stats">
+          <div>
+            <dt>Full name</dt>
+            <dd>{entry.pilotName}</dd>
+          </div>
           {entry.gliderType && (
             <div>
               <dt>Wing</dt>

@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Route, Trophy, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Crosshair, Route, Trophy, X } from 'lucide-react';
 import { LANDED_COLOR } from '../lib/geo';
 import type { GlobalLegStatistics } from '../lib/legStatistics';
 import type { AppPreferences } from '../lib/preferences';
@@ -20,6 +20,8 @@ interface MapDataPanelsProps {
   onToggleTrack: (trackId: string, enabled: boolean) => void;
   progressFocusTrackId: string | null;
   selectedPilotTrackId: string | null;
+  followPilotTrackId: string | null;
+  onToggleFollowPilot: () => void;
   onSelectPilot: (trackId: string) => void;
   onClosePilotDetail: () => void;
   selectedPilotEntry: ScoreboardEntry | null;
@@ -40,6 +42,8 @@ export function MapDataPanels({
   onToggleTrack,
   progressFocusTrackId,
   selectedPilotTrackId,
+  followPilotTrackId,
+  onToggleFollowPilot,
   onSelectPilot,
   onClosePilotDetail,
   selectedPilotEntry,
@@ -67,6 +71,8 @@ export function MapDataPanels({
   const leaderboardExpanded = activePanel === 'leaderboard';
   const legStatisticsExpanded = activePanel === 'leg-statistics';
   const pilotDetailExpanded = activePanel === 'pilot-detail';
+  const isFollowingSelectedPilot =
+    selectedPilotTrackId !== null && followPilotTrackId === selectedPilotTrackId;
 
   const togglePanel = (panel: ActivePanel) => {
     onActivePanelChange(activePanel === panel ? null : panel);
@@ -132,15 +138,29 @@ export function MapDataPanels({
                   {selectedPilotEntry.position === 1 ? (
                     <>
                       <Icon icon={Trophy} size="xs" className="scoreboard-leader-trophy" />
-                      {selectedPilotEntry.pilotName}
+                      {selectedPilotEntry.firstName}
                     </>
                   ) : selectedPilotEntry.position > 0 ? (
-                    `#${selectedPilotEntry.position} ${selectedPilotEntry.pilotName}`
+                    `#${selectedPilotEntry.position} ${selectedPilotEntry.firstName}`
                   ) : (
-                    selectedPilotEntry.pilotName
+                    selectedPilotEntry.firstName
                   )}
                 </span>
               </span>
+            </button>
+            <button
+              type="button"
+              className={`map-data-panel-follow-toggle${isFollowingSelectedPilot ? ' is-active' : ''}`}
+              aria-label={
+                isFollowingSelectedPilot
+                  ? `Stop following ${selectedPilotEntry.compactName} on map and task progress`
+                  : `Follow ${selectedPilotEntry.compactName} on map and task progress`
+              }
+              aria-pressed={isFollowingSelectedPilot}
+              title={isFollowingSelectedPilot ? 'Stop following (F)' : 'Follow pilot (F)'}
+              onClick={onToggleFollowPilot}
+            >
+              <Icon icon={Crosshair} size="sm" />
             </button>
             <button
               type="button"

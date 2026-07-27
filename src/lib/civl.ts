@@ -1,10 +1,7 @@
 import type { FlightTrack, Turnpoint, XcTask } from './types';
 import { loadIgcFiles } from './tracks';
 import { parseImportCoordinates } from './importCoordinates';
-import {
-  filterIgnoredImportEvents,
-  filterImportableCatalogTasks,
-} from './importTaskIgnoreList';
+import { filterImportableCatalogTasks } from './importTaskIgnoreList';
 import { withResolvedTaskTimeZone } from './xctask';
 
 export const CIVL_BASE_URL = 'https://civlcomps.org';
@@ -244,7 +241,7 @@ export async function fetchCivlEvents(pastRange: string): Promise<CivlEvent[]> {
     page += 1;
   }
 
-  return filterIgnoredImportEvents(events.sort((a, b) => a.title.localeCompare(b.title)));
+  return events.sort((a, b) => a.title.localeCompare(b.title));
 }
 
 function parseIgcZipUrl(container: Element): string | null {

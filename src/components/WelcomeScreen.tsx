@@ -15,7 +15,7 @@ import {
   Trash2,
   Users,
 } from 'lucide-react';
-import { extractGliderType, extractPilotDisplayName, extractPilotFileName } from '../lib/igc';
+import { extractGliderType, extractPilotDisplayName, extractPilotFileName, pilotCompactDisplayName } from '../lib/igc';
 import type { CivlImportResult } from '../lib/civl';
 import type { XcdemonImportResult } from '../lib/xcdemon';
 import type { TaskHistoryEntry } from '../lib/taskHistory';
@@ -415,6 +415,7 @@ export function WelcomeScreen({
                   <ul className="welcome-pilot-list">
                     {filteredTracks.map((track) => {
                       const pilotName = extractPilotDisplayName(track);
+                      const pilotLabel = pilotCompactDisplayName(pilotName);
                       const gliderType = extractGliderType(track);
 
                       return (
@@ -434,8 +435,8 @@ export function WelcomeScreen({
                               className={`welcome-pilot-visibility${enabledTrackIds.has(track.id) ? ' is-visible' : ''}`}
                               aria-label={
                                 enabledTrackIds.has(track.id)
-                                  ? `Hide ${pilotName} on map`
-                                  : `Show ${pilotName} on map`
+                                  ? `Hide ${pilotLabel} on map`
+                                  : `Show ${pilotLabel} on map`
                               }
                               aria-pressed={enabledTrackIds.has(track.id)}
                               onClick={() => onToggleTrack(track.id, !enabledTrackIds.has(track.id))}
@@ -472,7 +473,7 @@ export function WelcomeScreen({
                                 }}
                               >
                                 <span className="welcome-pilot-line">
-                                  {pilotName}
+                                  {pilotLabel}
                                   <span className="welcome-pilot-file"> ({extractPilotFileName(track)})</span>
                                 </span>
                                 {gliderType && <span className="welcome-pilot-glider">{gliderType}</span>}

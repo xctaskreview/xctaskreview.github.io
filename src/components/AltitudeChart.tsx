@@ -29,6 +29,7 @@ import {
   hasChartMaxProgressLink,
   isChartTurnpointTaggedByMilestone,
   isFullChartDistanceDomain,
+  followChartDistanceDomainOnPilot,
   isLeadingChartPilot,
   panChartDistanceDomain,
   chartPlotInnerWidth,
@@ -187,6 +188,7 @@ export interface AltitudeChartProps {
   progressFocusTrackId: string | null;
   onProgressFocusTrack: (trackId: string) => void;
   selectedPilotTrackId: string | null;
+  followPilotTrackId?: string | null;
   altitudeMin: number;
   altitudeMax: number;
   altitudeStep: number;
@@ -382,7 +384,7 @@ function createPilotNodes(
   pilotLabel.setAttribute('fill', CHART_PILOT_LABEL_COLOR);
   pilotLabel.setAttribute('stroke', 'none');
   pilotLabel.setAttribute('paint-order', 'fill');
-  pilotLabel.textContent = track.firstName;
+  pilotLabel.textContent = track.compactName;
   pilotGroup.append(pilotLabel);
 
   const pilotAltLabel = createSvgElement('text');
@@ -508,6 +510,7 @@ interface ChartLiveSettings {
   fullPath: SelectedFullPath | null;
   progressFocusTrackId: string | null;
   selectedPilotTrackId: string | null;
+  followPilotTrackId: string | null;
   currentTimeRef: RefObject<Date>;
   playing: boolean;
   pausedTime: Date;
@@ -515,6 +518,7 @@ interface ChartLiveSettings {
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
   onProgressFocusRef: RefObject<(trackId: string) => void>;
   onChartNextProgressIndexRef: RefObject<(nextProgressIndex: number) => void>;
+  onChartFollowTaskKmRef: RefObject<(taskKm: number) => void>;
   nextTurnpointTimeline: TaskNextTurnpointTimeline;
 }
 
@@ -709,8 +713,8 @@ function ChartLiveLayer({
 
       entry.track = track;
       entry.index = index;
-      if (entry.pilotLabel.textContent !== track.firstName) {
-        entry.pilotLabel.textContent = track.firstName;
+      if (entry.pilotLabel.textContent !== track.compactName) {
+        entry.pilotLabel.textContent = track.compactName;
       }
 
       // Appending in track order keeps the drawing order stable when the field changes.
@@ -1112,6 +1116,11 @@ function ChartLiveLayer({
           written.visible = showProgress;
           setVisibility(progressLine, showProgress);
         }
+
+        const followId = settingsRef.current?.followPilotTrackId;
+        if (followId && marker && settingsRef.current?.onChartFollowTaskKmRef.current) {
+          settingsRef.current.onChartFollowTaskKmRef.current(marker.taskKm);
+        }
       }
 
       const liveTimeline = settingsRef.current?.nextTurnpointTimeline ?? nextTurnpointTimeline;
@@ -1393,6 +1402,7 @@ export const AltitudeChart = memo(function AltitudeChart({
   progressFocusTrackId,
   onProgressFocusTrack,
   selectedPilotTrackId,
+  followPilotTrackId = null,
   altitudeMin,
   altitudeMax,
   altitudeStep,
@@ -1425,6 +1435,8 @@ export const AltitudeChart = memo(function AltitudeChart({
   const taskDistanceDisplay = kmToDistanceUnit(taskDistanceKm, preferences.distanceUnit);
 
   const [xZoomDomain, setXZoomDomain] = useState<[number, number] | null>(null);
+
+  const onChartFollowTaskKmRef = useRef<(taskKm: number) => void>(() => {});
 
   useEffect(() => {
     setXZoomDomain(null);
@@ -1473,6 +1485,16 @@ export const AltitudeChart = memo(function AltitudeChart({
     taskDistanceDisplay,
     plotWidth: plotSize.width,
     xZoomDomain,
+  };
+
+  onChartFollowTaskKmRef.current = (taskKm: number) => {
+    if (!followPilotTrackId) return;
+    const center = kmToDistanceUnit(taskKm, preferences.distanceUnit);
+    const currentZoom = zoomWheelStateRef.current.xZoomDomain;
+    const fullMax = zoomWheelStateRef.current.taskDistanceDisplay;
+    const next = followChartDistanceDomainOnPilot(currentZoom, fullMax, center);
+    if (!next) return;
+    setXZoomDomain(next);
   };
 
   const panSessionRef = useRef<{
@@ -1882,6 +1904,7 @@ export const AltitudeChart = memo(function AltitudeChart({
     fullPath: selectedFullPath,
     progressFocusTrackId,
     selectedPilotTrackId,
+    followPilotTrackId,
     currentTimeRef,
     playing,
     pausedTime,
@@ -1889,6 +1912,7 @@ export const AltitudeChart = memo(function AltitudeChart({
     taskProgressMarkerRef,
     onProgressFocusRef,
     onChartNextProgressIndexRef,
+    onChartFollowTaskKmRef,
     nextTurnpointTimeline,
   };
 

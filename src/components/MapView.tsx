@@ -106,11 +106,11 @@ function RouteLegPolyline({
   );
 }
 
-function FitBounds({ bounds, fitKey }: { bounds: [[number, number], [number, number]]; fitKey: string }) {
+function FitBounds({ bounds, fitBoundsKey }: { bounds: [[number, number], [number, number]]; fitBoundsKey: string | number }) {
   const map = useMap();
   useEffect(() => {
     map.fitBounds(bounds, { padding: [0, 0], maxZoom: 15 });
-  }, [map, bounds, fitKey]);
+  }, [map, bounds, fitBoundsKey]);
   return null;
 }
 
@@ -308,6 +308,7 @@ interface MapViewProps {
   trackColors: Record<string, string>;
   currentTimeRef: RefObject<Date>;
   fitKey: string;
+  fitBoundsKey: string | number;
   preferences: AppPreferences;
   playing: boolean;
   pausedTime: Date;
@@ -318,6 +319,8 @@ interface MapViewProps {
   progressFocusTrackId: string | null;
   progressFocusColor: string | null;
   selectedPilotTrackId: string | null;
+  followPilotTrackId: string | null;
+  onToggleFollowPilot: () => void;
   onProgressFocusTrack: (trackId: string) => void;
   onSelectPilotTrack: (trackId: string) => void;
   onClosePilotDetail: () => void;
@@ -344,6 +347,7 @@ export function MapView({
   trackColors,
   currentTimeRef,
   fitKey,
+  fitBoundsKey,
   preferences,
   playing,
   pausedTime,
@@ -354,6 +358,8 @@ export function MapView({
   progressFocusTrackId,
   progressFocusColor,
   selectedPilotTrackId,
+  followPilotTrackId,
+  onToggleFollowPilot,
   onProgressFocusTrack,
   onSelectPilotTrack,
   onClosePilotDetail,
@@ -408,7 +414,7 @@ export function MapView({
         {tile.overlay ? (
           <TileLayer url={tile.overlay.url} opacity={tile.overlay.opacity} />
         ) : null}
-        <FitBounds bounds={bounds} fitKey={fitKey} />
+        <FitBounds bounds={bounds} fitBoundsKey={fitBoundsKey} />
         <MapTaskOverlay
           circles={circles}
           optimizedRoute={optimizedRoute}
@@ -438,6 +444,7 @@ export function MapView({
           progressFocusTrackId={progressFocusTrackId}
           progressFocusColor={progressFocusColor}
           selectedPilotTrackId={selectedPilotTrackId}
+          followPilotTrackId={followPilotTrackId}
           onPilotMarkerClick={onProgressFocusTrack}
         />
       </MapContainer>
@@ -449,6 +456,8 @@ export function MapView({
         onToggleTrack={onToggleTrack}
         progressFocusTrackId={progressFocusTrackId}
         selectedPilotTrackId={selectedPilotTrackId}
+        followPilotTrackId={followPilotTrackId}
+        onToggleFollowPilot={onToggleFollowPilot}
         onSelectPilot={handleSelectPilot}
         onClosePilotDetail={handleClosePilotDetail}
         selectedPilotEntry={selectedPilotEntry}

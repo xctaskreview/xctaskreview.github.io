@@ -380,3 +380,18 @@ export function pilotFirstName(name: string): string {
   if (!trimmed) return name;
   return trimmed.split(/\s+/)[0];
 }
+
+function initialFromNamePart(part: string): string {
+  const match = part.match(/[\p{L}]/u);
+  return match ? `${match[0].toUpperCase()}.` : '';
+}
+
+/** First name plus initials for each following name part (e.g. "Pablo N. R. M."). */
+export function pilotCompactDisplayName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return name;
+  if (parts.length === 1) return parts[0];
+  const [first, ...rest] = parts;
+  const initials = rest.map(initialFromNamePart).filter(Boolean);
+  return initials.length > 0 ? `${first} ${initials.join(' ')}` : first;
+}

@@ -223,6 +223,7 @@ interface LiveCompetitorLayerProps {
   progressFocusTrackId: string | null;
   progressFocusColor: string | null;
   selectedPilotTrackId: string | null;
+  followPilotTrackId: string | null;
   onPilotMarkerClick: (trackId: string) => void;
 }
 
@@ -244,6 +245,7 @@ export function LiveCompetitorLayer({
   progressFocusTrackId,
   progressFocusColor,
   selectedPilotTrackId,
+  followPilotTrackId,
   onPilotMarkerClick,
 }: LiveCompetitorLayerProps) {
   const map = useMap();
@@ -269,6 +271,7 @@ export function LiveCompetitorLayer({
   const nextTurnpointTimelineRef = useRef(nextTurnpointTimeline);
   const progressFocusTrackIdRef = useRef(progressFocusTrackId);
   const progressFocusColorRef = useRef(progressFocusColor);
+  const followPilotTrackIdRef = useRef(followPilotTrackId);
   const selectedPilotTrackIdRef = useRef(selectedPilotTrackId);
   const onPilotMarkerClickRef = useRef(onPilotMarkerClick);
   const taskCenterRef = useRef(getTaskCenter(route));
@@ -288,6 +291,7 @@ export function LiveCompetitorLayer({
   nextTurnpointTimelineRef.current = nextTurnpointTimeline;
   progressFocusTrackIdRef.current = progressFocusTrackId;
   progressFocusColorRef.current = progressFocusColor;
+  followPilotTrackIdRef.current = followPilotTrackId;
   selectedPilotTrackIdRef.current = selectedPilotTrackId;
   onPilotMarkerClickRef.current = onPilotMarkerClick;
   taskCenterRef.current = getTaskCenter(route);
@@ -490,7 +494,7 @@ export function LiveCompetitorLayer({
 
       if (markers.has(track.id)) continue;
 
-      const firstName = track.firstName;
+      const firstName = track.compactName;
       const icon = createCompetitorIcon(color, firstName, false);
       const marker = L.marker([0, 0], { icon, zIndexOffset: MARKER_Z_INDEX_BASE });
       marker.on('click', () => {
@@ -1083,7 +1087,7 @@ export function LiveCompetitorLayer({
       }
 
       const progressTracks = getProgressTracks();
-      const focusId = progressFocusTrackIdRef.current;
+      const focusId = followPilotTrackIdRef.current ?? progressFocusTrackIdRef.current;
       const marker = computeTaskProgressMarker(
         progressTracks,
         routeRef.current,
@@ -1153,6 +1157,16 @@ export function LiveCompetitorLayer({
       syncSelectedFullPath(time);
       updateLeaderNextTurnpointHighlight(time);
       updateProgressLine(time);
+
+      const followId = followPilotTrackIdRef.current;
+      if (followId) {
+        const followTrack = allEnrichedTracksRef.current.find((track) => track.id === followId);
+        const snapshot =
+          followTrack && getTrackSnapshotAtTime(followTrack, time, routeRef.current);
+        if (snapshot) {
+          map.panTo([snapshot.lat, snapshot.lon], { animate: !playing, duration: 0.2 });
+        }
+      }
     };
 
     syncAllRef.current = syncAll;
@@ -1203,6 +1217,7 @@ export function LiveCompetitorLayer({
     allEnrichedTracks,
     progressFocusTrackId,
     progressFocusColor,
+    followPilotTrackId,
     selectedPilotTrackId,
     fieldTimeline,
     nextTurnpointTimeline,

@@ -54,6 +54,7 @@ describe('SSS exit timing', () => {
         id: 'a',
         pilotName: 'Test',
         firstName: 'Test',
+        compactName: 'Test',
         fileName: 'a.igc',
         points: [
           {

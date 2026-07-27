@@ -177,12 +177,14 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [playing, setPlaying] = useState(false);
   const [taskFitKey, setTaskFitKey] = useState('');
+  const [mapFitGeneration, setMapFitGeneration] = useState(0);
   const [taskLocationLabel, setTaskLocationLabel] = useState<string | null>(null);
   const [taskLocationLoading, setTaskLocationLoading] = useState(false);
   const [mobileChartOpen, setMobileChartOpen] = useState(false);
   const [taskProgressMinimized, setTaskProgressMinimized] = useState(false);
   const [taskProgressHeightPx, setTaskProgressHeightPx] = useState(() => defaultTaskProgressHeight());
   const [progressFocusTrackId, setProgressFocusTrackId] = useState<string | null>(null);
+  const [followPilotTrackId, setFollowPilotTrackId] = useState<string | null>(null);
   const [selectedPilotTrackId, setSelectedPilotTrackId] = useState<string | null>(null);
   const [mapDataActivePanel, setMapDataActivePanel] = useState<MapDataActivePanel | null>(null);
   const reviewStageRef = useRef<HTMLDivElement>(null);
@@ -836,6 +838,7 @@ export default function App() {
   }, []);
 
   const onProgressFocusTrack = useCallback((trackId: string) => {
+    setFollowPilotTrackId((follow) => (follow === trackId ? null : follow));
     setProgressFocusTrackId((current) => {
       if (current === trackId) {
         setSelectedPilotTrackId(null);
@@ -848,6 +851,30 @@ export default function App() {
     });
   }, []);
 
+  const toggleFollowPilot = useCallback(() => {
+    const pilotId = progressFocusTrackId ?? selectedPilotTrackId;
+    if (!pilotId) return;
+    setFollowPilotTrackId((current) => {
+      if (current === pilotId) return null;
+      setProgressFocusTrackId(pilotId);
+      setSelectedPilotTrackId(pilotId);
+      setMapDataActivePanel('pilot-detail');
+      return pilotId;
+    });
+  }, [progressFocusTrackId, selectedPilotTrackId]);
+
+  const resetMapToTaskView = useCallback(() => {
+    setFollowPilotTrackId(null);
+    setMapFitGeneration((generation) => generation + 1);
+  }, []);
+
+  useEffect(() => {
+    if (followPilotTrackId === null) return;
+    if (progressFocusTrackId !== followPilotTrackId) {
+      setFollowPilotTrackId(null);
+    }
+  }, [progressFocusTrackId, followPilotTrackId]);
+
   const onSelectPilotTrack = useCallback((trackId: string) => {
     setSelectedPilotTrackId(trackId);
     setProgressFocusTrackId(trackId);
@@ -855,6 +882,7 @@ export default function App() {
   }, []);
 
   const onClosePilotDetail = useCallback(() => {
+    setFollowPilotTrackId(null);
     setSelectedPilotTrackId(null);
     setProgressFocusTrackId(null);
     setMapDataActivePanel((current) => (current === 'pilot-detail' ? null : current));
@@ -906,6 +934,18 @@ export default function App() {
         event.preventDefault();
         event.stopPropagation();
       };
+      if (event.key === 'f' || event.key === 'F') {
+        handle();
+        toggleFollowPilot();
+        return;
+      }
+
+      if (event.key === '0') {
+        handle();
+        resetMapToTaskView();
+        return;
+      }
+
       if (event.key === ' ') {
         handle();
         setPlaying((current) => !current);
@@ -1008,6 +1048,8 @@ export default function App() {
     onPlaybackSpeedChange,
     toggleLeaderboardPanel,
     selectedPilotTrackId,
+    toggleFollowPilot,
+    resetMapToTaskView,
     onClosePilotDetail,
     timing.taskStart,
     timing.trackStart,
@@ -1394,6 +1436,7 @@ const onSessionBundleExport = useCallback(async () => {
               trackColors={trackColors}
               currentTimeRef={currentTimeRef}
               fitKey={taskFitKey || 'task'}
+              fitBoundsKey={`${taskFitKey || 'task'}-${mapFitGeneration}`}
               preferences={preferences}
               taskTimeZone={taskTimeZone}
               pilotSssCrossDelaySec={pilotSssCrossDelaySec}
@@ -1406,6 +1449,8 @@ const onSessionBundleExport = useCallback(async () => {
               progressFocusTrackId={progressFocusTrackId}
               progressFocusColor={progressFocusColor}
               selectedPilotTrackId={selectedPilotTrackId}
+              followPilotTrackId={followPilotTrackId}
+              onToggleFollowPilot={toggleFollowPilot}
               onProgressFocusTrack={onProgressFocusTrack}
               onSelectPilotTrack={onSelectPilotTrack}
               onClosePilotDetail={onClosePilotDetail}
@@ -1454,6 +1499,7 @@ const onSessionBundleExport = useCallback(async () => {
                 taskStart={timing.taskStart}
                 playbackEndTime={timing.trackEnd}
                 onTimeChange={setCurrentTime}
+                followPilotTrackId={followPilotTrackId}
                 progressFocusTrackId={progressFocusTrackId}
                 onProgressFocusTrack={onProgressFocusTrack}
                 selectedPilotTrackId={selectedPilotTrackId}

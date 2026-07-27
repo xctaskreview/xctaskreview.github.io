@@ -1,4 +1,3 @@
-import { extractPilotDisplayName } from './igc';
 import type { EnrichedFlightTrack, EnrichedTrackPoint } from './taskProgress';
 import type { OptimizedRoute, ProgressTurnpoint } from './types';
 
@@ -127,7 +126,7 @@ export function computeGlobalLegStatistics(
       const timing = track.legTimings?.[legIndex];
       if (!timing) continue;
 
-      const pilot = extractPilotDisplayName(track);
+      const pilot = track.compactName;
 
       if (timing.startTime) {
         if (!earliestStartTime || timing.startTime.getTime() < earliestStartTime.getTime()) {

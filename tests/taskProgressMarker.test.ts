@@ -65,7 +65,7 @@ describe('computeTurnpointReachTimes', () => {
     }
 
     const tp2 = markers.find((marker) => marker.number === 2);
-    expect(tp2?.firstPilot).toBe('Casey Gerstle');
+    expect(tp2?.firstPilot).toBe('Casey G.');
     expect(tp2?.time.toISOString()).toBe('2026-07-19T20:32:53.000Z');
   });
 });

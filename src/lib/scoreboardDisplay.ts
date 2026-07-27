@@ -135,8 +135,8 @@ export function formatCompetitorLeaderboardPopupHtml(
     `<div>` +
     `<strong>${
       entry.position === 1
-        ? `${trophyIconHtml(12)} ${escapeHtml(entry.pilotName)}`
-        : `#${entry.position} ${escapeHtml(entry.pilotName)}`
+        ? `${trophyIconHtml(12)} ${escapeHtml(entry.compactName)}`
+        : `#${entry.position} ${escapeHtml(entry.compactName)}`
     }</strong>` +
     gliderHtml +
     `</div>` +

@@ -13,6 +13,7 @@ import {
   formatChartDistanceTick,
   hasChartMaxProgressLink,
   isChartTurnpointTaggedByMilestone,
+  followChartDistanceDomainOnPilot,
   isLeadingChartPilot,
   roundChartPixel,
   taskDistanceDisplayToPercent,
@@ -210,6 +211,22 @@ describe('tagged turnpoints', () => {
     expect(countChartTaggedTurnpointsByMilestone(turnpoints, 1, 4, 2)).toBe(1);
     expect(countChartTaggedTurnpointsByMilestone(turnpoints, 1, 4, 3)).toBe(2);
     expect(countChartTaggedTurnpointsByMilestone(turnpoints, 1, 4, 4)).toBe(2);
+  });
+});
+
+describe('followChartDistanceDomainOnPilot', () => {
+  it('does nothing when the chart shows the full task', () => {
+    expect(followChartDistanceDomainOnPilot(null, 100, 40)).toBeNull();
+    expect(followChartDistanceDomainOnPilot([0, 100], 100, 40)).toBeNull();
+  });
+
+  it('pans a zoomed window to center on the pilot', () => {
+    expect(followChartDistanceDomainOnPilot([10, 30], 100, 25)).toEqual([15, 35]);
+  });
+
+  it('clamps pan at task start and end', () => {
+    expect(followChartDistanceDomainOnPilot([10, 30], 100, 5)).toEqual([0, 20]);
+    expect(followChartDistanceDomainOnPilot([70, 90], 100, 95)).toEqual([80, 100]);
   });
 });
 

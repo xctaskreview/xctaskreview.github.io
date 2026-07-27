@@ -3441,6 +3441,37 @@ button.app-home-link.time-controls-home-link:hover {
   background: transparent;
 }
 
+.map-data-panel-follow-toggle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.map-data-panel-follow-toggle:hover {
+  background: rgba(148, 163, 184, 0.2);
+  color: #334155;
+}
+
+.map-data-panel-follow-toggle.is-active {
+  color: #0f766e;
+  background: rgba(15, 118, 110, 0.12);
+}
+
+.map-data-panel-pilot-tab.active .map-data-panel-follow-toggle.is-active {
+  background: rgba(15, 118, 110, 0.16);
+}
+
 .map-data-panel-pilot-name {
   overflow: hidden;
   text-overflow: ellipsis;

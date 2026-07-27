@@ -17,7 +17,7 @@ import {
   type FlyingModeTimeline,
 } from './flyingMode';
 import { createDefaultPreferences, type CirclingDetectionPreferences } from './preferences';
-import { extractPilotDisplayName, parseGliderTypeFromHeader, pilotFirstName } from './igc';
+import { extractPilotDisplayName, parseGliderTypeFromHeader, pilotCompactDisplayName, pilotFirstName } from './igc';
 import { findFirstTimeFieldReachedPercent, type TaskFieldTimeline } from './taskTimeline';
 import { computePilotTaskVerification, type PilotTaskVerification } from './taskVerification';
 import {
@@ -50,8 +50,10 @@ export interface EnrichedTrackPoint extends TrackPoint {
 export interface EnrichedFlightTrack {
   id: string;
   pilotName: string;
-  /** Label shown on markers, split once at load rather than per frame. */
+  /** First given name only (pilot stats tab title). */
   firstName: string;
+  /** First name plus initials of later name parts (most UI labels). */
+  compactName: string;
   fileName: string;
   points: EnrichedTrackPoint[];
   date?: Date;
@@ -232,6 +234,7 @@ export function enrichTrackWithTaskProgress(
     id: track.id,
     pilotName: displayPilotName,
     firstName: pilotFirstName(displayPilotName),
+    compactName: pilotCompactDisplayName(displayPilotName),
     fileName: track.fileName,
     points: enrichedPoints,
     date: track.date,

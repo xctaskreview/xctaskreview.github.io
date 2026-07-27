@@ -132,6 +132,7 @@ export interface CompetitorSnapshot {
   id: string;
   pilotName: string;
   firstName: string;
+  compactName: string;
   gliderType?: string;
   lat: number;
   lon: number;

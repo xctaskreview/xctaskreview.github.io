@@ -23,6 +23,18 @@ export function metricIconHtml(metric: MapMetricIconKey, sizePx = 14): string {
   );
 }
 
+/** Circular arrow for circling on map pilot tags (distinct from the vario trend icon). */
+export function mapCirclingIconHtml(sizePx = 14): string {
+  const inner =
+    '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>' +
+    '<path d="M21 3v5h-5"></path>';
+  return (
+    `<svg class="ui-icon metric-icon map-circling-icon" xmlns="http://www.w3.org/2000/svg" width="${sizePx}" height="${sizePx}" ` +
+    `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" ` +
+    `stroke-linejoin="round" aria-hidden="true">${inner}</svg>`
+  );
+}
+
 function lucideMetricIconHtml(metric: LeaderboardMetricKey, sizePx = 14): string {
   return metricIconHtml(metric, sizePx);
 }

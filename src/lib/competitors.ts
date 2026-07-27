@@ -34,6 +34,7 @@ export function buildCompetitorSnapshots(
         id: track.id,
         pilotName,
         firstName: track.firstName,
+        compactName: track.compactName,
         gliderType: track.gliderType,
         lat: snapshot.lat,
         lon: snapshot.lon,

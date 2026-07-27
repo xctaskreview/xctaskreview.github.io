@@ -2,7 +2,7 @@
 
 `importTaskIgnoreList.json` lists **XCDemon** and **CIVL Comps** task result URLs that cannot be imported (missing server-side result data or other blockers). The import dialogs filter these out so they never appear as selectable tasks.
 
-Catalog pickers also require an **IGC zip** on the listing page. Leagues or events with no remaining importable tasks are omitted entirely.
+Catalog pickers require an **IGC zip** on the listing page. Tasks on the ignore list are hidden. CIVL **events** stay visible; if every task in an event is non-importable, the task list is empty and the dialog explains why.
 
 Each entry includes:
 
@@ -33,13 +33,7 @@ This scans every archived league season on XCDemon, probes each task result URL,
 ```
 
 - **tasks**: task result URLs that cannot be parsed (mostly XCDemon missing XML).
-- **events**: CIVL `…/results` URLs with no importable task (Overall + IGC zip + not task-ignored).
-
-Regenerate CIVL event entries:
-
-```bash
-npx tsx scripts/generate-civl-event-ignore-list.ts
-```
+- **events**: optional CIVL `…/results` URLs (not applied to the event picker; kept for audits / future use). Regenerating with `generate-civl-event-ignore-list.ts` is optional and does not hide events in the UI.
 
 ## Parser improvements (same change set)
 

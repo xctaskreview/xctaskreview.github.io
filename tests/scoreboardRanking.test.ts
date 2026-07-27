@@ -11,6 +11,7 @@ function competitor(
     id,
     pilotName: id,
     firstName: id,
+    compactName: id,
     lat: 0,
     lon: 0,
     alt: 1500,

@@ -202,7 +202,7 @@ export function CivlImportDialog({
             <p className="xcdemon-dialog-subtitle">
               {eventName ||
                 selectedEvent?.title ||
-                'Choose a year, event, and task. Only events with published tasks and IGC track zips are listed.'}
+                'Choose a year, event, and task. Events with published results are listed; only tasks with Overall results and an IGC zip can be imported.'}
             </p>
           </div>
           <button type="button" className="welcome-icon-button" aria-label="Close" onClick={onClose}>

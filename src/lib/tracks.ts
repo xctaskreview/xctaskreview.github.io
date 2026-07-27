@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import type { FlightTrack, TaskTiming, XcTask } from './types';
 import { getTaskStartGate, getTaskStartTime, taskStartGateIncludesSeconds } from './xctask';
-import { parseIgc, extractPilotDisplayName } from './igc';
+import { parseIgc } from './igc';
 import { COMPETITOR_COLORS } from './geo';
 import {
   enrichTracksWithTaskProgress,
@@ -89,7 +89,7 @@ export function computeTaskTiming(task: XcTask, tracks: EnrichedFlightTrack[]): 
       current.finishTime.getTime() < best.finishTime.getTime() ? current : best,
     );
     fastestFinish = fastest.finishTime;
-    fastestPilot = extractPilotDisplayName(fastest.track);
+    fastestPilot = fastest.track.compactName;
   }
 
   const startGate = getTaskStartGate(task);

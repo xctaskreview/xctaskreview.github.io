@@ -72,6 +72,37 @@ export function isFullChartDistanceDomain(
   return domain[0] <= epsilon && domain[1] >= fullMax - epsilon;
 }
 
+/** Pan a zoomed chart window to follow a pilot; leaves full-task view unchanged. */
+export function followChartDistanceDomainOnPilot(
+  domain: [number, number] | null,
+  fullMax: number,
+  centerDistance: number,
+  epsilon = 0.08,
+): [number, number] | null {
+  if (!domain || fullMax <= 0) return null;
+  if (isFullChartDistanceDomain(domain, fullMax)) return null;
+
+  const span = domain[1] - domain[0];
+  if (span <= 0) return null;
+
+  let min = centerDistance - span / 2;
+  let max = centerDistance + span / 2;
+
+  if (min < 0) {
+    min = 0;
+    max = span;
+  }
+  if (max > fullMax) {
+    max = fullMax;
+    min = max - span;
+  }
+
+  if (Math.abs(domain[0] - min) < epsilon && Math.abs(domain[1] - max) < epsilon) {
+    return null;
+  }
+  return [min, max];
+}
+
 export function chartPlotInnerWidth(
   plotWidth: number,
   marginLeft: number,

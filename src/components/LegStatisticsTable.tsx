@@ -10,7 +10,6 @@ import type { GlobalLegStatistics } from '../lib/legStatistics';
 import {
   formatLegStatisticsSpeedRange,
   formatLegStatisticsTimestamp,
-  legStatisticsFirstName,
 } from '../lib/legStatisticsDisplay';
 import type { AppPreferences } from '../lib/preferences';
 import { formatDistanceValue } from '../lib/preferences';
@@ -163,7 +162,7 @@ export function LegStatisticsTable({ legs, preferences, timeZone, expanded }: Le
                       {leg.fastestPilot && (
                         <span className="leg-statistics-fastest-pilot">
                           <Icon icon={User} size="xs" />
-                          {legStatisticsFirstName(leg.fastestPilot)}
+                          {leg.fastestPilot}
                         </span>
                       )}
                     </span>

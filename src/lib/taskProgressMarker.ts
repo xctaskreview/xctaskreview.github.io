@@ -1,5 +1,4 @@
 import { createLocalProjection, haversine, type LocalProjection } from './geo';
-import { extractPilotDisplayName } from './igc';
 import {
   progressLegStartPoint,
   TASK_PROGRESS_LINE_COLOR,
@@ -196,7 +195,7 @@ function computeFirstPilotTags(
   };
 
   for (const track of tracks) {
-    const pilot = extractPilotDisplayName(track);
+    const pilot = track.compactName;
     for (const crossing of track.verification.crossings) {
       if (!crossing.inSequence) continue;
 
@@ -228,7 +227,7 @@ export function computeFleetSssExitTp1Marker(
   for (const track of tracks) {
     const exitTime = getPilotSssExitTime(track);
     if (!exitTime) continue;
-    const pilot = extractPilotDisplayName(track);
+    const pilot = track.compactName;
     if (!fleetFirst || exitTime.getTime() < fleetFirst.time.getTime()) {
       fleetFirst = { time: exitTime, pilot };
     }

@@ -1,6 +1,17 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseIgc, resolvePilotDisplayName } from '../src/lib/igc';
+import { parseIgc, pilotCompactDisplayName, resolvePilotDisplayName } from '../src/lib/igc';
+
+describe('pilotCompactDisplayName', () => {
+  it('returns the sole name unchanged', () => {
+    expect(pilotCompactDisplayName('Sheth')).toBe('Sheth');
+  });
+
+  it('uses first name plus initials for additional parts', () => {
+    expect(pilotCompactDisplayName('Pablo Nahuel Rodriguez Merlo')).toBe('Pablo N. R. M.');
+    expect(pilotCompactDisplayName('Klaus Ashorn')).toBe('Klaus A.');
+  });
+});
 
 describe('resolvePilotDisplayName', () => {
   it('strips XCDemon competition ids from file names', () => {

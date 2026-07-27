@@ -1,7 +1,7 @@
 import { bearingDegrees, formatDuration, normalizeAngleDelta } from './geo';
 import type { AppPreferences } from './preferences';
 import { formatVerticalSpeed, glideDisplayColor, glideToneClass, varioDisplayColor, varioToneClass } from './preferences';
-import { metricIconHtml } from './metricIconHtml';
+import { mapCirclingIconHtml, metricIconHtml } from './metricIconHtml';
 import type { EnrichedTrackPoint } from './taskProgress';
 
 export type FlyingMode = 'circling' | 'glide';
@@ -475,7 +475,7 @@ export function formatMapPilotModeStatHtml(
     const tone = varioToneClass(verticalSpeedMps).trim();
     const valueClass = tone ? `competitor-popup-vario ${tone}` : 'competitor-popup-vario';
     return (
-      `${metricIconHtml('vario', MAP_STAT_ICON_PX)}` +
+      `${mapCirclingIconHtml(MAP_STAT_ICON_PX)}` +
       `<span class="${valueClass.trim()}">${escapeFlyingModeHtml(value)}</span>`
     );
   }

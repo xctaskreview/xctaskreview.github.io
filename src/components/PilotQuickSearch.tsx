@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Search } from 'lucide-react';
-import { extractPilotDisplayName } from '../lib/igc';
+import { extractPilotDisplayName, pilotCompactDisplayName } from '../lib/igc';
 import type { FlightTrack } from '../lib/types';
 import { Icon } from './Icon';
 
 export interface PilotQuickSearchEntry {
   id: string;
   label: string;
+  searchText: string;
   gliderType?: string;
   color: string;
 }
@@ -28,12 +29,16 @@ export function buildPilotQuickSearchEntries(
   trackColors: Record<string, string>,
 ): PilotQuickSearchEntry[] {
   return tracks
-    .map((track, index) => ({
-      id: track.id,
-      label: extractPilotDisplayName(track),
-      gliderType: track.gliderType,
-      color: trackColors[track.id] ?? `hsl(${(index * 47) % 360} 70% 45%)`,
-    }))
+    .map((track, index) => {
+      const fullName = extractPilotDisplayName(track);
+      return {
+        id: track.id,
+        label: pilotCompactDisplayName(fullName),
+        searchText: fullName,
+        gliderType: track.gliderType,
+        color: trackColors[track.id] ?? `hsl(${(index * 47) % 360} 70% 45%)`,
+      };
+    })
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
 }
 
@@ -47,7 +52,7 @@ export function PilotQuickSearch({ open, entries, onClose, onSelect }: PilotQuic
     const normalized = normalizeQuery(query);
     if (!normalized) return entries;
     return entries.filter((entry) => {
-      const haystack = `${entry.label} ${entry.gliderType ?? ''}`.toLowerCase();
+      const haystack = `${entry.label} ${entry.searchText} ${entry.gliderType ?? ''}`.toLowerCase();
       return haystack.includes(normalized);
     });
   }, [entries, query]);

@@ -4,6 +4,8 @@ import { Icon } from './Icon';
 import { ModalDialogBackdrop } from './ModalDialogBackdrop';
 
 const REVIEW_SHORTCUTS: { keys: string; description: string }[] = [
+  { keys: 'F', description: 'Follow or unfollow the focused pilot (map always pans; task progress chart pans only when zoomed in)' },
+  { keys: '0', description: 'Reset map zoom to show the full task (turns off follow)' },
   { keys: 'Space', description: 'Play or pause replay' },
   { keys: '← / →', description: 'Step replay 30 seconds backward / forward' },
   { keys: 'Shift + ← / →', description: 'Jump to previous / next time (start, then turnpoints)' },

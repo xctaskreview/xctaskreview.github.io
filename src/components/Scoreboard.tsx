@@ -88,10 +88,18 @@ function buildScoreboardLayout(entries: ScoreboardEntry[]) {
   return { rankById, renderEntries };
 }
 
-function ScoreboardPilotName({ pilotName, firstName }: { pilotName: string; firstName: string }) {
+function ScoreboardPilotName({
+  pilotName,
+  compactName,
+  firstName,
+}: {
+  pilotName: string;
+  compactName: string;
+  firstName: string;
+}) {
   const containerRef = useRef<HTMLSpanElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
-  const [displayName, setDisplayName] = useState(pilotName);
+  const [displayName, setDisplayName] = useState(compactName);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -100,24 +108,24 @@ function ScoreboardPilotName({ pilotName, firstName }: { pilotName: string; firs
 
     const update = () => {
       if (container.clientWidth === 0) return;
-      measure.textContent = pilotName;
+      measure.textContent = compactName;
       const overflows = measure.scrollWidth > container.clientWidth;
-      setDisplayName(overflows ? firstName || pilotName : pilotName);
+      setDisplayName(overflows ? firstName || compactName : compactName);
     };
 
     update();
     const observer = new ResizeObserver(update);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [pilotName, firstName]);
+  }, [compactName, firstName]);
 
-  const shortened = displayName !== pilotName;
+  const shortened = displayName !== compactName;
 
   return (
     <span
       ref={containerRef}
       className="scoreboard-name-text"
-      title={shortened ? pilotName : undefined}
+      title={shortened || compactName !== pilotName ? pilotName : undefined}
     >
       {displayName}
       <span ref={measureRef} className="scoreboard-name-measure" aria-hidden="true" />
@@ -254,8 +262,8 @@ export function Scoreboard({
                       className={`welcome-pilot-visibility scoreboard-pilot-visibility${visible ? ' is-visible' : ''}`}
                       aria-label={
                         visible
-                          ? `Hide ${entry.pilotName} on map`
-                          : `Show ${entry.pilotName} on map`
+                          ? `Hide ${entry.compactName} on map`
+                          : `Show ${entry.compactName} on map`
                       }
                       aria-pressed={visible}
                       onClick={(event) => {
@@ -270,7 +278,11 @@ export function Scoreboard({
                       <span
                         className={`scoreboard-pilot-name-toggle${progressFocusTrackId === entry.id ? ' is-progress-focus' : ''}`}
                       >
-                        <ScoreboardPilotName pilotName={entry.pilotName} firstName={entry.firstName} />
+                        <ScoreboardPilotName
+                          pilotName={entry.pilotName}
+                          compactName={entry.compactName}
+                          firstName={entry.firstName}
+                        />
                       </span>
                       {entry.gliderType && (
                         <span className="scoreboard-glider">{entry.gliderType}</span>

@@ -255,7 +255,7 @@ describe('xcdemon-680-2026-07-19 review bundle metrics', () => {
     expectDateIso(metrics.timing.trackEnd, '2026-07-19T23:09:52.000Z');
     expectDateIso(metrics.timing.taskStart, '2026-07-19T20:30:00.808Z');
     expectDateIso(metrics.timing.fastestFinish, '2026-07-19T22:07:10.000Z');
-    expect(metrics.timing.fastestPilot).toBe('Casey Gerstle');
+    expect(metrics.timing.fastestPilot).toBe('Casey G.');
 
     assertLegStatistics(metrics.legStatistics, EXPECTED_LEG_METRICS);
 

@@ -3,12 +3,6 @@ import type { GlobalLegStatistics } from './legStatistics';
 import type { AppPreferences } from './preferences';
 import { formatDistanceValue, formatGroundSpeedValue } from './preferences';
 
-export function legStatisticsFirstName(fullName: string): string {
-  const trimmed = fullName.trim();
-  if (!trimmed) return fullName;
-  return trimmed.split(/\s+/)[0] ?? trimmed;
-}
-
 export function formatLegStatisticsTimestamp(date: Date | undefined, timezone: string): string {
   return date ? formatTime(date, timezone) : '—';
 }
@@ -44,7 +38,7 @@ export function formatLegStatisticsPopupLines(
   const fastestLine =
     leg.maxSpeedMps !== undefined
       ? leg.fastestPilot
-        ? `Fastest: ${speeds.max} ${speedUnit} (${legStatisticsFirstName(leg.fastestPilot)})`
+        ? `Fastest: ${speeds.max} ${speedUnit} (${leg.fastestPilot})`
         : `Fastest: ${speeds.max} ${speedUnit}`
       : 'Fastest: —';
 
