@@ -4,15 +4,16 @@ import {
   GENERIC_INSTALL_HINT,
   IOS_INSTALL_HINT,
   canPromptNativeInstall,
-  isAndroidDevice,
   isIosDevice,
   isStandaloneApp,
+  probeAndroidInstallHint,
   promptNativeInstall,
 } from './pwaInstall';
 
 export function usePwaInstall() {
   const [installed, setInstalled] = useState(() => isStandaloneApp());
   const [hint, setHint] = useState<string | null>(null);
+  const [androidInstallHint, setAndroidInstallHint] = useState(false);
 
   useEffect(() => {
     if (isStandaloneApp()) {
@@ -23,6 +24,18 @@ export function usePwaInstall() {
     const onInstalled = () => setInstalled(true);
     window.addEventListener('appinstalled', onInstalled);
     return () => window.removeEventListener('appinstalled', onInstalled);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void probeAndroidInstallHint().then((eligible) => {
+      if (!cancelled) setAndroidInstallHint(eligible);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleInstallClick = useCallback(async () => {
@@ -41,13 +54,13 @@ export function usePwaInstall() {
       return;
     }
 
-    if (isAndroidDevice()) {
+    if (androidInstallHint) {
       setHint(ANDROID_INSTALL_HINT);
       return;
     }
 
     setHint(GENERIC_INSTALL_HINT);
-  }, []);
+  }, [androidInstallHint]);
 
   return { installed, hint, handleInstallClick };
 }
