@@ -1637,6 +1637,20 @@ html.turnpoint-drag-active .welcome-scroll {
   gap: 8px;
 }
 
+.import-source-page-link {
+  margin-top: -0.35rem;
+}
+
+.import-source-page-link a {
+  color: var(--welcome-accent, #3b82f6);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.import-source-page-link a:hover {
+  color: var(--welcome-accent-hover, #2563eb);
+}
+
 .xcdemon-dialog-actions {
   display: flex;
   justify-content: flex-end;

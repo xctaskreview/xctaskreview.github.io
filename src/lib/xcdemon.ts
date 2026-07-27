@@ -1,5 +1,7 @@
 import type { FlightTrack, Turnpoint, XcTask } from './types';
 import { loadIgcFiles } from './tracks';
+import { parseImportCoordinates } from './importCoordinates';
+import { filterImportableCatalogTasks } from './importTaskIgnoreList';
 
 export const XCDEMON_DEFAULT_LEAGUE_ID = 17;
 export const XCDEMON_BASE_URL = 'https://xcdemon.com';
@@ -112,7 +114,68 @@ function parseDocument(html: string): Document {
 }
 
 function getTableHeaders(table: HTMLTableElement): string[] {
-  return [...table.querySelectorAll('thead th')].map((cell) => cell.textContent?.trim() ?? '');
+  const fromThead = [...table.querySelectorAll('thead th')].map((cell) => cell.textContent?.trim() ?? '');
+  if (fromThead.length > 0) return fromThead;
+
+  const firstRow = table.querySelector('tr');
+  if (!firstRow) return [];
+  return [...firstRow.querySelectorAll('th')].map((cell) => cell.textContent?.trim() ?? '');
+}
+
+function normalizeHeader(value: string): string {
+  return value.toLowerCase().replace(/\./g, '').trim();
+}
+
+function headerIsTurnpointId(header: string): boolean {
+  return header === 'id' || header.startsWith('id ');
+}
+
+function tableHasTurnpointHeaders(headers: string[]): boolean {
+  const normalized = headers.map(normalizeHeader);
+  return (
+    normalized.some(headerIsTurnpointId) &&
+    normalized.some((header) => header === 'radius') &&
+    normalized.some((header) => header.includes('coordinate')) &&
+    normalized.some((header) => header === 'altitude')
+  );
+}
+
+interface TurnpointColumnMap {
+  no: number;
+  id: number;
+  radius: number;
+  open: number;
+  coordinates: number;
+  altitude: number;
+}
+
+function buildTurnpointColumnMap(headers: string[]): TurnpointColumnMap | null {
+  const normalized = headers.map(normalizeHeader);
+  const idx = (pred: (h: string) => boolean) => normalized.findIndex(pred);
+
+  const radius = idx((h) => h === 'radius');
+  const coordinates = idx((h) => h.includes('coordinate'));
+  const altitude = idx((h) => h === 'altitude');
+  const id = idx(headerIsTurnpointId);
+  const open = idx((h) => h === 'open');
+  if (radius < 0 || coordinates < 0 || altitude < 0 || id < 0 || open < 0) {
+    return null;
+  }
+
+  const no = idx((h) => h === 'no' || h.startsWith('no '));
+
+  return {
+    no: no >= 0 ? no : 0,
+    id,
+    radius,
+    open,
+    coordinates,
+    altitude,
+  };
+}
+
+export function isXcdemonTaskResultUnavailable(html: string): boolean {
+  return /task result not found|Something went wrong while loading the task result/i.test(html);
 }
 
 function parseYears(doc: Document): number[] {
@@ -279,6 +342,25 @@ export function buildArchivedLeagueCatalog(seasons: XcdemonArchivedSeason[]): Xc
   return leagues;
 }
 
+export function buildArchivedYearsFromSeasons(seasons: XcdemonArchivedSeason[]): number[] {
+  const years = new Set(seasons.map((season) => season.year));
+  return [...years].sort((a, b) => b - a);
+}
+
+export function leagueIdsForArchivedYear(seasons: XcdemonArchivedSeason[], year: number): number[] {
+  const ids = new Set<number>();
+  for (const season of seasons) {
+    if (season.year === year) ids.add(season.leagueId);
+  }
+  return [...ids];
+}
+
+export interface XcdemonLeagueWithTasks {
+  leagueId: number;
+  leagueName: string;
+  tasks: XcdemonLeagueTask[];
+}
+
 export function parseXcdemonArchivedLeaguesPage(html: string): XcdemonArchivedSeason[] {
   return buildArchivedSeasonCatalog(parseArchivedLeagueSeasons(parseDocument(html)));
 }
@@ -286,8 +368,8 @@ export function parseXcdemonArchivedLeaguesPage(html: string): XcdemonArchivedSe
 function parseIgcZipUrl(trackLogsCell: Element): string | null {
   for (const link of trackLogsCell.querySelectorAll('a[href]')) {
     const href = link.getAttribute('href');
-    const label = link.textContent?.trim().toUpperCase() ?? '';
     if (!href) continue;
+    const label = link.textContent?.trim().toUpperCase() ?? '';
     if (label === 'IGC' || /-igcs\.zip/i.test(href)) {
       return resolveXcdemonUrl(href);
     }
@@ -295,24 +377,18 @@ function parseIgcZipUrl(trackLogsCell: Element): string | null {
   return null;
 }
 
-function buildTaskResultUrl(leagueId: number, taskId: string): string {
-  const params = new URLSearchParams({
-    leagueappid: String(leagueId),
-    task_id: taskId,
-  });
-  return `${XCDEMON_BASE_URL}/results_task.php?${params.toString()}`;
-}
-
 function parseTaskResultFromCell(
   resultsCell: Element,
-  leagueId: number,
 ): { taskId: string; taskResultUrl: string } | null {
+  let modern: { taskId: string; taskResultUrl: string } | null = null;
+  let legacy: { taskId: string; taskResultUrl: string } | null = null;
+
   for (const link of resultsCell.querySelectorAll('a[href]')) {
     const href = link.getAttribute('href') ?? '';
 
     const modernMatch = href.match(/results_task\.php(?:\?|.*?&)(?:.*?&)?task_id=(\d+)/i);
     if (modernMatch) {
-      return {
+      modern = {
         taskId: modernMatch[1],
         taskResultUrl: resolveXcdemonUrl(href),
       };
@@ -320,20 +396,19 @@ function parseTaskResultFromCell(
 
     const legacyMatch = href.match(/task_result_(\d+)\.html/i);
     if (legacyMatch) {
-      const taskId = legacyMatch[1];
-      return {
-        taskId,
-        taskResultUrl: buildTaskResultUrl(leagueId, taskId),
+      legacy = {
+        taskId: legacyMatch[1],
+        taskResultUrl: resolveXcdemonUrl(href),
       };
     }
   }
 
-  return null;
+  return legacy ?? modern;
 }
 
 export function parseXcdemonResultsPage(
   html: string,
-  leagueId: number,
+  _leagueId: number,
 ): {
   leagueName: string;
   activeLeagues: XcdemonLeague[];
@@ -352,7 +427,7 @@ export function parseXcdemonResultsPage(
     const status = cells[2].textContent?.trim() ?? '';
     if (!location || !date || location.toUpperCase() === 'OVERALL') continue;
 
-    const taskResult = parseTaskResultFromCell(cells[3], leagueId);
+    const taskResult = parseTaskResultFromCell(cells[3]);
     if (!taskResult) continue;
 
     tasks.push({
@@ -370,7 +445,7 @@ export function parseXcdemonResultsPage(
     leagueName: parseLeagueName(doc),
     activeLeagues: parseActiveLeagues(doc),
     years: parseYears(doc),
-    tasks,
+    tasks: filterImportableCatalogTasks(tasks),
   };
 }
 
@@ -380,49 +455,50 @@ function parseMeters(value: string): number {
   return Number(match[1]);
 }
 
-function validateCoordinates(lat: number, lon: number): { lat: number; lon: number } {
-  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-    throw new Error(`Invalid coordinates: ${lat}, ${lon}`);
+function parseOptionalMeters(value: string): number {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === 'm') return 0;
+  try {
+    return parseMeters(trimmed);
+  } catch {
+    return 0;
   }
-  return { lat, lon };
 }
 
 function parseCoordinates(value: string): { lat: number; lon: number } {
-  const decoded = decodeURIComponent(value.trim());
-
-  const atMatch = decoded.match(/@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);
-  if (atMatch) {
-    return validateCoordinates(Number(atMatch[1]), Number(atMatch[2]));
-  }
-
-  const textMatch = decoded.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
-  if (textMatch) {
-    return validateCoordinates(Number(textMatch[1]), Number(textMatch[2]));
-  }
-
-  throw new Error(`Invalid coordinates: ${value}`);
+  return parseImportCoordinates(value);
 }
 
 function normalizeTimeGate(open: string): string {
   const trimmed = open.trim();
+  if (!trimmed) throw new Error('Invalid open time: (empty)');
   if (/^\d{2}:\d{2}:\d{2}$/.test(trimmed)) {
     return trimmed;
   }
-  if (/^\d{2}:\d{2}$/.test(trimmed)) {
-    return `${trimmed}:00`;
+  if (/^\d{1,2}:\d{2}$/.test(trimmed)) {
+    const [hours, minutes] = trimmed.split(':');
+    return `${hours.padStart(2, '0')}:${minutes}:00`;
   }
   throw new Error(`Invalid open time: ${open}`);
 }
 
-function readTurnpointRow(row: HTMLTableRowElement) {
+function readTurnpointRow(row: HTMLTableRowElement, columns: TurnpointColumnMap) {
   const cells = [...row.querySelectorAll('td')];
-  if (cells.length < 8) return null;
+  const maxIdx = Math.max(
+    columns.no,
+    columns.id,
+    columns.radius,
+    columns.open,
+    columns.coordinates,
+    columns.altitude,
+  );
+  if (cells.length <= maxIdx) return null;
 
-  const noLabel = cells[0].textContent?.trim() ?? '';
-  const id = cells[2].textContent?.trim() ?? '';
-  const radius = parseMeters(cells[3].textContent?.trim() ?? '');
-  const open = cells[4].textContent?.trim() ?? '';
-  const coordinatesCell = cells[6];
+  const noLabel = cells[columns.no].textContent?.trim() ?? '';
+  const id = cells[columns.id].textContent?.trim() ?? '';
+  const radius = parseMeters(cells[columns.radius].textContent?.trim() ?? '');
+  const open = cells[columns.open].textContent?.trim() ?? '';
+  const coordinatesCell = cells[columns.coordinates];
   const coordinatesLink = coordinatesCell.querySelector('a');
   const coordinatesText =
     coordinatesLink?.textContent?.trim() ||
@@ -430,23 +506,28 @@ function readTurnpointRow(row: HTMLTableRowElement) {
     coordinatesCell.textContent?.trim() ||
     '';
   const { lat, lon } = parseCoordinates(coordinatesText);
-  const altitude = parseMeters(cells[7].textContent?.trim() ?? '');
+  const altitude = parseOptionalMeters(cells[columns.altitude].textContent?.trim() ?? '');
 
   return { noLabel, id, radius, open, lat, lon, altitude };
 }
 
+function turnpointDataRows(table: HTMLTableElement): HTMLTableRowElement[] {
+  const fromBody = [...table.querySelectorAll('tbody tr')].filter((row) => row.querySelector('td'));
+  if (fromBody.length > 0) return fromBody as HTMLTableRowElement[];
+  return [...table.querySelectorAll('tr')].filter((row) => row.querySelector('td')) as HTMLTableRowElement[];
+}
+
 function findTurnpointTable(doc: Document): HTMLTableElement {
-  for (const table of doc.querySelectorAll('table')) {
-    const headers = getTableHeaders(table);
-    if (
-      headers.includes('Id') &&
-      headers.includes('Radius') &&
-      headers.includes('Open') &&
-      headers.includes('Close') &&
-      headers.includes('Coordinates') &&
-      headers.includes('Altitude')
-    ) {
-      return table;
+  const searchRoots: ParentNode[] = [];
+  const taskRoot = doc.querySelector('#task');
+  if (taskRoot) searchRoots.push(taskRoot);
+  searchRoots.push(doc);
+
+  for (const root of searchRoots) {
+    for (const table of root.querySelectorAll('table')) {
+      if (tableHasTurnpointHeaders(getTableHeaders(table))) {
+        return table;
+      }
     }
   }
   throw new Error('Could not find turnpoint table on task results page.');
@@ -454,7 +535,7 @@ function findTurnpointTable(doc: Document): HTMLTableElement {
 
 function inferTurnpointType(noLabel: string): Turnpoint['type'] | undefined {
   const upper = noLabel.toUpperCase().trim();
-  if (/\bSS\b/.test(upper) || upper.includes('SSS')) return 'SSS';
+  if (/\bS-IN\b/i.test(noLabel) || /\bSS\b/.test(upper) || upper.includes('SSS')) return 'SSS';
   if (/\bES\b/.test(upper) || upper.includes('ESS')) return 'ESS';
   return undefined;
 }
@@ -463,19 +544,27 @@ export function parseXcdemonTaskPage(
   html: string,
   meta: Pick<XcdemonLeagueTask, 'location' | 'date' | 'taskId'>,
 ): XcTask {
+  if (isXcdemonTaskResultUnavailable(html)) {
+    throw new Error('XCDemon task result file is missing on the server.');
+  }
+
   const doc = parseDocument(html);
   const table = findTurnpointTable(doc);
-  const rows = [...table.querySelectorAll('tbody tr')];
+  const columns = buildTurnpointColumnMap(getTableHeaders(table));
+  if (!columns) {
+    throw new Error('Could not parse turnpoint table headers on task results page.');
+  }
+  const rows = turnpointDataRows(table);
   if (rows.length === 0) {
     throw new Error('Task results page has no turnpoints.');
   }
 
   const turnpoints: Turnpoint[] = [];
-  const firstRow = readTurnpointRow(rows[0] as HTMLTableRowElement);
+  const firstRow = readTurnpointRow(rows[0], columns);
   const startGate = firstRow?.open ? normalizeTimeGate(firstRow.open) : undefined;
 
   rows.forEach((row, index) => {
-    const parsed = readTurnpointRow(row as HTMLTableRowElement);
+    const parsed = readTurnpointRow(row, columns);
     if (!parsed) return;
 
     turnpoints.push({
@@ -537,6 +626,53 @@ export async function fetchXcdemonResults(leagueId: number, year?: number) {
   return parseXcdemonResultsPage(html, leagueId);
 }
 
+export async function fetchXcdemonImportableYears(
+  leagueId: number,
+  preferredYear?: number,
+): Promise<{
+  leagueName: string;
+  years: number[];
+  selectedYear: number;
+  tasks: XcdemonLeagueTask[];
+}> {
+  const initial = await fetchXcdemonResults(leagueId, preferredYear);
+  const candidateYears = initial.years;
+
+  const byYear = await Promise.all(
+    candidateYears.map(async (year) => {
+      const page =
+        year === preferredYear || (preferredYear === undefined && year === candidateYears[0])
+          ? initial
+          : await fetchXcdemonResults(leagueId, year);
+      return { year, tasks: page.tasks, leagueName: page.leagueName };
+    }),
+  );
+
+  const importable = byYear.filter((entry) => entry.tasks.length > 0);
+  const years = importable.map((entry) => entry.year).sort((a, b) => b - a);
+
+  if (years.length === 0) {
+    const fallbackYear = preferredYear ?? candidateYears[0] ?? new Date().getFullYear();
+    return {
+      leagueName: initial.leagueName,
+      years: [],
+      selectedYear: fallbackYear,
+      tasks: [],
+    };
+  }
+
+  const selectedYear =
+    preferredYear !== undefined && years.includes(preferredYear) ? preferredYear : years[0];
+  const tasks = importable.find((entry) => entry.year === selectedYear)?.tasks ?? [];
+
+  return {
+    leagueName: importable.find((entry) => entry.year === selectedYear)?.leagueName ?? initial.leagueName,
+    years,
+    selectedYear,
+    tasks,
+  };
+}
+
 export async function fetchXcdemonActiveLeagues(
   leagueId: number = XCDEMON_DEFAULT_LEAGUE_ID,
 ): Promise<XcdemonLeague[]> {
@@ -544,14 +680,35 @@ export async function fetchXcdemonActiveLeagues(
   return parseActiveLeagues(parseDocument(html));
 }
 
-export async function fetchXcdemonArchivedLeagues(): Promise<XcdemonArchivedLeague[]> {
+export async function fetchXcdemonArchivedSeasons(): Promise<XcdemonArchivedSeason[]> {
   const html = await fetchXcdemonText(getXcdemonArchivedLeaguesUrl());
   const seasons = parseXcdemonArchivedLeaguesPage(html);
-  const leagues = buildArchivedLeagueCatalog(seasons);
-  if (leagues.length === 0) {
+  if (seasons.length === 0) {
     throw new Error('No archived leagues were found on XCDemon.');
   }
-  return leagues;
+  return seasons;
+}
+
+export async function fetchXcdemonLeaguesWithTasksForYear(
+  year: number,
+  seasons: XcdemonArchivedSeason[],
+): Promise<XcdemonLeagueWithTasks[]> {
+  const leagueIds = leagueIdsForArchivedYear(seasons, year);
+  const results = await Promise.all(
+    leagueIds.map(async (leagueId) => {
+      const page = await fetchXcdemonResults(leagueId, year);
+      return { leagueId, leagueName: page.leagueName, tasks: page.tasks };
+    }),
+  );
+
+  return results
+    .filter((entry) => entry.tasks.length > 0)
+    .sort((a, b) => a.leagueName.localeCompare(b.leagueName));
+}
+
+export async function fetchXcdemonArchivedLeagues(): Promise<XcdemonArchivedLeague[]> {
+  const seasons = await fetchXcdemonArchivedSeasons();
+  return buildArchivedLeagueCatalog(seasons);
 }
 
 export async function importXcdemonTask(selectedTask: XcdemonLeagueTask): Promise<XcdemonImportResult> {

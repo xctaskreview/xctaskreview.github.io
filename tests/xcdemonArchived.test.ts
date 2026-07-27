@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildArchivedLeagueCatalog,
   buildArchivedSeasonCatalog,
+  buildArchivedYearsFromSeasons,
+  leagueIdsForArchivedYear,
   parseArchivedLeagueSeasons,
   parseXcdemonArchivedLeaguesPage,
 } from '../src/lib/xcdemon';
@@ -98,5 +100,24 @@ describe('buildArchivedLeagueCatalog', () => {
     ]);
     expect(leagues[0]?.defaultYear).toBe(2025);
     expect(leagues[2]?.defaultYear).toBe(2023);
+  });
+});
+
+describe('buildArchivedYearsFromSeasons', () => {
+  it('returns distinct years sorted most recent first', () => {
+    const doc = new DOMParser().parseFromString(archivedSnippet, 'text/html');
+    const seasons = buildArchivedSeasonCatalog(parseArchivedLeagueSeasons(doc));
+
+    expect(buildArchivedYearsFromSeasons(seasons)).toEqual([2025, 2024, 2023, 2022]);
+  });
+});
+
+describe('leagueIdsForArchivedYear', () => {
+  it('lists league ids with a season in the given year', () => {
+    const doc = new DOMParser().parseFromString(archivedSnippet, 'text/html');
+    const seasons = buildArchivedSeasonCatalog(parseArchivedLeagueSeasons(doc));
+
+    expect(leagueIdsForArchivedYear(seasons, 2023).sort((a, b) => a - b)).toEqual([37, 38, 39]);
+    expect(leagueIdsForArchivedYear(seasons, 2025)).toEqual([38]);
   });
 });

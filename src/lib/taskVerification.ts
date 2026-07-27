@@ -245,9 +245,9 @@ export function computePilotTaskVerification(
             finished = true;
             goalCrossTime = point.time;
             currentLeg = Math.max(currentLeg, goalIndex - startIndex);
-          } else if (afterStart && !finished && beforeDeadline) {
+          } else if (!finished && beforeDeadline && zone.turnpointIndex !== goalIndex) {
             currentLeg = zone.turnpointIndex - startIndex;
-            if (essIndex !== null && zone.turnpointIndex === essIndex) {
+            if (afterStart && essIndex !== null && zone.turnpointIndex === essIndex) {
               essCrossTime = point.time;
             }
           }

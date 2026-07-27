@@ -1,5 +1,10 @@
 import type { FlightTrack, Turnpoint, XcTask } from './types';
 import { loadIgcFiles } from './tracks';
+import { parseImportCoordinates } from './importCoordinates';
+import {
+  filterIgnoredImportEvents,
+  filterImportableCatalogTasks,
+} from './importTaskIgnoreList';
 import { withResolvedTaskTimeZone } from './xctask';
 
 export const CIVL_BASE_URL = 'https://civlcomps.org';
@@ -133,7 +138,22 @@ function parseDocument(html: string): Document {
 }
 
 function getTableHeaders(table: HTMLTableElement): string[] {
-  return [...table.querySelectorAll('thead th')].map((cell) => cell.textContent?.trim() ?? '');
+  const fromThead = [...table.querySelectorAll('thead th')].map((cell) => cell.textContent?.trim() ?? '');
+  if (fromThead.length > 0) return fromThead;
+
+  const firstRow = table.querySelector('tr');
+  if (!firstRow) return [];
+  return [...firstRow.querySelectorAll('th')].map((cell) => cell.textContent?.trim() ?? '');
+}
+
+function parseOptionalMeters(value: string): number {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === 'm') return 0;
+  try {
+    return parseMeters(trimmed);
+  } catch {
+    return 0;
+  }
 }
 
 function eventHasResults(event: CivlApiEvent): boolean {
@@ -224,7 +244,7 @@ export async function fetchCivlEvents(pastRange: string): Promise<CivlEvent[]> {
     page += 1;
   }
 
-  return events.sort((a, b) => a.title.localeCompare(b.title));
+  return filterIgnoredImportEvents(events.sort((a, b) => a.title.localeCompare(b.title)));
 }
 
 function parseIgcZipUrl(container: Element): string | null {
@@ -301,7 +321,7 @@ export function parseCivlResultsPage(html: string): {
     });
   }
 
-  return { eventName, tasks };
+  return { eventName, tasks: filterImportableCatalogTasks(tasks) };
 }
 
 function parseMeters(value: string): number {
@@ -310,19 +330,8 @@ function parseMeters(value: string): number {
   return Number(match[1]);
 }
 
-function validateCoordinates(lat: number, lon: number): { lat: number; lon: number } {
-  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-    throw new Error(`Invalid coordinates: ${lat}, ${lon}`);
-  }
-  return { lat, lon };
-}
-
 function parseLatLonCoordinates(value: string): { lat: number; lon: number } {
-  const match = value.match(/Lat:\s*(-?\d+(?:\.\d+)?),\s*Lon:\s*(-?\d+(?:\.\d+)?)/i);
-  if (!match) {
-    throw new Error(`Invalid coordinates: ${value}`);
-  }
-  return validateCoordinates(Number(match[1]), Number(match[2]));
+  return parseImportCoordinates(value);
 }
 
 function normalizeTimeGate(open: string): string {
@@ -352,24 +361,32 @@ function readCivlTurnpointRow(row: HTMLTableRowElement) {
   const id = cells[2].textContent?.trim() ?? '';
   const radius = parseMeters(cells[3].textContent?.trim() ?? '');
   const open = cells[4].textContent?.trim() ?? '';
-  const coordinatesText = cells[6].textContent?.trim() ?? '';
+  const coordinatesText =
+    cells[6].querySelector('a')?.textContent?.trim() ||
+    cells[6].querySelector('a')?.getAttribute('href') ||
+    cells[6].textContent?.trim() ||
+    '';
   const { lat, lon } = parseLatLonCoordinates(coordinatesText);
-  const altitude = parseMeters(cells[7].textContent?.trim() ?? '');
+  const altitude = parseOptionalMeters(cells[7].textContent?.trim() ?? '');
 
   return { noLabel, id, radius, open, lat, lon, altitude };
+}
+
+function tableHasCivlTurnpointHeaders(headers: string[]): boolean {
+  const normalized = headers.map((header) => header.toLowerCase().replace(/\./g, '').trim());
+  return (
+    normalized.some((header) => header === 'no' || header.startsWith('no ')) &&
+    normalized.some((header) => header === 'id') &&
+    normalized.some((header) => header === 'radius') &&
+    normalized.some((header) => header.includes('coordinate')) &&
+    normalized.some((header) => header === 'altitude')
+  );
 }
 
 function findTurnpointTable(doc: Document): HTMLTableElement {
   for (const table of doc.querySelectorAll('table')) {
     const headers = getTableHeaders(table);
-    if (
-      headers.includes('No') &&
-      headers.includes('Radius') &&
-      headers.includes('Open') &&
-      headers.includes('Close') &&
-      headers.includes('Coordinates') &&
-      headers.includes('Altitude')
-    ) {
+    if (tableHasCivlTurnpointHeaders(headers)) {
       return table;
     }
   }

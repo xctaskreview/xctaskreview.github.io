@@ -1429,6 +1429,7 @@ const onSessionBundleExport = useCallback(async () => {
                 turnpoints={route.progressTurnpoints}
                 turnpointReachMarkers={turnpointReachMarkers}
                 fieldTimeline={fieldTimeline}
+                nextTurnpointTimeline={nextTurnpointTimeline}
                 taskStart={timing.taskStart}
                 playbackEndTime={timing.trackEnd}
                 onTimeChange={setCurrentTime}

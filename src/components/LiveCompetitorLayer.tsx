@@ -9,9 +9,9 @@ import {
   COMPLETED_LEG_OPACITY,
   COMPLETED_LEG_WEIGHT,
   getLeaderNextLegSegment,
+  getProgressIndexForCircle,
   getTurnpointCirclePathOptions,
   getTurnpointColor,
-  isCircleTagged,
   ROUTE_DASH_ARRAY,
   TASK_PROGRESS_LINE_COLOR,
   turnpointIcon,
@@ -20,9 +20,11 @@ import {
 } from '../lib/taskMapStyle';
 import {
   lookupFleetNextTurnpointTarget,
-  lookupPilotNextTurnpointTarget,
+  isProgressTurnpointTagged,
   resolveMapNextTurnpointCircle,
   resolveNextTurnpointTarget,
+  resolvePlaybackNextProgressIndex,
+  resolvePlaybackTaggingTrack,
   type NextTurnpointTarget,
   type TaskNextTurnpointTimeline,
 } from '../lib/nextTurnpoint';
@@ -47,7 +49,7 @@ import {
   formatMapPilotModeStatHtml,
   getFlyingModeStateAtTime,
 } from '../lib/flyingMode';
-import { fieldLeaderIdAt, type TaskFieldTimeline } from '../lib/taskTimeline';
+import { type TaskFieldTimeline } from '../lib/taskTimeline';
 import {
   computeTaskProgressMarker,
   getProgressLabelAnchor,
@@ -292,7 +294,7 @@ export function LiveCompetitorLayer({
 
   useEffect(() => {
     taggedTurnpointStateRef.current.clear();
-  }, [progressFocusTrackId]);
+  }, [progressFocusTrackId, selectedPilotTrackId]);
 
   useEffect(() => {
     const leaderNextLegLine = L.polyline([], {
@@ -907,11 +909,12 @@ export function LiveCompetitorLayer({
       const currentTaskStart = taskStartRef.current;
       const timeMs = time.getTime();
       const focusId = progressFocusTrackIdRef.current;
+      const selectedId = selectedPilotTrackIdRef.current;
       if (!currentTaskStart) {
         resetLeaderNextTurnpointHighlight();
         return;
       }
-      if (!focusId && timeMs < currentTaskStart.getTime()) {
+      if (!focusId && !selectedId && timeMs < currentTaskStart.getTime()) {
         resetLeaderNextTurnpointHighlight();
         return;
       }
@@ -919,42 +922,37 @@ export function LiveCompetitorLayer({
       const route = routeRef.current;
       const timeline = nextTurnpointTimelineRef.current;
 
-      const pilotId =
-        focusId ?? fieldLeaderIdAt(fieldTimelineRef.current, timeMs);
-      const progressTrack =
-        pilotId &&
-        (focusId
-          ? allEnrichedTracksRef.current.find((track) => track.id === focusId)
-          : (tracksRef.current.find((track) => track.id === pilotId) ??
-            allEnrichedTracksRef.current.find((track) => track.id === pilotId)));
+      const progressTrack = resolvePlaybackTaggingTrack(
+        allEnrichedTracksRef.current,
+        focusId,
+        selectedId,
+      );
 
-      let nextTarget: ReturnType<typeof lookupPilotNextTurnpointTarget> = null;
+      let nextTarget: NextTurnpointTarget | null = null;
+      let nextProgressIndex = -1;
+      if (progressTrack) {
+        nextProgressIndex = resolvePlaybackNextProgressIndex(timeline, progressTrack, timeMs);
+        if (nextProgressIndex >= 0) {
+          nextTarget = resolveNextTurnpointTarget(route, nextProgressIndex);
+        }
+      }
+      if (!nextTarget && !focusId && !selectedId) {
+        nextTarget = lookupFleetNextTurnpointTarget(timeline, route, timeMs);
+        if (nextTarget) {
+          nextProgressIndex = nextTarget.progressIndex;
+        }
+      }
+
       if (progressTrack) {
         const snapshot = getTrackSnapshotAtTime(progressTrack, time, route);
         if (snapshot?.hasStarted && !snapshot.finished) {
-          nextTarget = lookupPilotNextTurnpointTarget(
-            progressTrack.nextTurnpointMilestones,
-            route,
-            progressTrack.taskStartMs ?? currentTaskStart.getTime(),
-            timeMs,
+          const legIndex = Math.max(
+            snapshot.legIndex,
+            nextProgressIndex > 0 ? nextProgressIndex - 1 : 0,
           );
-          if (!nextTarget) {
-            nextTarget = resolveNextTurnpointTarget(route, snapshot.legIndex + 1);
-          }
-        }
-      }
-      if (!nextTarget && !focusId) {
-        nextTarget = lookupFleetNextTurnpointTarget(timeline, route, timeMs);
-      }
-
-      const leader = progressTrack;
-
-      if (leader) {
-        const snapshot = getTrackSnapshotAtTime(leader, time, route);
-        if (snapshot?.hasStarted && !snapshot.finished) {
           const segment = getLeaderNextLegSegment(
             route,
-            snapshot.legIndex,
+            legIndex,
             snapshot.hasStarted,
             snapshot.finished,
           );
@@ -1002,7 +1000,7 @@ export function LiveCompetitorLayer({
       }
     };
 
-    const updateTaskProgressVisuals = (progressPercent: number, progressColor: string) => {
+    const updateTaskProgressVisuals = (time: Date, progressPercent: number, progressColor: string) => {
       const completedRoute = completedRouteRef.current;
       if (completedRoute) {
         completedRoute.setStyle({ color: progressColor });
@@ -1019,13 +1017,25 @@ export function LiveCompetitorLayer({
       const layers = layerRefs.current;
       if (!layers) return;
 
+      const focusTrack = resolvePlaybackTaggingTrack(
+        allEnrichedTracksRef.current,
+        progressFocusTrackIdRef.current,
+        selectedPilotTrackIdRef.current,
+      );
+      const nextProgressIndex = resolvePlaybackNextProgressIndex(
+        nextTurnpointTimelineRef.current,
+        focusTrack,
+        time.getTime(),
+      );
+
       for (const circle of circlesRef.current) {
         const key = circleKey(circle);
         const markerKey = `${key}-marker`;
-        const tagged = isCircleTagged(circle, routeRef.current, progressPercent);
+        const progressIndex = getProgressIndexForCircle(circle, routeRef.current);
+        const tagged = isProgressTurnpointTagged(progressIndex, nextProgressIndex);
         const prevTagged = taggedTurnpointStateRef.current.get(key);
         const isLeaderNext = key === leaderNextTpKeyRef.current;
-        if (prevTagged === tagged && !isLeaderNext) continue;
+        if (prevTagged === tagged && !isLeaderNext && !tagged) continue;
 
         taggedTurnpointStateRef.current.set(key, tagged);
         const fillHighlight = isLeaderNext;
@@ -1091,7 +1101,7 @@ export function LiveCompetitorLayer({
       progressLine.setLatLngs(marker.line.map((point) => [point.lat, point.lon]));
       progressLine.bringToFront();
       taskProgressMarkerRef.current = marker;
-      updateTaskProgressVisuals(marker.taskPercent, progressColor);
+      updateTaskProgressVisuals(time, marker.taskPercent, progressColor);
 
       if (progressLabel) {
         const prefs = preferencesRef.current;

@@ -1,0 +1,452 @@
+<script type="text/javascript">
+	function ConvertDMSToDD(degrees, minutes, seconds, direction) {
+		var dd = degrees + minutes/60 + seconds/(60*60);
+
+		if (direction == "S" || direction == "W") {
+			dd = dd * -1;
+		} // Don't do anything for N or E
+		return dd;
+	}	
+</script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimal-ui">
+  <meta name="description" content="XC Demon is an online tool for running paragliding leagues">
+  <meta name="keywords" content="admin template, paragliding">
+  <meta name="author" content="Aaron Price">
+  <meta name="robots" content="nofollow" />  
+  <title>2025 X Red Rocks - 2025-09-25 - Monroe, Utah</title>
+  <link rel="apple-touch-icon" href="./app-assets/images/ico/apple-icon-120.png">
+  <!--link rel="shortcut icon" type="image/x-icon" href="./app-assets/images/ico/favicon.ico"-->
+  
+  <!-- favicon -->
+	<link rel="apple-touch-icon" sizes="57x57" href="images/favicons/apple-icon-57x57.png">
+	<link rel="apple-touch-icon" sizes="60x60" href="images/favicons/apple-icon-60x60.png">
+	<link rel="apple-touch-icon" sizes="72x72" href="images/favicons/apple-icon-72x72.png">
+	<link rel="apple-touch-icon" sizes="76x76" href="images/favicons/apple-icon-76x76.png">
+	<link rel="apple-touch-icon" sizes="114x114" href="images/favicons/apple-icon-114x114.png">
+	<link rel="apple-touch-icon" sizes="120x120" href="images/favicons/apple-icon-120x120.png">
+	<link rel="apple-touch-icon" sizes="144x144" href="images/favicons/apple-icon-144x144.png">
+	<link rel="apple-touch-icon" sizes="152x152" href="images/favicons/apple-icon-152x152.png">
+	<link rel="apple-touch-icon" sizes="180x180" href="images/favicons/apple-icon-180x180.png">
+	<link rel="icon" type="image/png" sizes="192x192"  href="images/favicons/android-icon-192x192.png">
+	<link rel="icon" type="image/png" sizes="32x32" href="images/favicons/favicon-32x32.png">
+	<link rel="icon" type="image/png" sizes="96x96" href="images/favicons/favicon-96x96.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="images/favicons/favicon-16x16.png">
+	<link rel="manifest" href="images/favicons/manifest.json">
+	<meta name="msapplication-TileColor" content="#ffffff">
+	<meta name="msapplication-TileImage" content="images/favicons/ms-icon-144x144.png">
+	<meta name="theme-color" content="#ffffff">  
+	
+	<!-- facebook -->
+	<meta property="og:image" content="images/facebook-image.png" />
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="XC Demon" />
+	<meta property="og:description" content="XC Demon is a platform to run cross country leagues for free flight competitions. Registration, scoring, tracking and replays all integrated under one platform.  Featuring standard and custom scoring formats with ongoing development to add new features for pilots and league admins." />	
+	  
+	<link href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,600,600i,700,700i|Muli:300,400,500,700" rel="stylesheet">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+  <style type="text/css">';
+		.table-hover tbody tr:hover td, .table-hover tbody tr:hover th {';
+			  background-color: yellow;';
+		}';
+	</style>
+</head>
+<body>
+<script type="text/javascript">
+    $( document ).ready(function() {
+        $('#stats').toggle();
+        $('#scoring').toggle();
+		reset();
+    });
+	
+	function filterRows(){
+		genderFilter = "";
+		nationFilter = "";
+		gliderFilter = "";
+		
+		nation = $("#nationalitySelector").val()
+		gender = $("#genderSelector").val() ;
+		glider = $("#gliderSelector").val() ;
+		
+		if (gender == "Men") {
+			genderFilter = ".M";
+		}else if (gender == "Women") {
+			genderFilter = ".F";
+		}
+		
+		if (nation != 0 && nation != -1){
+			nationFilter = "." + nation;
+		}
+		
+		if (glider == "Serial") {
+			gliderFilter = ".Serial";
+		} else if (glider == "Sport") {
+			gliderFilter = ".Sport";
+		} else if (glider == "Sprint") {
+			gliderFilter = ".Sprint";	
+		} else if (glider == "Beginner") {
+			gliderFilter = ".Beginner";			
+		}			
+		
+		$("#pilotTable tbody tr").hide();
+		$("#pilotTable tbody tr"+nationFilter+genderFilter+gliderFilter).show();
+		renumberRows();
+		
+	}
+	
+	var previousPoints = -1;
+	var ranking = 1;
+
+	function renumberRows(){
+		$("#pilotTable tbody tr:visible").each(function(i) {
+			curPoint = $(this).children(".points").text();
+			if (previousPoints == curPoint){
+				$(this).children(".firstCol").text(ranking);
+			} else {
+				ranking = i+1
+				$(this).children(".firstCol").text(ranking);
+			}
+			previousPoints = curPoint;
+		});
+		//$("#pilotTable tbody tr:not(.hidden)").each(function (index) {
+		//	$(this).toggleClass("stripe", !!(index & 1));
+		//});		
+		previousPoints = -1;
+		ranking = 1;
+	}
+	
+	function reset(){
+		$("#genderSelector").val(-1);
+		$("#nationalitySelector").val(-1);
+		$("#gliderSelector").val(-1);
+		$("#pilotTable tbody tr").show();
+		renumberRows();
+	}
+</script>
+<div class="container">
+<h3><u>2025 X Red Rocks</u></h3>
+<h4>2025-09-25 - Monroe, Utah - Hike and Fly XC Task</h4>
+<select id="genderSelector" onChange="filterRows();">
+	<option selected value="-1" selected>-- Gender --</option>
+	<!--option selected value="0">All</option>
+	<option value="1">Men</option>
+	<option value="2">Women</option-->
+</select>
+
+<select id="nationalitySelector" onChange="filterRows();">
+	<option selected value="-1" selected>-- Nationality --</option>
+	<!--option selected value="0">All</option-->
+</select>
+
+<select id="gliderSelector" onChange="filterRows();">
+	<option selected value="-1" selected>-- Glider Class --</option>
+	<!--option selected value="0">Open</option>
+	<option selected value="4">Serial</option>
+	<option selected value="3">Sport</option>
+	<option selected value="2">Sprint</option>
+	<option selected value="1">Beginner</option-->
+</select>
+<input type="button" value="Reset" onClick="reset();"/>
+</div>
+
+<div class="container" id="pilotTable">
+  <table class="table table-responsive table-hover table-condensed table-bordered table-striped table-sm" style="width: auto !important;">
+    <thead>
+      <tr>
+        <th style="">Rank</th>
+        <th style="">Id</th>
+        <th style="">Name</th>
+        <th style="display:none;">Gendr</th>
+        <th style="">Nat</th>
+        <th style="">Glider</th>
+        <th style="">Sponsor</th>
+        <th style="">SS</th>
+        <th style="">ES</th>
+        <th style="">Time</th>
+        <th style="">km/h</th>
+        <th style="">Dist.</th>
+        <th style="display:none;">secs</th>
+        <th style="">Points</th>
+      </tr>
+    </thead>
+    <tbody>
+<tr class="M USA CCC Serial">
+        <td class="firstCol" style="" >0</td>
+        <td class="id" style="" >1</td>
+        <td class="pilotName" style="" >Stephen Guyette</td>
+        <td class="gender" style="display:none;" >M</td>
+        <td class="nat" style="" >USA</td>
+        <td class="glider" style="" >Niviuk Klimber 3P</td>
+        <td class="sponsor" style="" > </td>
+        <td class="started_ss" style="" >08:00:00</td>
+        <td class="finished_ss" style="" >15:36:00</td>
+        <td class="ss_time" style="" >07:36:00</td>
+        <td class="speed" style="" >13.65</td>
+        <td class="distance" style="" >103.748</td>
+        <td class="secondsAcrossCourse" style="display:none;" >27360</td>
+        <td class="points" style="text-decoration: underline;"  title="Rank 1 = 1 pts" >1</td>
+</tr>
+<tr class="M NZL CCC Serial">
+        <td class="firstCol" style="" >0</td>
+        <td class="id" style="" >13</td>
+        <td class="pilotName" style="" >David Chen</td>
+        <td class="gender" style="display:none;" >M</td>
+        <td class="nat" style="" >NZL</td>
+        <td class="glider" style="" >Ozone Zeno 2</td>
+        <td class="sponsor" style="" >        </td>
+        <td class="started_ss" style="" >08:00:00</td>
+        <td class="finished_ss" style="" >16:29:47</td>
+        <td class="ss_time" style="" >08:29:47</td>
+        <td class="speed" style="" >12.21</td>
+        <td class="distance" style="" >103.748</td>
+        <td class="secondsAcrossCourse" style="display:none;" >30587</td>
+        <td class="points" style="text-decoration: underline;"  title="Rank 2 = 2 pts" >2</td>
+</tr>
+<tr class="M CHE CCC Serial Sport">
+        <td class="firstCol" style="" >0</td>
+        <td class="id" style="" >4</td>
+        <td class="pilotName" style="" >Jens Glatthard</td>
+        <td class="gender" style="display:none;" >M</td>
+        <td class="nat" style="" >CHE</td>
+        <td class="glider" style="" >Ozone Alpina 4</td>
+        <td class="sponsor" style="" > </td>
+        <td class="started_ss" style="" >08:00:00</td>
+        <td class="finished_ss" style="" >16:38:36</td>
+        <td class="ss_time" style="" >08:38:36</td>
+        <td class="speed" style="" >12.00</td>
+        <td class="distance" style="" >103.748</td>
+        <td class="secondsAcrossCourse" style="display:none;" >31116</td>
+        <td class="points" style="text-decoration: underline;"  title="Rank 3 = 3 pts" >3</td>
+</tr>
+<tr class="M AUT CCC Serial">
+        <td class="firstCol" style="" >0</td>
+        <td class="id" style="" >6</td>
+        <td class="pilotName" style="" >Gregor Haas</td>
+        <td class="gender" style="display:none;" >M</td>
+        <td class="nat" style="" >AUT</td>
+        <td class="glider" style="" >NIVIUK Klimber 3P</td>
+        <td class="sponsor" style="" > </td>
+        <td class="started_ss" style="" >08:00:00</td>
+        <td class="finished_ss" style="" >17:06:42</td>
+        <td class="ss_time" style="" >09:06:42</td>
+        <td class="speed" style="" >11.39</td>
+        <td class="distance" style="" >103.748</td>
+        <td class="secondsAcrossCourse" style="display:none;" >32802</td>
+        <td class="points" style="text-decoration: underline;"  title="Rank 4 = 4 pts" >4</td>
+</tr>
+<tr class="M USA CCC Serial">
+        <td class="firstCol" style="" >0</td>
+        <td class="id" style="" >12</td>
+        <td class="pilotName" style="" >Ben Walker</td>
+        <td class="gender" style="display:none;" >M</td>
+        <td class="nat" style="" >USA</td>
+        <td class="glider" style="" >Ozone Zeolite GT 2</td>
+        <td class="sponsor" style="" >    </td>
+        <td class="started_ss" style="" >08:00:00</td>
+        <td class="finished_ss" style="" >17:29:55</td>
+        <td class="ss_time" style="" >09:29:55</td>
+        <td class="speed" style="" >10.92</td>
+        <td class="distance" style="" >103.748</td>
+        <td class="secondsAcrossCourse" style="display:none;" >34195</td>
+        <td class="points" style="text-decoration: underline;"  title="Rank 5 = 5 pts" >5</td>
+</tr>
+<tr class="F USA CCC Serial Sport">
+        <td class="firstCol" style="" >0</td>
+        <td class="id" style="" >10</td>
+        <td class="pilotName" style="" >Alyse Little</td>
+        <td class="gender" style="display:none;" >F</td>
+        <td class="nat" style="" >USA</td>
+        <td class="glider" style="" >Ozone Lyght</td>
+        <td class="sponsor" style="" >       </td>
+        <td class="started_ss" style="" >08:00:00</td>
+        <td class="finished_ss" style="" >17:57:18</td>
+        <td class="ss_time" style="" >09:57:18</td>
+        <td class="speed" style="" >10.42</td>
+        <td class="distance" style="" >103.748</td>
+        <td class="secondsAcrossCourse" style="display:none;" >35838</td>
+        <td class="points" style="text-decoration: underline;"  title="Rank 6 = 6 pts" >6</td>
+</tr>
+<tr class="M USA CCC Serial">
+        <td class="firstCol" style="" >0</td>
+        <td class="id" style="" >9</td>
+        <td class="pilotName" style="" >Brian Cooper</td>
+        <td class="gender" style="display:none;" >M</td>
+        <td class="nat" style="" >USA</td>
+        <td class="glider" style="" >Ozone Zeolite 2 GT</td>
+        <td class="sponsor" style="" > </td>
+        <td class="started_ss" style="" >08:00:00</td>
+        <td class="finished_ss" style="" >18:19:28</td>
+        <td class="ss_time" style="" >10:19:28</td>
+        <td class="speed" style="" >10.05</td>
+        <td class="distance" style="" >103.748</td>
+        <td class="secondsAcrossCourse" style="display:none;" >37168</td>
+        <td class="points" style="text-decoration: underline;"  title="Rank 7 = 7 pts" >7</td>
+</tr>
+<tr class="M USA CCC Serial">
+        <td class="firstCol" style="" >0</td>
+        <td class="id" style="" >3</td>
+        <td class="pilotName" style="" >Samuel Inouye</td>
+        <td class="gender" style="display:none;" >M</td>
+        <td class="nat" style="" >USA</td>
+        <td class="glider" style="" >Skywalk X alps 5</td>
+        <td class="sponsor" style="" >      </td>
+        <td class="started_ss" style="" >08:00:00</td>
+        <td class="finished_ss" style="" >18:54:43</td>
+        <td class="ss_time" style="" >10:54:43</td>
+        <td class="speed" style="" >9.51</td>
+        <td class="distance" style="" >103.748</td>
+        <td class="secondsAcrossCourse" style="display:none;" >39283</td>
+        <td class="points" style="text-decoration: underline;"  title="Rank 8 = 8 pts" >8</td>
+</tr>
+<tr class="M CHE CCC Serial">
+        <td class="firstCol" style="" >0</td>
+        <td class="id" style="" >7</td>
+        <td class="pilotName" style="" >Laurent Monneron</td>
+        <td class="gender" style="display:none;" >M</td>
+        <td class="nat" style="" >CHE</td>
+        <td class="glider" style="" >Klimber3 Niviuk</td>
+        <td class="sponsor" style="" > </td>
+        <td class="started_ss" style="" >09:24:02</td>
+        <td class="finished_ss" style="" ></td>
+        <td class="ss_time" style="" ></td>
+        <td class="speed" style="" ></td>
+        <td class="distance" style="" >100.249</td>
+        <td class="secondsAcrossCourse" style="display:none;" >0</td>
+        <td class="points" style="text-decoration: underline;"  title="Rank 9 = 9 pts" >9</td>
+</tr>
+<tr class="M CHE CCC Serial Sport">
+        <td class="firstCol" style="" >0</td>
+        <td class="id" style="" >8</td>
+        <td class="pilotName" style="" >Grégory Mauro</td>
+        <td class="gender" style="display:none;" >M</td>
+        <td class="nat" style="" >CHE</td>
+        <td class="glider" style="" >Airdesign volt5</td>
+        <td class="sponsor" style="" >  </td>
+        <td class="started_ss" style="" >09:22:39</td>
+        <td class="finished_ss" style="" ></td>
+        <td class="ss_time" style="" ></td>
+        <td class="speed" style="" ></td>
+        <td class="distance" style="" >62.950</td>
+        <td class="secondsAcrossCourse" style="display:none;" >0</td>
+        <td class="points" style="text-decoration: underline;"  title="Rank 10 = 10 pts" >10</td>
+</tr>
+<tr class="M CHE CCC Serial">
+        <td class="firstCol" style="" >0</td>
+        <td class="id" style="" >5</td>
+        <td class="pilotName" style="" >Laurent Borella</td>
+        <td class="gender" style="display:none;" >M</td>
+        <td class="nat" style="" >CHE</td>
+        <td class="glider" style="" >Niviuk Klimber 3</td>
+        <td class="sponsor" style="" > </td>
+        <td class="started_ss" style="" >09:23:40</td>
+        <td class="finished_ss" style="" ></td>
+        <td class="ss_time" style="" ></td>
+        <td class="speed" style="" ></td>
+        <td class="distance" style="" >59.274</td>
+        <td class="secondsAcrossCourse" style="display:none;" >0</td>
+        <td class="points" style="text-decoration: underline;"  title="Rank 11 = 11 pts" >11</td>
+</tr>
+<tr class="M USA CCC Serial">
+        <td class="firstCol" style="" >0</td>
+        <td class="id" style="" >2</td>
+        <td class="pilotName" style="" >David Harrington</td>
+        <td class="gender" style="display:none;" >M</td>
+        <td class="nat" style="" >USA</td>
+        <td class="glider" style="" >Niviuk Klimber 3P</td>
+        <td class="sponsor" style="" >    </td>
+        <td class="started_ss" style="" >09:22:36</td>
+        <td class="finished_ss" style="" ></td>
+        <td class="ss_time" style="" ></td>
+        <td class="speed" style="" ></td>
+        <td class="distance" style="" >56.072</td>
+        <td class="secondsAcrossCourse" style="display:none;" >0</td>
+        <td class="points" style="text-decoration: underline;"  title="Rank 12 = 12 pts" >12</td>
+</tr>
+    </tbody>
+  </table>
+</div>
+<div id="comments" class="container">
+  <table class="table table-responsive table-hover table-condensed table-bordered table-striped table-sm" style="width: auto !important;">
+    <thead>
+      <tr>
+      <th>Pilot Name</th>
+      <th>Scoring Comments</th>
+      </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</div>
+<div id="task" class="container">
+		<table style="width: auto;" class="table  table-striped  table-condensed">
+			<thead>
+				<tr style="font-weight:bold;">
+					<th>No.</th>
+					<th>Id - Description</th>
+					<th>Radius</th>
+									<th>Open</th>
+					<th>Close</th>
+									<th>Dist</th>
+					<th>Coordinates</th>
+					<th>Altitude</th>
+				</tr>
+			</thead>
+			<tbody>
+			<tr><td title="Start In (or Exit Cylinder) means your time points start when you leave this cylinder">1<b> S-IN</b></td><td>L06 - Hancock LZ</td><td>100m</td><td>08:00</td><td>20:00</td><td>0.000km</td><td><a href="https://www.google.com/maps?q=description+L06+@38.56781,-111.84000" target="_blank">38.56781, -111.84000</a></td><td>2135m</td></tr><tr><td title="">2</td><td>P30 - Hancock</td><td>2000m</td><td>08:00</td><td>20:00</td><td>1.351km</td><td><a href="https://www.google.com/maps?q=description+P30+@38.55889,-111.80361" target="_blank">38.55889, -111.80361</a></td><td>2851m</td></tr><tr><td title="">3</td><td>S14 - Doctor Creek Campground</td><td>4900m</td><td>08:00</td><td>20:00</td><td>6.652km</td><td><a href="https://www.google.com/maps?q=description+S14+@38.52856,-111.73956" target="_blank">38.52856, -111.73956</a></td><td>2704m</td></tr><tr><td title="">4</td><td>F05 - South Horn Mountain</td><td>5000m</td><td>08:00</td><td>20:00</td><td>83.751km</td><td><a href="https://www.google.com/maps?q=description+F05+@39.12776,-111.19925" target="_blank">39.12776, -111.19925</a></td><td>2602m</td></tr><tr><td title="You must make goal in order to receive any time points.">5<b> Goal</b></td><td>G10 - Castledale Aquatic Center</td><td>200m</td><td>08:00</td><td>20:00</td><td>103.749km</td><td><a href="https://www.google.com/maps?q=description+G10+@39.22327,-111.01649" target="_blank">39.22327, -111.01649</a></td><td>1772m</td></tr>			</tbody>
+		</table>
+		<br><br>	<div id="map-canvas" style="width: 600px; height: 500px"></div>
+	<script>
+    
+		function initialize() {
+		  var mapOptions = {		  
+            center: new google.maps.LatLng(34.192962, -118.9273758),
+            zoom: 2,          
+			disableDefaultUI: false,
+			mapTypeId: google.maps.MapTypeId.TERRAIN
+		  };
+
+		  var map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
+		            
+		  var taskLayer = new google.maps.KmlLayer({ url: 'http://www.xcdemon.com/tracklogs/31/88/641/641-task.kml?updated=1758779781'});
+		  taskLayer.setMap(map);                
+		}
+
+		function loadScript() {
+		  var script = document.createElement('script');
+		  script.type = 'text/javascript';
+		  //signed_in=true
+		  script.src = 'https://maps.googleapis.com/maps/api/js?v=3.exp&callback=initialize&key=AIzaSyAHfVWhzajinxpta1MXMSzfAuxcM1RuoFY';
+		  document.body.appendChild(script);
+		}
+
+		window.onload = loadScript;
+	</script>
+
+</div>
+
+<script>
+$( document ).ready(function() {
+	
+$('#nationalitySelector').append('<option value="0">All (12)</option>');
+$('#nationalitySelector').append('<option value="USA">USA (6)</option>');
+$('#nationalitySelector').append('<option value="CHE">CHE (4)</option>');
+$('#nationalitySelector').append('<option value="NZL">NZL (1)</option>');
+$('#nationalitySelector').append('<option value="AUT">AUT (1)</option>');
+$('#gliderSelector').append('<option value="0">All (12)</option>');
+$('#gliderSelector').append('<option value="Open">Open (0)</option>');
+$('#gliderSelector').append('<option value="Serial">Serial (9)</option>');
+$('#gliderSelector').append('<option value="Sport">Sport (3)</option>');
+$('#gliderSelector').append('<option value="Sprint">Sprint (0)</option>');
+$('#gliderSelector').append('<option value="Beginner">Beginner (0)</option>');
+$('#genderSelector').append('<option value="0">All (12)</option>');
+$('#genderSelector').append('<option value="Women">Women (1)</option>');
+
+});
+</script>
+</body>
+</html>

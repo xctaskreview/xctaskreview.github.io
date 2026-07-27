@@ -179,6 +179,46 @@ export function lookupFleetNextTurnpointTarget(
   return resolveNextTurnpointTarget(route, index);
 }
 
+/** Pilot whose crossings drive tagged turnpoint UI (progress focus, else selected pilot). */
+export function resolvePlaybackTaggingTrack<
+  T extends { id: string; nextTurnpointMilestones: NextTurnpointMilestone[]; taskStartMs?: number },
+>(
+  tracks: T[],
+  progressFocusTrackId: string | null | undefined,
+  selectedPilotTrackId: string | null | undefined,
+): T | null {
+  const id = progressFocusTrackId ?? selectedPilotTrackId;
+  if (!id) return null;
+  return tracks.find((track) => track.id === id) ?? null;
+}
+
+/** Active “next” progress index for playback tagging (focus/selected pilot or fleet). */
+export function resolvePlaybackNextProgressIndex(
+  fleetTimeline: TaskNextTurnpointTimeline,
+  focusTrack:
+    | { nextTurnpointMilestones: NextTurnpointMilestone[]; taskStartMs?: number }
+    | null
+    | undefined,
+  timeMs: number,
+): number {
+  if (focusTrack) {
+    const taskStartMs = focusTrack.taskStartMs ?? fleetTimeline.taskStartMs;
+    return lookupNextProgressIndex(focusTrack.nextTurnpointMilestones, taskStartMs, timeMs, {
+      allowBeforeTaskStart: true,
+    });
+  }
+  return lookupNextProgressIndex(fleetTimeline.milestones, fleetTimeline.taskStartMs, timeMs, {
+    allowBeforeTaskStart: true,
+  });
+}
+
+export function isProgressTurnpointTagged(
+  progressIndex: number,
+  nextProgressIndex: number,
+): boolean {
+  return progressIndex >= 0 && progressIndex < nextProgressIndex;
+}
+
 export function resolveMapNextTurnpointCircle(
   route: OptimizedRoute,
   circles: RoutePoint[],

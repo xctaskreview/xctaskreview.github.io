@@ -200,7 +200,9 @@ export function CivlImportDialog({
           <div>
             <h2 id="civl-dialog-title">Import from CIVL Comps</h2>
             <p className="xcdemon-dialog-subtitle">
-              {eventName || selectedEvent?.title || 'Choose a year, event, and task'}
+              {eventName ||
+                selectedEvent?.title ||
+                'Choose a year, event, and task. Only events with published tasks and IGC track zips are listed.'}
             </p>
           </div>
           <button type="button" className="welcome-icon-button" aria-label="Close" onClick={onClose}>
@@ -240,16 +242,19 @@ export function CivlImportDialog({
             searchPlaceholder="Filter events…"
             noMatchesHint="No events match your filter."
             options={eventOptions}
+            onReselectSelected={selectedEventId !== '' ? clearSelectedEvent : undefined}
             onChange={(nextValue) => {
               setSelectedEventId(nextValue ? Number(nextValue) : '');
               setSelectedTaskId('');
             }}
           />
 
-          {selectedEventId !== '' && !loadingEvents && events.length > 1 && (
-            <button type="button" className="welcome-text-button" onClick={clearSelectedEvent}>
-              Show all events
-            </button>
+          {selectedEvent && (
+            <p className="xcdemon-dialog-hint import-source-page-link">
+              <a href={selectedEvent.eventLink} target="_blank" rel="noopener noreferrer">
+                Open event on CIVL Comps
+              </a>
+            </p>
           )}
 
           <ImportCatalogPicker
@@ -261,7 +266,7 @@ export function CivlImportDialog({
             emptyHint="Select an event to load tasks."
             options={tasks.map((task) => ({
               value: task.taskId,
-              label: `${task.label}${!task.igcZipUrl ? ' (no IGC zip)' : ''}`,
+              label: task.label,
             }))}
             onChange={setSelectedTaskId}
           />

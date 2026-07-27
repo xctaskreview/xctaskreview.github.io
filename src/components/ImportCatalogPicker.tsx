@@ -18,6 +18,8 @@ interface ImportCatalogPickerProps {
   filterable?: boolean;
   searchPlaceholder?: string;
   noMatchesHint?: string;
+  /** When the user clicks the already-selected option, expand or reset the list. */
+  onReselectSelected?: () => void;
 }
 
 function filterCatalogOptions(
@@ -46,6 +48,7 @@ export function ImportCatalogPicker({
   filterable = false,
   searchPlaceholder = 'Type to filter…',
   noMatchesHint = 'No matches.',
+  onReselectSelected,
 }: ImportCatalogPickerProps) {
   const listId = `${label.replace(/\s+/g, '-').toLowerCase()}-list`;
   const [filterText, setFilterText] = useState('');
@@ -81,6 +84,11 @@ export function ImportCatalogPicker({
         value={value}
         disabled={disabled || options.length === 0}
         aria-label={label}
+        onMouseDown={(event) => {
+          if (!value || !onReselectSelected || disabled) return;
+          event.preventDefault();
+          onReselectSelected();
+        }}
         onChange={(event) => onChange(event.target.value)}
       >
         <option value="">{placeholder}</option>
@@ -114,7 +122,13 @@ export function ImportCatalogPicker({
                 aria-selected={selected}
                 disabled={disabled}
                 className={`import-catalog-picker-option${selected ? ' selected' : ''}`}
-                onClick={() => onChange(option.value)}
+                onClick={() => {
+                  if (selected && onReselectSelected) {
+                    onReselectSelected();
+                    return;
+                  }
+                  onChange(option.value);
+                }}
               >
                 {option.label}
               </button>

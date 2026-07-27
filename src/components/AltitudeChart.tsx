@@ -24,12 +24,12 @@ import {
   chartPilotLabelOffsetX,
   chartPlotRect,
   clampChartTaskDistanceDisplay,
-  countTaggedTurnpoints,
+  countChartTaggedTurnpointsByMilestone,
   formatChartDistanceTick,
   hasChartMaxProgressLink,
+  isChartTurnpointTaggedByMilestone,
   isFullChartDistanceDomain,
   isLeadingChartPilot,
-  isTurnpointTagged,
   panChartDistanceDomain,
   chartPlotInnerWidth,
   roundChartPixel,
@@ -59,6 +59,11 @@ import { flyingModeLabelSegments, flyingModeLabelSegmentsKey, getFlyingModeState
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
 import { getPilotMaxProgressAtTime, getTrackSnapshotAtTime, resolveSeekTimeForTaskPercent, chartMaxTaskPercentForDisplay, chartTaskPercentAtSnapshot } from '../lib/taskProgress';
 import type { TaskFieldTimeline } from '../lib/taskTimeline';
+import {
+  resolvePlaybackNextProgressIndex,
+  resolvePlaybackTaggingTrack,
+  type TaskNextTurnpointTimeline,
+} from '../lib/nextTurnpoint';
 import { TROPHY_ICON_PATHS, TROPHY_ICON_VIEW_SIZE } from '../lib/trophyIcon';
 import { getTrackColor } from '../lib/tracks';
 import { DEFAULT_TURNPOINT_COLOR, START_COLOR, TASK_PROGRESS_LINE_COLOR } from '../lib/taskMapStyle';
@@ -175,6 +180,7 @@ export interface AltitudeChartProps {
   turnpoints: ProgressTurnpoint[];
   turnpointReachMarkers: TurnpointReachMarker[];
   fieldTimeline: TaskFieldTimeline;
+  nextTurnpointTimeline: TaskNextTurnpointTimeline;
   taskStart?: Date;
   playbackEndTime: Date;
   onTimeChange: (time: Date) => void;
@@ -490,6 +496,7 @@ function removePilotNodes(entry: LivePilotNodes): void {
 /** Everything the live layer reads, travelling by ref so the layer identity stays fixed. */
 interface ChartLiveSettings {
   enrichedTracks: EnrichedFlightTrack[];
+  allEnrichedTracks: EnrichedFlightTrack[];
   trackColors: Record<string, string>;
   route: OptimizedRoute;
   taskDistanceKm: number;
@@ -507,7 +514,8 @@ interface ChartLiveSettings {
   suspendLiveUpdates: boolean;
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
   onProgressFocusRef: RefObject<(trackId: string) => void>;
-  onProgressPercentRef: RefObject<(progressPercent: number) => void>;
+  onChartNextProgressIndexRef: RefObject<(nextProgressIndex: number) => void>;
+  nextTurnpointTimeline: TaskNextTurnpointTimeline;
 }
 
 interface ChartLiveLayerProps extends ChartLiveSettings {
@@ -525,6 +533,7 @@ interface ChartLiveLayerProps extends ChartLiveSettings {
 function ChartLiveLayer({
   settingsRef,
   enrichedTracks,
+  allEnrichedTracks,
   trackColors,
   route,
   taskDistanceKm,
@@ -542,7 +551,8 @@ function ChartLiveLayer({
   suspendLiveUpdates,
   taskProgressMarkerRef,
   onProgressFocusRef,
-  onProgressPercentRef,
+  onChartNextProgressIndexRef,
+  nextTurnpointTimeline,
   xAxisMap,
   yAxisMap,
 }: ChartLiveLayerProps) {
@@ -1104,7 +1114,17 @@ function ChartLiveLayer({
         }
       }
 
-      onProgressPercentRef.current?.(marker?.taskPercent ?? 0);
+      const liveTimeline = settingsRef.current?.nextTurnpointTimeline ?? nextTurnpointTimeline;
+      const liveAllTracks = settingsRef.current?.allEnrichedTracks ?? allEnrichedTracks;
+      const liveFocusId = settingsRef.current?.progressFocusTrackId ?? progressFocusTrackId;
+      const liveSelectedId = settingsRef.current?.selectedPilotTrackId ?? selectedPilotTrackId;
+      const focusTrack = resolvePlaybackTaggingTrack(liveAllTracks, liveFocusId, liveSelectedId);
+      const nextProgressIndex = resolvePlaybackNextProgressIndex(
+        liveTimeline,
+        focusTrack,
+        timeMs,
+      );
+      onChartNextProgressIndexRef.current?.(nextProgressIndex);
 
       const pastPath = pastPathRef.current;
       const futurePath = futurePathRef.current;
@@ -1157,7 +1177,9 @@ function ChartLiveLayer({
       progressFocusTrackId,
       selectedPilotTrackId,
       taskProgressMarkerRef,
-      onProgressPercentRef,
+      onChartNextProgressIndexRef,
+      nextTurnpointTimeline,
+      allEnrichedTracks,
     ],
   );
 
@@ -1364,6 +1386,7 @@ export const AltitudeChart = memo(function AltitudeChart({
   turnpoints,
   turnpointReachMarkers,
   fieldTimeline,
+  nextTurnpointTimeline,
   taskStart,
   playbackEndTime,
   onTimeChange,
@@ -1812,33 +1835,31 @@ export const AltitudeChart = memo(function AltitudeChart({
    * frame rate for them, the layer reports task progress every frame and this only publishes
    * a new value on the handful of frames where the tagged set actually grows or shrinks.
    */
-  const [taggedProgressPercent, setTaggedProgressPercent] = useState(0);
+  const [chartNextProgressIndex, setChartNextProgressIndex] = useState(0);
   const taggedCountRef = useRef(0);
-  const liveProgressPercentRef = useRef(0);
-  const onProgressPercentRef = useRef<(progressPercent: number) => void>(() => {});
-  onProgressPercentRef.current = (progressPercent: number) => {
-    liveProgressPercentRef.current = progressPercent;
-    const count = countTaggedTurnpoints(
+  const liveNextProgressIndexRef = useRef(0);
+  const onChartNextProgressIndexRef = useRef<(nextProgressIndex: number) => void>(() => {});
+  onChartNextProgressIndexRef.current = (nextProgressIndex: number) => {
+    if (nextProgressIndex === liveNextProgressIndexRef.current) return;
+    liveNextProgressIndexRef.current = nextProgressIndex;
+    taggedCountRef.current = countChartTaggedTurnpointsByMilestone(
       turnpoints,
       startTurnpointNumber,
       goalTurnpointNumber,
-      progressPercent,
+      nextProgressIndex,
     );
-    if (count === taggedCountRef.current) return;
-    taggedCountRef.current = count;
-    setTaggedProgressPercent(progressPercent);
+    setChartNextProgressIndex(nextProgressIndex);
   };
 
   useEffect(() => {
-    // A new task rebases the count, so recolour from the progress the layer last reported.
-    const progressPercent = liveProgressPercentRef.current;
-    taggedCountRef.current = countTaggedTurnpoints(
+    const nextProgressIndex = liveNextProgressIndexRef.current;
+    taggedCountRef.current = countChartTaggedTurnpointsByMilestone(
       turnpoints,
       startTurnpointNumber,
       goalTurnpointNumber,
-      progressPercent,
+      nextProgressIndex,
     );
-    setTaggedProgressPercent(progressPercent);
+    setChartNextProgressIndex(nextProgressIndex);
   }, [turnpoints, startTurnpointNumber, goalTurnpointNumber]);
 
   const onProgressFocusRef = useRef(onProgressFocusTrack);
@@ -1849,6 +1870,7 @@ export const AltitudeChart = memo(function AltitudeChart({
   const liveSettingsRef = useRef<ChartLiveSettings | null>(null);
   liveSettingsRef.current = {
     enrichedTracks,
+    allEnrichedTracks,
     trackColors,
     route,
     taskDistanceKm,
@@ -1866,7 +1888,8 @@ export const AltitudeChart = memo(function AltitudeChart({
     suspendLiveUpdates,
     taskProgressMarkerRef,
     onProgressFocusRef,
-    onProgressPercentRef,
+    onChartNextProgressIndexRef,
+    nextTurnpointTimeline,
   };
 
   return (
@@ -1932,15 +1955,16 @@ export const AltitudeChart = memo(function AltitudeChart({
               interval={0}
             />
 
-            {turnpoints.map((tp) => {
+            {turnpoints.map((tp, tpIndex) => {
               const isStart = tp.number === startTurnpointNumber;
               const isGoal = tp.number === goalTurnpointNumber;
               const reachMarker = reachMarkerByNumber.get(tp.number);
-              const tagged = isTurnpointTagged(
-                tp,
+              const tagged = isChartTurnpointTaggedByMilestone(
+                tpIndex,
+                tp.number,
                 startTurnpointNumber,
                 goalTurnpointNumber,
-                taggedProgressPercent,
+                chartNextProgressIndex,
               );
               const strokeColor = isStart
                 ? START_COLOR

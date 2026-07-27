@@ -1,7 +1,6 @@
 import { createLocalProjection, haversine, type LocalProjection } from './geo';
 import { extractPilotDisplayName } from './igc';
 import {
-  getTaggedTurnpointProgressIndices,
   progressLegStartPoint,
   TASK_PROGRESS_LINE_COLOR,
 } from './taskMapStyle';
@@ -183,10 +182,9 @@ export function getProgressLabelAnchor(line: [LatLon, LatLon], taskCenter: LatLo
 function computeFirstPilotTags(
   tracks: EnrichedFlightTrack[],
   route: OptimizedRoute,
-  taskStart: Date,
 ): Map<number, { time: Date; pilot: string }> {
   const firstByIndex = new Map<number, { time: Date; pilot: string }>();
-  const taskStartMs = taskStart.getTime();
+  const startIndex = route.sssIndex;
   const goalProgressIndex = route.progressTurnpoints.length - 1;
 
   const record = (index: number, time: Date, pilot: string) => {
@@ -199,22 +197,19 @@ function computeFirstPilotTags(
 
   for (const track of tracks) {
     const pilot = extractPilotDisplayName(track);
-    let prevLeg = -1;
-    let prevFinished = false;
+    for (const crossing of track.verification.crossings) {
+      if (!crossing.inSequence) continue;
 
-    for (const point of track.points) {
-      if (point.time.getTime() < taskStartMs || !point.hasStarted) continue;
+      if (crossing.role === 'SSS') continue;
 
-      if (point.finished && !prevFinished) {
-        record(goalProgressIndex, point.time, pilot);
-      }
+      if (crossing.direction !== 'ENTER') continue;
 
-      if (point.legIndex > prevLeg && point.legIndex >= 1) {
-        record(point.legIndex, point.time, pilot);
-      }
+      const progressIndex =
+        crossing.role === 'GOAL' || crossing.turnpointIndex === route.goalIndex
+          ? goalProgressIndex
+          : crossing.turnpointIndex - startIndex;
 
-      prevLeg = point.legIndex;
-      prevFinished = point.finished;
+      record(progressIndex, crossing.time, pilot);
     }
   }
 
@@ -263,48 +258,34 @@ export function computeFleetSssExitTp1Marker(
 export function computeTurnpointReachTimes(
   tracks: EnrichedFlightTrack[],
   route: OptimizedRoute,
-  taskStart: Date,
-  endTime: Date,
+  _taskStart: Date,
+  _endTime: Date,
   circles: RoutePoint[],
-  timeline: TaskFieldTimeline,
+  _timeline: TaskFieldTimeline,
 ): TurnpointReachMarker[] {
   if (tracks.length === 0 || route.progressTurnpoints.length === 0) {
     return [];
   }
 
-  const taskStartMs = taskStart.getTime();
-  const endMs = endTime.getTime();
-  if (endMs < taskStartMs) return [];
+  const firstPilotTags = computeFirstPilotTags(tracks, route);
+  const markers: TurnpointReachMarker[] = [];
 
-  const firstPilotTags = computeFirstPilotTags(tracks, route, taskStart);
-  const reached = new Map<number, TurnpointReachMarker>();
-  const startSecond = Math.floor(taskStartMs / 1000);
-  const endSecond = Math.floor(endMs / 1000);
-
-  for (let second = startSecond; second <= endSecond; second += 1) {
-    const time = new Date(second * 1000);
-    const runningMax = fieldRunningMaxPercentAt(timeline, second * 1000);
-    const tagged = getTaggedTurnpointProgressIndices(route, runningMax);
-
-    for (const index of tagged) {
-      if (reached.has(index)) continue;
-      const tp = route.progressTurnpoints[index];
-      if (!tp) continue;
-      const firstTag = firstPilotTags.get(index);
-      const circle = circles.find((entry) => entry.number === tp.number);
-      reached.set(index, {
-        index,
-        number: tp.number,
-        name: tp.name,
-        taskPercent: tp.taskPercent,
-        taskKm: tp.taskKm,
-        radiusM: circle?.radius ?? 0,
-        time,
-        firstPilot: firstTag?.pilot ?? '—',
-        firstTagTime: firstTag?.time ?? time,
-      });
-    }
+  for (const [index, firstTag] of firstPilotTags) {
+    const tp = route.progressTurnpoints[index];
+    if (!tp) continue;
+    const circle = circles.find((entry) => entry.number === tp.number);
+    markers.push({
+      index,
+      number: tp.number,
+      name: tp.name,
+      taskPercent: tp.taskPercent,
+      taskKm: tp.taskKm,
+      radiusM: circle?.radius ?? 0,
+      time: firstTag.time,
+      firstPilot: firstTag.pilot,
+      firstTagTime: firstTag.time,
+    });
   }
 
-  return [...reached.values()];
+  return markers.sort((a, b) => a.time.getTime() - b.time.getTime());
 }

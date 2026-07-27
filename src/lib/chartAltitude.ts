@@ -270,6 +270,40 @@ export function countTaggedTurnpoints(
   return count;
 }
 
+export function isChartTurnpointTaggedByMilestone(
+  progressIndex: number,
+  turnpointNumber: number,
+  startNumber: number,
+  goalNumber: number,
+  nextProgressIndex: number,
+): boolean {
+  if (turnpointNumber === startNumber || turnpointNumber === goalNumber) return false;
+  return progressIndex >= 0 && progressIndex < nextProgressIndex;
+}
+
+export function countChartTaggedTurnpointsByMilestone(
+  turnpoints: { number: number }[],
+  startNumber: number,
+  goalNumber: number,
+  nextProgressIndex: number,
+): number {
+  let count = 0;
+  for (let index = 0; index < turnpoints.length; index += 1) {
+    if (
+      isChartTurnpointTaggedByMilestone(
+        index,
+        turnpoints[index]!.number,
+        startNumber,
+        goalNumber,
+        nextProgressIndex,
+      )
+    ) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 export function taskDistanceDisplayToPercent(taskDistance: number, maxDistance: number): number {
   if (maxDistance <= 0) return 0;
   return (clampChartTaskDistanceDisplay(taskDistance, maxDistance) / maxDistance) * 100;

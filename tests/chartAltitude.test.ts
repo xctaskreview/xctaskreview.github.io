@@ -9,11 +9,11 @@ import {
   chartPilotLabelOffsetX,
   chartPlotRect,
   clampChartTaskDistanceDisplay,
-  countTaggedTurnpoints,
+  countChartTaggedTurnpointsByMilestone,
   formatChartDistanceTick,
   hasChartMaxProgressLink,
+  isChartTurnpointTaggedByMilestone,
   isLeadingChartPilot,
-  isTurnpointTagged,
   roundChartPixel,
   taskDistanceDisplayToPercent,
 } from '../src/lib/chartAltitude';
@@ -194,27 +194,22 @@ describe('tagged turnpoints', () => {
   ];
 
   it('never tags the start or the goal', () => {
-    expect(isTurnpointTagged(turnpoints[0], 1, 4, 100)).toBe(false);
-    expect(isTurnpointTagged(turnpoints[3], 1, 4, 100)).toBe(false);
+    expect(isChartTurnpointTaggedByMilestone(0, 1, 1, 4, 4)).toBe(false);
+    expect(isChartTurnpointTaggedByMilestone(3, 4, 1, 4, 4)).toBe(false);
   });
 
-  it('tags a turnpoint once progress reaches it', () => {
-    expect(isTurnpointTagged(turnpoints[1], 1, 4, 24.9)).toBe(false);
-    expect(isTurnpointTagged(turnpoints[1], 1, 4, 25)).toBe(true);
-    expect(isTurnpointTagged(turnpoints[1], 1, 4, 80)).toBe(true);
+  it('tags a turnpoint once the fleet milestone passes it', () => {
+    expect(isChartTurnpointTaggedByMilestone(1, 2, 1, 4, 1)).toBe(false);
+    expect(isChartTurnpointTaggedByMilestone(1, 2, 1, 4, 2)).toBe(true);
+    expect(isChartTurnpointTaggedByMilestone(2, 3, 1, 4, 2)).toBe(false);
+    expect(isChartTurnpointTaggedByMilestone(2, 3, 1, 4, 3)).toBe(true);
   });
 
-  it('tags nothing before the task has started', () => {
-    expect(isTurnpointTagged(turnpoints[1], 1, 4, 0)).toBe(false);
-    expect(countTaggedTurnpoints(turnpoints, 1, 4, 0)).toBe(0);
-  });
-
-  it('counts a value that only changes when the tagged set changes', () => {
-    expect(countTaggedTurnpoints(turnpoints, 1, 4, 10)).toBe(0);
-    expect(countTaggedTurnpoints(turnpoints, 1, 4, 25)).toBe(1);
-    expect(countTaggedTurnpoints(turnpoints, 1, 4, 59.9)).toBe(1);
-    expect(countTaggedTurnpoints(turnpoints, 1, 4, 60)).toBe(2);
-    expect(countTaggedTurnpoints(turnpoints, 1, 4, 100)).toBe(2);
+  it('counts tagged turnpoints from milestones', () => {
+    expect(countChartTaggedTurnpointsByMilestone(turnpoints, 1, 4, 0)).toBe(0);
+    expect(countChartTaggedTurnpointsByMilestone(turnpoints, 1, 4, 2)).toBe(1);
+    expect(countChartTaggedTurnpointsByMilestone(turnpoints, 1, 4, 3)).toBe(2);
+    expect(countChartTaggedTurnpointsByMilestone(turnpoints, 1, 4, 4)).toBe(2);
   });
 });
 
