@@ -2798,6 +2798,43 @@ button.app-home-link.time-controls-home-link:hover {
   z-index: 1;
   width: 100%;
   margin: 0;
+  height: 24px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.slider-shell input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.slider-shell input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #0f766e;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+}
+
+.slider-shell input[type='range']::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.slider-shell input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #0f766e;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
 }
 
 .slider-markers {
@@ -2846,14 +2883,11 @@ button.app-home-link.time-controls-home-link:hover {
   background: #94a3b8;
   pointer-events: none;
   z-index: 1;
-}
-
-.slider-edge-tick-start {
-  left: 5px;
+  transform: translateX(-50%);
 }
 
 .slider-edge-tick-end {
-  right: 5px;
+  /* inline `left` from TimeControls */
 }
 
 .time-marker-column {
@@ -2996,15 +3030,15 @@ button.app-home-link.time-controls-home-link:hover {
   top: 50%;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  transform: translateY(calc(-50% + 8px));
+  transform: translate(-50%, calc(-50% + 8px));
 }
 
 .slider-edge-time-start {
-  left: 0;
+  /* `left` set inline from thumb-aligned track start */
 }
 
 .slider-edge-time-end {
-  right: 0;
+  /* `left` set inline from thumb-aligned track end */
 }
 
 .slider-marker-time {

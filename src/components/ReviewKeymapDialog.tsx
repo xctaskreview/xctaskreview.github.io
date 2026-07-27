@@ -5,7 +5,8 @@ import { ModalDialogBackdrop } from './ModalDialogBackdrop';
 
 const REVIEW_SHORTCUTS: { keys: string; description: string }[] = [
   { keys: 'Space', description: 'Play or pause replay' },
-  { keys: '← / →', description: 'Jump to previous / next time (start, then turnpoints)' },
+  { keys: '← / →', description: 'Step replay 30 seconds backward / forward' },
+  { keys: 'Shift + ← / →', description: 'Jump to previous / next time (start, then turnpoints)' },
   { keys: 'Backspace', description: 'Jump to task start' },
   { keys: '+ / −', description: 'Increase or decrease playback speed' },
   { keys: 'L', description: 'Toggle leaderboard panel' },

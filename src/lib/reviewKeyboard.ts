@@ -18,6 +18,18 @@ export function isReviewShortcutModifier(event: KeyboardEvent): boolean {
   return event.ctrlKey || event.metaKey || event.altKey;
 }
 
+export const REVIEW_PLAYBACK_STEP_MS = 30_000;
+
+export function seekPlaybackByDelta(
+  currentMs: number,
+  deltaMs: number,
+  minMs: number,
+  maxMs: number,
+): Date {
+  const next = Math.min(maxMs, Math.max(minMs, currentMs + deltaMs));
+  return new Date(next);
+}
+
 export function seekTurnpointTime(
   currentMs: number,
   seekTimesMs: number[],

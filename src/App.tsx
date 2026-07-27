@@ -73,6 +73,8 @@ import {
   isEditableKeyboardTarget,
   isReviewShortcutModifier,
   reviewStartTime,
+  REVIEW_PLAYBACK_STEP_MS,
+  seekPlaybackByDelta,
   seekTurnpointTime,
   stepPlaybackSpeed,
 } from './lib/reviewKeyboard';
@@ -900,14 +902,18 @@ export default function App() {
       if (isEditableKeyboardTarget(event.target)) return;
       if (isReviewShortcutModifier(event)) return;
 
-      if (event.key === ' ') {
+      const handle = () => {
         event.preventDefault();
+        event.stopPropagation();
+      };
+      if (event.key === ' ') {
+        handle();
         setPlaying((current) => !current);
         return;
       }
 
       if (event.key === '+' || event.key === '=') {
-        event.preventDefault();
+        handle();
         onPlaybackSpeedChange(
           stepPlaybackSpeed(preferences.playbackSpeed, 1),
         );
@@ -915,7 +921,7 @@ export default function App() {
       }
 
       if (event.key === '-' || event.key === '_') {
-        event.preventDefault();
+        handle();
         onPlaybackSpeedChange(
           stepPlaybackSpeed(preferences.playbackSpeed, -1),
         );
@@ -923,60 +929,74 @@ export default function App() {
       }
 
       if (event.key === 'l' || event.key === 'L') {
-        event.preventDefault();
+        handle();
         toggleLeaderboardPanel();
         return;
       }
 
       if (event.key === '/') {
-        event.preventDefault();
+        handle();
         setPilotQuickSearchOpen(true);
         return;
       }
 
       if (event.key === 'c' || event.key === 'C') {
-        event.preventDefault();
+        handle();
         setReviewTimeSeekMode('clock');
         return;
       }
 
       if (event.key === 't' || event.key === 'T') {
-        event.preventDefault();
+        handle();
         setReviewTimeSeekMode('timer');
         return;
       }
 
       if (event.key === 'Backspace') {
-        event.preventDefault();
+        handle();
         setPlaying(false);
         setCurrentTime(reviewStartTime(timing.taskStart, timing.trackStart));
         return;
       }
 
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-        const nextTime = seekTurnpointTime(
-          currentTimeRef.current.getTime(),
-          turnpointSeekTimesMs,
-          event.key === 'ArrowRight' ? 1 : -1,
-        );
-        if (nextTime) {
-          event.preventDefault();
+        const direction = event.key === 'ArrowRight' ? 1 : -1;
+        if (event.shiftKey) {
+          const nextTime = seekTurnpointTime(
+            currentTimeRef.current.getTime(),
+            turnpointSeekTimesMs,
+            direction,
+          );
+          if (nextTime) {
+            handle();
+            setPlaying(false);
+            setCurrentTime(nextTime);
+          }
+        } else {
+          handle();
           setPlaying(false);
-          setCurrentTime(nextTime);
+          setCurrentTime(
+            seekPlaybackByDelta(
+              currentTimeRef.current.getTime(),
+              direction * REVIEW_PLAYBACK_STEP_MS,
+              timing.trackStart.getTime(),
+              timing.trackEnd.getTime(),
+            ),
+          );
         }
         return;
       }
 
       if (event.key === 'Escape') {
         if (selectedPilotTrackId) {
-          event.preventDefault();
+          handle();
           onClosePilotDetail();
         }
       }
     };
 
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [
     showReview,
     reviewWalkthroughActive,
@@ -991,6 +1011,7 @@ export default function App() {
     onClosePilotDetail,
     timing.taskStart,
     timing.trackStart,
+    timing.trackEnd,
     turnpointSeekTimesMs,
   ]);
 

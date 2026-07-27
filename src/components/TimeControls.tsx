@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { timeToSliderPercent } from '../lib/sliderTrack';
 import { ArrowLeft, Clock, Flag, Gauge, Pause, Play, Timer, Trophy } from 'lucide-react';
 import { formatDuration, formatTime } from '../lib/geo';
 import type { TurnpointReachMarker } from '../lib/taskProgressMarker';
@@ -29,14 +30,6 @@ interface TimeControlsProps {
   onOpenAppMenu?: () => void;
   onOpenClockSeek?: () => void;
   onOpenTimerSeek?: () => void;
-}
-
-function markerPercent(timing: TaskTiming, markerTime?: Date): number | null {
-  if (!markerTime) return null;
-  const start = timing.trackStart.getTime();
-  const end = timing.trackEnd.getTime();
-  if (end <= start) return 0;
-  return ((markerTime.getTime() - start) / (end - start)) * 100;
 }
 
 function markersOverlap(a: number | null, b: number | null, tolerancePct = 0.4): boolean {
@@ -112,12 +105,32 @@ export function TimeControls({
   onOpenClockSeek,
   onOpenTimerSeek,
 }: TimeControlsProps) {
+  const sliderShellRef = useRef<HTMLDivElement>(null);
+  const [sliderWidthPx, setSliderWidthPx] = useState(0);
+
+  useLayoutEffect(() => {
+    const shell = sliderShellRef.current;
+    if (!shell) return;
+
+    const update = () => {
+      setSliderWidthPx(shell.clientWidth);
+    };
+    update();
+
+    const observer = new ResizeObserver(update);
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, []);
+
   const startMs = timing.trackStart.getTime();
   const endMs = timing.trackEnd.getTime();
   const currentMs = currentTime.getTime();
   const displayedTime = useThrottledTime(currentTime, playing, DISPLAY_UPDATE_INTERVAL_MS);
-  const taskStartPct = markerPercent(timing, timing.taskStart);
-  const finishPct = markerPercent(timing, timing.fastestFinish);
+  const markerPct = (time?: Date) => timeToSliderPercent(startMs, endMs, time, sliderWidthPx);
+  const taskStartPct = markerPct(timing.taskStart);
+  const finishPct = markerPct(timing.fastestFinish);
+  const trackStartPct = markerPct(timing.trackStart);
+  const trackEndPct = markerPct(timing.trackEnd);
   const fastestElapsed = fastestFinishElapsed(timing);
   const taskElapsed = taskElapsedAtTime(timing, displayedTime);
 
@@ -217,7 +230,7 @@ export function TimeControls({
           )}
         </div>
 
-        <div className="slider-shell">
+        <div className="slider-shell" ref={sliderShellRef}>
           <div className="slider-markers">
             {taskStartPct !== null && timing.taskStart && startTurnpointTooltip && (
               <TurnpointHoverTrigger
@@ -236,9 +249,9 @@ export function TimeControls({
               </TurnpointHoverTrigger>
             )}
             {turnpointReachMarkers.map((marker) => {
-              const markerPct = markerPercent(timing, marker.time);
-              if (markerPct === null) return null;
-              if (markersOverlap(markerPct, finishPct)) return null;
+              const tpPct = markerPct(marker.time);
+              if (tpPct === null) return null;
+              if (markersOverlap(tpPct, finishPct)) return null;
               const reached = currentMs >= marker.time.getTime();
 
               return (
@@ -246,7 +259,7 @@ export function TimeControls({
                   key={`tp-${marker.index}-${marker.number}`}
                   type="button"
                   className={`time-marker-column tp-reach-marker-column${reached ? ' tp-reach-marker-column-reached' : ''}`}
-                  style={{ left: `${markerPct}%` }}
+                  style={{ left: `${tpPct}%` }}
                   tooltip={formatTurnpointHoverLabel(marker, {
                     distanceUnit,
                     taskStart: timing.taskStart,
@@ -291,9 +304,24 @@ export function TimeControls({
           />
 
           <div className="slider-times">
-            <span className="slider-edge-tick slider-edge-tick-start" aria-hidden="true" />
-            <span className="slider-edge-tick slider-edge-tick-end" aria-hidden="true" />
-            <span className="slider-edge-time slider-edge-time-start">
+            {trackStartPct !== null && (
+              <span
+                className="slider-edge-tick slider-edge-tick-start"
+                style={{ left: `${trackStartPct}%` }}
+                aria-hidden="true"
+              />
+            )}
+            {trackEndPct !== null && (
+              <span
+                className="slider-edge-tick slider-edge-tick-end"
+                style={{ left: `${trackEndPct}%` }}
+                aria-hidden="true"
+              />
+            )}
+            <span
+              className="slider-edge-time slider-edge-time-start"
+              style={trackStartPct !== null ? { left: `${trackStartPct}%` } : undefined}
+            >
               {formatTime(timing.trackStart, timezone, { includeSeconds: false })}
             </span>
             {taskStartPct !== null && timing.taskStart && (
@@ -312,7 +340,14 @@ export function TimeControls({
                 {timing.fastestPilot && <span className="finish-pilot">{timing.fastestPilot}</span>}
               </span>
             )}
-            <span className="slider-edge-time slider-edge-time-end">
+            <span
+              className="slider-edge-time slider-edge-time-end"
+              style={
+                trackEndPct !== null
+                  ? { left: `${trackEndPct}%`, right: 'auto' }
+                  : undefined
+              }
+            >
               {formatTime(timing.trackEnd, timezone, { includeSeconds: false })}
             </span>
           </div>

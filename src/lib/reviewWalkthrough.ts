@@ -30,7 +30,7 @@ export const REVIEW_WALKTHROUGH_STEPS: ReviewWalkthroughStep[] = [
     id: 'time-controls',
     target: '[data-walkthrough="time-controls"]',
     title: 'Time controls',
-    body: 'Play or pause the replay, change playback speed, and scrub the timeline. The clock shows GPS time and elapsed task time. Click Start, turnpoint, or fastest-finish markers on the slider to jump to those moments.',
+    body: 'Play or pause the replay, change playback speed, and scrub the timeline. The clock shows GPS time and elapsed task time. Arrow keys step 30 seconds; Shift+arrow jumps between start and turnpoint markers. Click Start, turnpoint, or fastest-finish markers on the slider to jump to those moments.',
   },
   {
     id: 'back-to-task',

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { seekTurnpointTime, stepPlaybackSpeed } from '../src/lib/reviewKeyboard';
+import {
+  REVIEW_PLAYBACK_STEP_MS,
+  seekPlaybackByDelta,
+  seekTurnpointTime,
+  stepPlaybackSpeed,
+} from '../src/lib/reviewKeyboard';
 
 describe('stepPlaybackSpeed', () => {
   it('steps through playback speeds', () => {
@@ -7,6 +12,20 @@ describe('stepPlaybackSpeed', () => {
     expect(stepPlaybackSpeed(50, -1)).toBe(20);
     expect(stepPlaybackSpeed(1, -1)).toBe(1);
     expect(stepPlaybackSpeed(100, 1)).toBe(100);
+  });
+});
+
+describe('seekPlaybackByDelta', () => {
+  it('steps within track bounds', () => {
+    expect(
+      seekPlaybackByDelta(10_000, REVIEW_PLAYBACK_STEP_MS, 0, 100_000).getTime(),
+    ).toBe(40_000);
+    expect(
+      seekPlaybackByDelta(10_000, -REVIEW_PLAYBACK_STEP_MS, 0, 100_000).getTime(),
+    ).toBe(0);
+    expect(seekPlaybackByDelta(95_000, REVIEW_PLAYBACK_STEP_MS, 0, 100_000).getTime()).toBe(
+      100_000,
+    );
   });
 });
 

@@ -397,7 +397,13 @@ export function MapView({
 
   return (
     <div className="map-panel" data-walkthrough="map-interactions">
-      <MapContainer bounds={bounds} scrollWheelZoom className="task-map" key={`${fitKey}-${preferences.mapType}`}>
+      <MapContainer
+        bounds={bounds}
+        scrollWheelZoom
+        keyboard={false}
+        className="task-map"
+        key={`${fitKey}-${preferences.mapType}`}
+      >
         <TileLayer attribution={tile.attribution} url={tile.url} />
         {tile.overlay ? (
           <TileLayer url={tile.overlay.url} opacity={tile.overlay.opacity} />
