@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   clampPlaybackTimeMs,
+  isReviewBackspaceKey,
   REVIEW_PLAYBACK_STEP_MS,
   seekPlaybackByDelta,
   seekTurnpointTime,
@@ -53,5 +54,13 @@ describe('seekTurnpointTime', () => {
     expect(seekTurnpointTime(2500, points, -1)?.getTime()).toBe(2000);
     expect(seekTurnpointTime(1000, points, -1)?.getTime()).toBe(start);
     expect(seekTurnpointTime(start, points, -1)?.getTime()).toBe(start);
+  });
+});
+
+describe('isReviewBackspaceKey', () => {
+  it('matches Backspace key and code', () => {
+    expect(isReviewBackspaceKey({ key: 'Backspace', code: 'Backspace' } as KeyboardEvent)).toBe(true);
+    expect(isReviewBackspaceKey({ key: 'ArrowLeft', code: 'Backspace' } as KeyboardEvent)).toBe(true);
+    expect(isReviewBackspaceKey({ key: 'ArrowLeft', code: 'ArrowLeft' } as KeyboardEvent)).toBe(false);
   });
 });

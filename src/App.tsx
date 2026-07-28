@@ -71,9 +71,11 @@ import {
 } from './lib/reviewWalkthrough';
 import {
   isEditableKeyboardTarget,
+  isReviewBackspaceKey,
   isReviewShortcutModifier,
   clampPlaybackTimeMs,
   reviewStartTime,
+  reviewTaskStartTime,
   REVIEW_PLAYBACK_STEP_MS,
   seekPlaybackByDelta,
   seekTurnpointTime,
@@ -970,6 +972,11 @@ export default function App() {
     }));
   }, []);
 
+  const seekReviewTime = useCallback((time: Date) => {
+    currentTimeRef.current = time;
+    setCurrentTime(time);
+  }, []);
+
   useEffect(() => {
     if (!selectedPilotTrackId) return;
     if (!tracks.some((track) => track.id === selectedPilotTrackId)) {
@@ -1046,6 +1053,12 @@ export default function App() {
         return;
       }
 
+      if (event.key === '?') {
+        handle();
+        setReviewKeymapOpen(true);
+        return;
+      }
+
       if (event.key === 'c' || event.key === 'C') {
         handle();
         setReviewTimeSeekMode('clock');
@@ -1058,10 +1071,9 @@ export default function App() {
         return;
       }
 
-      if (event.key === 'Backspace') {
+      if (isReviewBackspaceKey(event)) {
         handle();
-        setPlaying(false);
-        setCurrentTime(reviewStartTime(timing.taskStart, timing.trackStart));
+        seekReviewTime(reviewTaskStartTime(timing.taskStart, timing.trackStart));
         return;
       }
 
@@ -1075,13 +1087,11 @@ export default function App() {
           );
           if (nextTime) {
             handle();
-            setPlaying(false);
-            setCurrentTime(nextTime);
+            seekReviewTime(nextTime);
           }
         } else {
           handle();
-          setPlaying(false);
-          setCurrentTime(
+          seekReviewTime(
             seekPlaybackByDelta(
               currentTimeRef.current.getTime(),
               direction * REVIEW_PLAYBACK_STEP_MS,
@@ -1117,6 +1127,7 @@ export default function App() {
     toggleFollowPilot,
     resetMapToTaskView,
     onClosePilotDetail,
+    seekReviewTime,
     timing.taskStart,
     timing.trackStart,
     timing.trackEnd,
@@ -1486,7 +1497,7 @@ const onSessionBundleExport = useCallback(async () => {
             playing={playing}
             speed={preferences.playbackSpeed}
             timezone={taskTimeZone}
-            onTimeChange={setCurrentTime}
+            onTimeChange={seekReviewTime}
             onPlayingChange={setPlaying}
             onSpeedChange={onPlaybackSpeedChange}
             onEdit={goToWelcome}
@@ -1573,7 +1584,7 @@ const onSessionBundleExport = useCallback(async () => {
                 nextTurnpointTimeline={nextTurnpointTimeline}
                 taskStart={timing.taskStart}
                 playbackEndTime={timing.trackEnd}
-                onTimeChange={setCurrentTime}
+                onTimeChange={seekReviewTime}
                 followPilotTrackId={followPilotTrackId}
                 progressFocusTrackId={progressFocusTrackId}
                 onProgressFocusTrack={onProgressFocusTrack}
@@ -1616,7 +1627,7 @@ const onSessionBundleExport = useCallback(async () => {
       open={reviewTimeSeekMode !== null}
       onClose={() => setReviewTimeSeekMode(null)}
       onSeek={(time) => {
-        setCurrentTime(time);
+        seekReviewTime(time);
       }}
       taskTimeZone={taskTimeZone}
       referenceDate={timing.taskStart ?? timing.trackStart}

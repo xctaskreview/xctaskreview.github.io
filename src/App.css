@@ -4674,14 +4674,16 @@ button.app-home-link.time-controls-home-link:hover {
 }
 
 .review-keymap-dialog {
-  width: min(440px, 100%);
-  max-height: min(90vh, 560px);
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: hidden;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   background: #ffffff;
   box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
-  padding: 18px 20px 20px;
+  padding: 18px 24px 20px;
 }
 
 .review-keymap-header {
@@ -4725,12 +4727,15 @@ button.app-home-link.time-controls-home-link:hover {
 
 .review-keymap-list {
   margin: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .review-keymap-row {
   display: grid;
-  grid-template-columns: 88px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: minmax(148px, 200px) minmax(0, 1fr);
+  gap: 16px;
   padding: 10px 0;
   border-top: 1px solid #f1f5f9;
 }
