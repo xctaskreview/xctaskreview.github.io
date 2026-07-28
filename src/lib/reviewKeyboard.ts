@@ -50,3 +50,7 @@ export function seekTurnpointTime(
 export function reviewStartTime(taskStart: Date | undefined, trackStart: Date): Date {
   return taskStart ?? trackStart;
 }
+
+export function clampPlaybackTimeMs(timeMs: number, trackStart: Date, trackEnd: Date): number {
+  return Math.min(trackEnd.getTime(), Math.max(trackStart.getTime(), timeMs));
+}

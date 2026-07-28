@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildPilotNextTurnpointMilestones,
   buildTaskNextTurnpointTimeline,
+  isFleetSssNextPhase,
   lookupFleetNextTurnpointTarget,
   lookupNextProgressIndex,
   lookupPilotNextTurnpointTarget,
@@ -70,6 +71,62 @@ describe('next turnpoint milestones', () => {
         afterFirstEnterMs,
       )?.progressIndex,
     ).toBe(2);
+  });
+
+  it('fleet timeline shows SSS as next from task start until first SSS exit', () => {
+    const task = parseXcTask(readFileSync(JAPIRA_FIXTURE, 'utf8'));
+    const route = buildOptimizedRoute(task);
+    const taskStart = getTaskStartTime(task, new Date('2026-03-21T12:00:00.000Z'))!;
+    const taskStartMs = taskStart.getTime();
+    const sssExitMs = taskStartMs + 13_000;
+
+    const pilot = {
+      id: 'a',
+      pilotName: 'A',
+      firstName: 'A',
+      compactName: 'A',
+      fileName: 'a.igc',
+      points: [],
+      flyingModeTimeline: { startTimeMs: taskStartMs, seconds: [] },
+      verification: {
+        ...EMPTY_PILOT_VERIFICATION,
+        crossings: [
+          {
+            turnpointIndex: route.sssIndex,
+            name: 'JP001',
+            role: 'SSS' as const,
+            direction: 'EXIT' as const,
+            time: new Date(sssExitMs),
+            inSequence: true,
+          },
+        ],
+        sssCrossTime: new Date(sssExitMs),
+      },
+      nextTurnpointMilestones: buildPilotNextTurnpointMilestones(
+        {
+          ...EMPTY_PILOT_VERIFICATION,
+          crossings: [
+            {
+              turnpointIndex: route.sssIndex,
+              name: 'JP001',
+              role: 'SSS' as const,
+              direction: 'EXIT' as const,
+              time: new Date(sssExitMs),
+              inSequence: true,
+            },
+          ],
+          sssCrossTime: new Date(sssExitMs),
+        },
+        route,
+        taskStartMs,
+      ),
+      taskStartMs,
+    };
+
+    const fleet = buildTaskNextTurnpointTimeline([pilot], route, taskStart);
+    expect(lookupFleetNextTurnpointTarget(fleet, route, taskStartMs)?.progressIndex).toBe(0);
+    expect(lookupFleetNextTurnpointTarget(fleet, route, taskStartMs + 5000)?.progressIndex).toBe(0);
+    expect(lookupFleetNextTurnpointTarget(fleet, route, sssExitMs + 500)?.progressIndex).toBe(1);
   });
 
   it('fleet timeline uses earliest pilot time to leave SSS phase', () => {
@@ -140,6 +197,119 @@ describe('next turnpoint milestones', () => {
     expect(lookupFleetNextTurnpointTarget(fleet, route, taskStartMs + 150_000)?.progressIndex).toBe(
       1,
     );
+  });
+
+  it('fleet timeline must include pilots hidden from the map filter', () => {
+    const task = parseXcTask(readFileSync(JAPIRA_FIXTURE, 'utf8'));
+    const route = buildOptimizedRoute(task);
+    const taskStart = getTaskStartTime(task, new Date('2026-03-21T12:00:00.000Z'))!;
+    const taskStartMs = taskStart.getTime();
+    const earlyExitMs = taskStartMs + 13_000;
+    const lateExitMs = taskStartMs + 36_000;
+
+    const pilotEarly = {
+      id: 'early',
+      pilotName: 'Early',
+      firstName: 'Early',
+      compactName: 'Early',
+      fileName: 'early.igc',
+      points: [],
+      flyingModeTimeline: { startTimeMs: taskStartMs, seconds: [] },
+      verification: EMPTY_PILOT_VERIFICATION,
+      nextTurnpointMilestones: buildPilotNextTurnpointMilestones(
+        {
+          ...EMPTY_PILOT_VERIFICATION,
+          crossings: [
+            {
+              turnpointIndex: route.sssIndex,
+              name: 'JP001',
+              role: 'SSS',
+              direction: 'EXIT',
+              time: new Date(earlyExitMs),
+              inSequence: true,
+            },
+          ],
+          sssCrossTime: new Date(earlyExitMs),
+        },
+        route,
+        taskStartMs,
+      ),
+      taskStartMs,
+    };
+
+    const pilotLate = {
+      ...pilotEarly,
+      id: 'late',
+      pilotName: 'Late',
+      nextTurnpointMilestones: buildPilotNextTurnpointMilestones(
+        {
+          ...EMPTY_PILOT_VERIFICATION,
+          crossings: [
+            {
+              turnpointIndex: route.sssIndex,
+              name: 'JP001',
+              role: 'SSS',
+              direction: 'EXIT',
+              time: new Date(lateExitMs),
+              inSequence: true,
+            },
+          ],
+          sssCrossTime: new Date(lateExitMs),
+        },
+        route,
+        taskStartMs,
+      ),
+    };
+
+    const fullFleet = buildTaskNextTurnpointTimeline([pilotEarly, pilotLate], route, taskStart);
+    const visibleOnlyFleet = buildTaskNextTurnpointTimeline([pilotLate], route, taskStart);
+
+    expect(fullFleet.milestones.find((m) => m.nextProgressIndex === 1)?.timeMs).toBe(earlyExitMs);
+    expect(visibleOnlyFleet.milestones.find((m) => m.nextProgressIndex === 1)?.timeMs).toBe(
+      lateExitMs,
+    );
+
+    const betweenMs = taskStartMs + 20_000;
+    expect(lookupFleetNextTurnpointTarget(fullFleet, route, betweenMs)?.progressIndex).toBe(1);
+    expect(lookupFleetNextTurnpointTarget(visibleOnlyFleet, route, betweenMs)?.progressIndex).toBe(
+      0,
+    );
+  });
+
+  it('fleet SSS phase ends when fleet timeline advances past SSS', () => {
+    const task = parseXcTask(readFileSync(JAPIRA_FIXTURE, 'utf8'));
+    const route = buildOptimizedRoute(task);
+    const taskStart = getTaskStartTime(task, new Date('2026-03-21T12:00:00.000Z'))!;
+    const taskStartMs = taskStart.getTime();
+    const exitMs = taskStartMs + 13_000;
+
+    const pilot = {
+      id: 'a',
+      nextTurnpointMilestones: buildPilotNextTurnpointMilestones(
+        {
+          ...EMPTY_PILOT_VERIFICATION,
+          crossings: [
+            {
+              turnpointIndex: route.sssIndex,
+              name: 'JP001',
+              role: 'SSS' as const,
+              direction: 'EXIT' as const,
+              time: new Date(exitMs),
+              inSequence: true,
+            },
+          ],
+          sssCrossTime: new Date(exitMs),
+        },
+        route,
+        taskStartMs,
+      ),
+    };
+
+    const fleet = buildTaskNextTurnpointTimeline([pilot], route, taskStart);
+    expect(isFleetSssNextPhase(fleet, taskStartMs)).toBe(true);
+    expect(isFleetSssNextPhase(fleet, taskStartMs + 5000)).toBe(true);
+    expect(isFleetSssNextPhase(fleet, exitMs - 1)).toBe(true);
+    expect(isFleetSssNextPhase(fleet, exitMs + 500)).toBe(false);
   });
 
   it('advances next TP after SSS exit before the task start gate', () => {

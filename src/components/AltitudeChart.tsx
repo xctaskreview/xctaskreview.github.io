@@ -61,6 +61,7 @@ import type { EnrichedFlightTrack } from '../lib/taskProgress';
 import { getPilotMaxProgressAtTime, getTrackSnapshotAtTime, resolveSeekTimeForTaskPercent, chartMaxTaskPercentForDisplay, chartTaskPercentAtSnapshot } from '../lib/taskProgress';
 import type { TaskFieldTimeline } from '../lib/taskTimeline';
 import {
+  isFleetSssNextPhase,
   resolvePlaybackNextProgressIndex,
   resolvePlaybackTaggingTrack,
   type TaskNextTurnpointTimeline,
@@ -518,6 +519,7 @@ interface ChartLiveSettings {
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
   onProgressFocusRef: RefObject<(trackId: string) => void>;
   onChartNextProgressIndexRef: RefObject<(nextProgressIndex: number) => void>;
+  onChartFleetSssPhaseRef: RefObject<(active: boolean) => void>;
   onChartFollowTaskKmRef: RefObject<(taskKm: number) => void>;
   nextTurnpointTimeline: TaskNextTurnpointTimeline;
 }
@@ -556,6 +558,7 @@ function ChartLiveLayer({
   taskProgressMarkerRef,
   onProgressFocusRef,
   onChartNextProgressIndexRef,
+  onChartFleetSssPhaseRef,
   nextTurnpointTimeline,
   xAxisMap,
   yAxisMap,
@@ -1128,12 +1131,12 @@ function ChartLiveLayer({
       const liveFocusId = settingsRef.current?.progressFocusTrackId ?? progressFocusTrackId;
       const liveSelectedId = settingsRef.current?.selectedPilotTrackId ?? selectedPilotTrackId;
       const focusTrack = resolvePlaybackTaggingTrack(liveAllTracks, liveFocusId, liveSelectedId);
-      const nextProgressIndex = resolvePlaybackNextProgressIndex(
-        liveTimeline,
-        focusTrack,
-        timeMs,
-      );
+      const fleetSssPhase = isFleetSssNextPhase(liveTimeline, timeMs);
+      const nextProgressIndex = fleetSssPhase
+        ? 0
+        : resolvePlaybackNextProgressIndex(liveTimeline, focusTrack, timeMs);
       onChartNextProgressIndexRef.current?.(nextProgressIndex);
+      onChartFleetSssPhaseRef.current?.(fleetSssPhase);
 
       const pastPath = pastPathRef.current;
       const futurePath = futurePathRef.current;
@@ -1187,6 +1190,7 @@ function ChartLiveLayer({
       selectedPilotTrackId,
       taskProgressMarkerRef,
       onChartNextProgressIndexRef,
+      onChartFleetSssPhaseRef,
       nextTurnpointTimeline,
       allEnrichedTracks,
     ],
@@ -1858,9 +1862,17 @@ export const AltitudeChart = memo(function AltitudeChart({
    * a new value on the handful of frames where the tagged set actually grows or shrinks.
    */
   const [chartNextProgressIndex, setChartNextProgressIndex] = useState(0);
+  const [chartFleetSssNextPhase, setChartFleetSssNextPhase] = useState(false);
   const taggedCountRef = useRef(0);
   const liveNextProgressIndexRef = useRef(0);
+  const liveFleetSssPhaseRef = useRef(false);
   const onChartNextProgressIndexRef = useRef<(nextProgressIndex: number) => void>(() => {});
+  const onChartFleetSssPhaseRef = useRef<(active: boolean) => void>(() => {});
+  onChartFleetSssPhaseRef.current = (active: boolean) => {
+    if (active === liveFleetSssPhaseRef.current) return;
+    liveFleetSssPhaseRef.current = active;
+    setChartFleetSssNextPhase(active);
+  };
   onChartNextProgressIndexRef.current = (nextProgressIndex: number) => {
     if (nextProgressIndex === liveNextProgressIndexRef.current) return;
     liveNextProgressIndexRef.current = nextProgressIndex;
@@ -1912,6 +1924,7 @@ export const AltitudeChart = memo(function AltitudeChart({
     taskProgressMarkerRef,
     onProgressFocusRef,
     onChartNextProgressIndexRef,
+    onChartFleetSssPhaseRef,
     onChartFollowTaskKmRef,
     nextTurnpointTimeline,
   };
@@ -1991,7 +2004,9 @@ export const AltitudeChart = memo(function AltitudeChart({
                 chartNextProgressIndex,
               );
               const strokeColor = isStart
-                ? START_COLOR
+                ? chartFleetSssNextPhase
+                  ? TASK_PROGRESS_LINE_COLOR
+                  : START_COLOR
                 : isGoal
                   ? DEFAULT_TURNPOINT_COLOR
                   : tagged

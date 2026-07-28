@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
 import { buildOptimizedRoute, parseXcTask } from '../src/lib/xctask';
 import { computeFleetSssExitTp1Marker } from '../src/lib/taskProgressMarker';
+import { EMPTY_PILOT_VERIFICATION } from './helpers/emptyVerification';
 
 const JAPIRA_FIXTURE = new URL('./fixtures/japira-2026-03-21.json', import.meta.url);
 
@@ -18,7 +19,11 @@ describe('timeline turnpoint numbers (Japira)', () => {
         id: 'a',
         pilotName: 'Test Pilot',
         firstName: 'Test',
+        compactName: 'Test',
         fileName: 'a.igc',
+        verification: { ...EMPTY_PILOT_VERIFICATION, sssCrossTime: exitAt },
+        nextTurnpointMilestones: [],
+        flyingModeTimeline: { startTimeMs: taskStart.getTime(), seconds: [] },
         points: [
           {
             time: exitAt,

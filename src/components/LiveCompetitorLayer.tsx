@@ -12,6 +12,7 @@ import {
   getProgressIndexForCircle,
   getTurnpointCirclePathOptions,
   getTurnpointColor,
+  isStartTurnpoint,
   ROUTE_DASH_ARRAY,
   TASK_PROGRESS_LINE_COLOR,
   turnpointIcon,
@@ -19,8 +20,9 @@ import {
   type TaskMapLayerRefs,
 } from '../lib/taskMapStyle';
 import {
-  lookupFleetNextTurnpointTarget,
+  isFleetSssNextPhase,
   isProgressTurnpointTagged,
+  lookupFleetNextTurnpointTarget,
   resolveMapNextTurnpointCircle,
   resolveNextTurnpointTarget,
   resolvePlaybackNextProgressIndex,
@@ -849,7 +851,10 @@ export function LiveCompetitorLayer({
     ) => {
       const layers = layerRefs.current;
       if (!layers) return;
-      const color = getTurnpointColor(nextCircle, routeRef.current, false, progressColor);
+      const color =
+        nextTarget.progressIndex === 0
+          ? progressColor
+          : getTurnpointColor(nextCircle, routeRef.current, false, progressColor);
       layers.markers
         .get(`${nextKey}-marker`)
         ?.setIcon(turnpointNextIcon(color, nextCircle.name ?? 'TP', nextTarget.number));
@@ -925,6 +930,7 @@ export function LiveCompetitorLayer({
 
       const route = routeRef.current;
       const timeline = nextTurnpointTimelineRef.current;
+      const fleetSssPhase = isFleetSssNextPhase(timeline, timeMs);
 
       const progressTrack = resolvePlaybackTaggingTrack(
         allEnrichedTracksRef.current,
@@ -934,7 +940,10 @@ export function LiveCompetitorLayer({
 
       let nextTarget: NextTurnpointTarget | null = null;
       let nextProgressIndex = -1;
-      if (progressTrack) {
+      if (fleetSssPhase) {
+        nextTarget = lookupFleetNextTurnpointTarget(timeline, route, timeMs);
+        nextProgressIndex = 0;
+      } else if (progressTrack) {
         nextProgressIndex = resolvePlaybackNextProgressIndex(timeline, progressTrack, timeMs);
         if (nextProgressIndex >= 0) {
           nextTarget = resolveNextTurnpointTarget(route, nextProgressIndex);
@@ -1026,11 +1035,12 @@ export function LiveCompetitorLayer({
         progressFocusTrackIdRef.current,
         selectedPilotTrackIdRef.current,
       );
-      const nextProgressIndex = resolvePlaybackNextProgressIndex(
-        nextTurnpointTimelineRef.current,
-        focusTrack,
-        time.getTime(),
-      );
+      const timeline = nextTurnpointTimelineRef.current;
+      const timeMs = time.getTime();
+      const fleetSssPhase = isFleetSssNextPhase(timeline, timeMs);
+      const nextProgressIndex = fleetSssPhase
+        ? 0
+        : resolvePlaybackNextProgressIndex(timeline, focusTrack, timeMs);
 
       for (const circle of circlesRef.current) {
         const key = circleKey(circle);
@@ -1039,10 +1049,11 @@ export function LiveCompetitorLayer({
         const tagged = isProgressTurnpointTagged(progressIndex, nextProgressIndex);
         const prevTagged = taggedTurnpointStateRef.current.get(key);
         const isLeaderNext = key === leaderNextTpKeyRef.current;
-        if (prevTagged === tagged && !isLeaderNext && !tagged) continue;
+        const sssPhaseHighlight = fleetSssPhase && isStartTurnpoint(circle, routeRef.current);
+        if (prevTagged === tagged && !isLeaderNext && !tagged && !sssPhaseHighlight) continue;
 
         taggedTurnpointStateRef.current.set(key, tagged);
-        const fillHighlight = isLeaderNext;
+        const fillHighlight = isLeaderNext || sssPhaseHighlight;
         const showAsTagged = tagged && !fillHighlight;
         const color = getTurnpointColor(circle, routeRef.current, showAsTagged, progressColor);
         layers.circles
@@ -1078,11 +1089,20 @@ export function LiveCompetitorLayer({
           progressLabel.labelEl.style.display = 'none';
         }
         taskProgressMarkerRef.current = null;
-        resetTaskProgressVisuals();
       };
 
       if (!progressLine || !currentTaskStart) {
         hideProgressLine();
+        resetTaskProgressVisuals();
+        return;
+      }
+
+      const timeMs = time.getTime();
+      const taskStartMs = currentTaskStart.getTime();
+
+      if (timeMs < taskStartMs) {
+        hideProgressLine();
+        resetTaskProgressVisuals();
         return;
       }
 
@@ -1098,6 +1118,7 @@ export function LiveCompetitorLayer({
 
       if (!marker) {
         hideProgressLine();
+        updateTaskProgressVisuals(time, 0, progressColor);
         return;
       }
 

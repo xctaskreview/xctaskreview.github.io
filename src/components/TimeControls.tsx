@@ -19,6 +19,8 @@ interface TimeControlsProps {
   turnpointReachMarkers: TurnpointReachMarker[];
   startTurnpointTooltip?: string;
   finishTurnpointTooltip?: string;
+  /** Start gate styled as active (green) while the fleet is still in the SSS phase. */
+  startGateSssPhase?: boolean;
   distanceUnit: AppPreferences['distanceUnit'];
   playing: boolean;
   speed: number;
@@ -93,6 +95,7 @@ export function TimeControls({
   turnpointReachMarkers,
   startTurnpointTooltip,
   finishTurnpointTooltip,
+  startGateSssPhase = false,
   distanceUnit,
   playing,
   speed,
@@ -235,7 +238,7 @@ export function TimeControls({
             {taskStartPct !== null && timing.taskStart && startTurnpointTooltip && (
               <TurnpointHoverTrigger
                 type="button"
-                className="time-marker-column start-marker-column"
+                className={`time-marker-column start-marker-column${startGateSssPhase ? ' start-marker-column-sss-phase' : ''}`}
                 style={{ left: `${taskStartPct}%` }}
                 tooltip={startTurnpointTooltip}
                 onClick={() => onTimeChange(timing.taskStart!)}

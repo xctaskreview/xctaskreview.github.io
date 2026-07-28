@@ -52,9 +52,10 @@ export function buildPilotNextTurnpointMilestones(
   if (taskStartMs === undefined) return [];
 
   const startIndex = route.sssIndex;
-  const milestones: NextTurnpointMilestone[] = [{ timeMs: 0, nextProgressIndex: 0 }];
+  const milestones: NextTurnpointMilestone[] = [{ timeMs: taskStartMs, nextProgressIndex: 0 }];
 
-  const effectiveSss = resolveEffectiveSssCrossTime(verification.crossings, route);
+  const effectiveSss =
+    verification.sssCrossTime ?? resolveEffectiveSssCrossTime(verification.crossings, route);
   if (effectiveSss) {
     milestones.push({ timeMs: effectiveSss.getTime(), nextProgressIndex: 1 });
   }
@@ -155,6 +156,8 @@ export function buildTaskNextTurnpointTimeline(
         (entry) => entry.nextProgressIndex === targetNext,
       );
       if (!hit) continue;
+      // SSS phase ends for the fleet at task start; only post-gate SSS exits advance to TP2.
+      if (targetNext === 1 && hit.timeMs < taskStartMs) continue;
       if (minTime === null || hit.timeMs < minTime) {
         minTime = hit.timeMs;
       }
@@ -175,8 +178,22 @@ export function lookupFleetNextTurnpointTarget(
   route: OptimizedRoute,
   timeMs: number,
 ): NextTurnpointTarget | null {
-  const index = lookupNextProgressIndex(timeline.milestones, timeline.taskStartMs, timeMs);
+  const index = lookupNextProgressIndex(timeline.milestones, timeline.taskStartMs, timeMs, {
+    allowBeforeTaskStart: true,
+  });
   return resolveNextTurnpointTarget(route, index);
+}
+
+/** True from task start until the fleet’s first post-gate SSS exit (SSS is the active next TP). */
+export function isFleetSssNextPhase(timeline: TaskNextTurnpointTimeline, timeMs: number): boolean {
+  if (timeMs < timeline.taskStartMs) return false;
+  const index = lookupNextProgressIndex(
+    timeline.milestones,
+    timeline.taskStartMs,
+    timeMs,
+    { allowBeforeTaskStart: true },
+  );
+  return index === 0;
 }
 
 /** Pilot whose crossings drive tagged turnpoint UI (progress focus, else selected pilot). */
@@ -201,15 +218,26 @@ export function resolvePlaybackNextProgressIndex(
     | undefined,
   timeMs: number,
 ): number {
-  if (focusTrack) {
-    const taskStartMs = focusTrack.taskStartMs ?? fleetTimeline.taskStartMs;
-    return lookupNextProgressIndex(focusTrack.nextTurnpointMilestones, taskStartMs, timeMs, {
-      allowBeforeTaskStart: true,
-    });
+  const fleetIndex = lookupNextProgressIndex(
+    fleetTimeline.milestones,
+    fleetTimeline.taskStartMs,
+    timeMs,
+    { allowBeforeTaskStart: true },
+  );
+
+  if (!focusTrack) {
+    return fleetIndex;
   }
-  return lookupNextProgressIndex(fleetTimeline.milestones, fleetTimeline.taskStartMs, timeMs, {
-    allowBeforeTaskStart: true,
-  });
+
+  const taskStartMs = focusTrack.taskStartMs ?? fleetTimeline.taskStartMs;
+  const pilotIndex = lookupNextProgressIndex(
+    focusTrack.nextTurnpointMilestones,
+    taskStartMs,
+    timeMs,
+    { allowBeforeTaskStart: true },
+  );
+
+  return Math.max(fleetIndex, pilotIndex);
 }
 
 export function isProgressTurnpointTagged(

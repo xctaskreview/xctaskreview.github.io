@@ -4,6 +4,7 @@ import type { EnrichedFlightTrack } from './taskProgress';
 import { getTrackColor, getTrackSnapshotAtTime } from './tracks';
 import { compareCompetitorsForRanking } from './scoreboardDisplay';
 import { getPilotSpeedSectionFinishTime } from './taskVerification';
+import type { TaskNextTurnpointTimeline } from './nextTurnpoint';
 import type { CompetitorSnapshot, OptimizedRoute } from './types';
 
 export function buildCompetitorSnapshots(
@@ -12,11 +13,12 @@ export function buildCompetitorSnapshots(
   route: OptimizedRoute,
   currentTime: Date,
   includeSpeeds: boolean,
+  fleetNextTurnpointTimeline?: TaskNextTurnpointTimeline,
 ): CompetitorSnapshot[] {
   const taskDistanceKm = route.progressTotalDistance / 1000;
 
   return tracks.flatMap((track, index) => {
-    const snapshot = getTrackSnapshotAtTime(track, currentTime, route);
+    const snapshot = getTrackSnapshotAtTime(track, currentTime, route, fleetNextTurnpointTimeline);
     if (!snapshot) return [];
 
     const pilotName = track.pilotName;

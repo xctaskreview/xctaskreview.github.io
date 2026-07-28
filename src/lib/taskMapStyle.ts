@@ -110,7 +110,10 @@ export function getTurnpointCirclePathOptions(
   progressColor: string = TASK_PROGRESS_COLOR,
 ): L.PathOptions {
   const showAsTagged = tagged && !fillHighlight;
-  const color = getTurnpointColor(circle, route, showAsTagged, progressColor);
+  const color =
+    fillHighlight
+      ? progressColor
+      : getTurnpointColor(circle, route, showAsTagged, progressColor);
   const highlightNext = fillHighlight;
 
   return {

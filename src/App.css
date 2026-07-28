@@ -3021,6 +3021,19 @@ button.app-home-link.time-controls-home-link:hover {
   background: #2563eb;
 }
 
+.start-marker-column-sss-phase .start-label {
+  color: #059669;
+}
+
+.start-marker-column-sss-phase .task-start-marker {
+  background: #059669;
+}
+
+.start-marker-column-sss-phase:hover .start-label,
+.start-marker-column-sss-phase:hover .task-start-marker {
+  color: #059669;
+}
+
 .finish-marker {
   background: #dc2626;
 }

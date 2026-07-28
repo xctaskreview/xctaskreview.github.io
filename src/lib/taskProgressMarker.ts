@@ -181,6 +181,7 @@ export function getProgressLabelAnchor(line: [LatLon, LatLon], taskCenter: LatLo
 function computeFirstPilotTags(
   tracks: EnrichedFlightTrack[],
   route: OptimizedRoute,
+  taskStartMs?: number,
 ): Map<number, { time: Date; pilot: string }> {
   const firstByIndex = new Map<number, { time: Date; pilot: string }>();
   const startIndex = route.sssIndex;
@@ -198,6 +199,13 @@ function computeFirstPilotTags(
     const pilot = track.compactName;
     for (const crossing of track.verification.crossings) {
       if (!crossing.inSequence) continue;
+
+      if (crossing.role === 'SSS' && crossing.direction === 'EXIT') {
+        if (taskStartMs !== undefined && crossing.time.getTime() < taskStartMs) continue;
+        const progressIndex = crossing.turnpointIndex - startIndex;
+        record(progressIndex, crossing.time, pilot);
+        continue;
+      }
 
       if (crossing.role === 'SSS') continue;
 
@@ -227,6 +235,7 @@ export function computeFleetSssExitTp1Marker(
   for (const track of tracks) {
     const exitTime = getPilotSssExitTime(track);
     if (!exitTime) continue;
+    if (exitTime.getTime() < taskStart.getTime()) continue;
     const pilot = track.compactName;
     if (!fleetFirst || exitTime.getTime() < fleetFirst.time.getTime()) {
       fleetFirst = { time: exitTime, pilot };
@@ -257,7 +266,7 @@ export function computeFleetSssExitTp1Marker(
 export function computeTurnpointReachTimes(
   tracks: EnrichedFlightTrack[],
   route: OptimizedRoute,
-  _taskStart: Date,
+  taskStart: Date,
   _endTime: Date,
   circles: RoutePoint[],
   _timeline: TaskFieldTimeline,
@@ -266,7 +275,7 @@ export function computeTurnpointReachTimes(
     return [];
   }
 
-  const firstPilotTags = computeFirstPilotTags(tracks, route);
+  const firstPilotTags = computeFirstPilotTags(tracks, route, taskStart.getTime());
   const markers: TurnpointReachMarker[] = [];
 
   for (const [index, firstTag] of firstPilotTags) {

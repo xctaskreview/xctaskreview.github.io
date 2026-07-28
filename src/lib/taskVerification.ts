@@ -221,7 +221,41 @@ export function computePilotTaskVerification(
       const zone = zones[z];
       const wasInside = inside[z];
       const isInside = pointInCylinder(point, zone.center, zone.radius);
-      if (detectCrossing(wasInside, isInside, zone.direction)) {
+
+      if (zone.role === 'SSS') {
+        // Always record geometric cylinder transitions for SSS (race start is exit or entry per task).
+        if (wasInside && !isInside) {
+          const inSequence = z === nextZone;
+          crossings.push({
+            turnpointIndex: zone.turnpointIndex,
+            name: zone.name,
+            role: 'SSS',
+            direction: 'EXIT',
+            time: point.time,
+            inSequence,
+          });
+          if (inSequence) {
+            nextZone += 1;
+            sssCrossTime = point.time;
+            currentLeg = 0;
+          }
+        } else if (!wasInside && isInside && zone.direction === 'ENTER') {
+          const inSequence = z === nextZone;
+          crossings.push({
+            turnpointIndex: zone.turnpointIndex,
+            name: zone.name,
+            role: 'SSS',
+            direction: 'ENTER',
+            time: point.time,
+            inSequence,
+          });
+          if (inSequence) {
+            nextZone += 1;
+            sssCrossTime = point.time;
+            currentLeg = 0;
+          }
+        }
+      } else if (detectCrossing(wasInside, isInside, zone.direction)) {
         const inSequence = z === nextZone;
         crossings.push({
           turnpointIndex: zone.turnpointIndex,
@@ -233,10 +267,7 @@ export function computePilotTaskVerification(
         });
         if (inSequence) {
           nextZone += 1;
-          if (zone.role === 'SSS') {
-            sssCrossTime = point.time;
-            currentLeg = 0;
-          } else if (
+          if (
             afterStart &&
             !finished &&
             beforeDeadline &&

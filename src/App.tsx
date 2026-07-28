@@ -30,7 +30,7 @@ import {
   loadIgcFiles,
 } from './lib/tracks';
 import { buildTaskFieldTimeline } from './lib/taskTimeline';
-import { buildTaskNextTurnpointTimeline } from './lib/nextTurnpoint';
+import { buildTaskNextTurnpointTimeline, isFleetSssNextPhase } from './lib/nextTurnpoint';
 import type { CivlImportResult } from './lib/civl';
 import type { XcdemonImportResult } from './lib/xcdemon';
 import type { FlightTrack, TaskTiming, XcTask } from './lib/types';
@@ -72,6 +72,7 @@ import {
 import {
   isEditableKeyboardTarget,
   isReviewShortcutModifier,
+  clampPlaybackTimeMs,
   reviewStartTime,
   REVIEW_PLAYBACK_STEP_MS,
   seekPlaybackByDelta,
@@ -156,6 +157,9 @@ const EMPTY_APP_STATE = {
 export default function App() {
   const skipNextPersistRef = useRef(false);
   const hadTaskRef = useRef(false);
+  const pendingRestoredPlaybackMsRef = useRef<number | null>(null);
+  const seekPlaybackToGateOnEnterRef = useRef(false);
+  const [playbackPersistTick, setPlaybackPersistTick] = useState(0);
   const hasStoredPreferencesRef = useRef(false);
   const taskProgressMarkerRef = useRef<TaskProgressMarker | null>(null);
 
@@ -242,6 +246,11 @@ export default function App() {
           if (persisted.view === 'review') {
             setView('review');
             pushReviewHistoryEntry();
+            if (persisted.playbackTimeMs !== undefined) {
+              pendingRestoredPlaybackMsRef.current = persisted.playbackTimeMs;
+            } else {
+              seekPlaybackToGateOnEnterRef.current = true;
+            }
           }
           if (persisted.taskFileName) {
             setTaskFitKey(`${persisted.taskFileName}-restored`);
@@ -420,17 +429,17 @@ export default function App() {
 
   const nextTurnpointTimeline = useMemo(
     () =>
-      route
-        ? buildTaskNextTurnpointTimeline(enrichedTracks, route, timing.taskStart)
+      route && allEnrichedTracks.length > 0
+        ? buildTaskNextTurnpointTimeline(allEnrichedTracks, route, timing.taskStart)
         : { taskStartMs: timing.taskStart?.getTime() ?? 0, milestones: [] },
-    [enrichedTracks, route, timing.taskStart],
+    [allEnrichedTracks, route, timing.taskStart],
   );
 
   const turnpointReachMarkers = useMemo(
     () =>
-      timing.taskStart && enrichedTracks.length > 0 && route
+      timing.taskStart && allEnrichedTracks.length > 0 && route
         ? computeTurnpointReachTimes(
-            enrichedTracks,
+            allEnrichedTracks,
             route,
             timing.taskStart,
             timing.trackEnd,
@@ -438,15 +447,15 @@ export default function App() {
             fieldTimeline,
           )
         : [],
-    [enrichedTracks, route, timing.taskStart, timing.trackEnd, circles, fieldTimeline],
+    [allEnrichedTracks, route, timing.taskStart, timing.trackEnd, circles, fieldTimeline],
   );
 
   const sssExitTp1Marker = useMemo(
     () =>
-      timing.taskStart && enrichedTracks.length > 0 && route
-        ? computeFleetSssExitTp1Marker(enrichedTracks, route, timing.taskStart, circles)
+      timing.taskStart && allEnrichedTracks.length > 0 && route
+        ? computeFleetSssExitTp1Marker(allEnrichedTracks, route, timing.taskStart, circles)
         : null,
-    [enrichedTracks, route, timing.taskStart, circles],
+    [allEnrichedTracks, route, timing.taskStart, circles],
   );
 
   const sliderTurnpointReachMarkers = useMemo(() => {
@@ -507,10 +516,43 @@ export default function App() {
   );
 
   useEffect(() => {
-    if (enrichedTracks.length > 0) {
-      setCurrentTime(timing.taskStart ?? timing.trackStart);
+    if (!showReview || enrichedTracks.length === 0) return;
+
+    if (seekPlaybackToGateOnEnterRef.current) {
+      seekPlaybackToGateOnEnterRef.current = false;
+      const start = reviewStartTime(timing.taskStart, timing.trackStart);
+      currentTimeRef.current = start;
+      setCurrentTime(start);
+      return;
     }
-  }, [enrichedTracks, timing.taskStart, timing.trackStart]);
+
+    if (pendingRestoredPlaybackMsRef.current !== null) {
+      const ms = clampPlaybackTimeMs(
+        pendingRestoredPlaybackMsRef.current,
+        timing.trackStart,
+        timing.trackEnd,
+      );
+      pendingRestoredPlaybackMsRef.current = null;
+      const restored = new Date(ms);
+      currentTimeRef.current = restored;
+      setCurrentTime(restored);
+    }
+  }, [showReview, enrichedTracks.length, timing.taskStart, timing.trackStart, timing.trackEnd]);
+
+  useEffect(() => {
+    if (!showReview) return;
+
+    const intervalId = window.setInterval(() => {
+      setPlaybackPersistTick((tick) => tick + 1);
+    }, 3000);
+
+    return () => window.clearInterval(intervalId);
+  }, [showReview]);
+
+  useEffect(() => {
+    if (!showReview || playing) return;
+    setPlaybackPersistTick((tick) => tick + 1);
+  }, [showReview, playing, currentTime]);
 
   useEffect(() => {
     setPlaying(showReview);
@@ -571,10 +613,15 @@ export default function App() {
   const scoreboardCompetitors = useMemo(() => {
     if (!route) return [];
     const time = playing ? chartTime : currentTime;
-    return buildCompetitorSnapshots(allEnrichedTracks, trackColors, route, time, true);
-  }, [allEnrichedTracks, trackColors, route, playing, chartTime, currentTime]);
+    return buildCompetitorSnapshots(allEnrichedTracks, trackColors, route, time, true, nextTurnpointTimeline);
+  }, [allEnrichedTracks, trackColors, route, playing, chartTime, currentTime, nextTurnpointTimeline]);
 
   const scoreboardRankingTimeMs = (playing ? chartTime : currentTime).getTime();
+
+  const startGateSssPhase = useMemo(() => {
+    if (!showReview || !timing.taskStart) return false;
+    return isFleetSssNextPhase(nextTurnpointTimeline, currentTime.getTime());
+  }, [showReview, timing.taskStart, nextTurnpointTimeline, currentTime]);
 
   const altitudeRange = useMemo(
     () => computeChartAltitudeRange(enrichedTracks, preferences.altitudeUnit),
@@ -643,6 +690,9 @@ export default function App() {
       view,
       taskProgressMinimized: taskProgressMinimized || undefined,
       taskProgressHeightPx: normalizeTaskProgressPanelHeight(taskProgressHeightPx),
+      ...(view === 'review'
+        ? { playbackTimeMs: currentTimeRef.current.getTime() }
+        : {}),
     }).then((result) => {
       if (result === 'failed') {
         setError('Could not save session to browser storage. The tracklogs may be too large.');
@@ -650,7 +700,22 @@ export default function App() {
         setError('Task saved locally, but the tracklogs were too large to store in this browser.');
       }
     });
-  }, [storageReady, task, taskFileName, tracks, enabledTrackIdsKey, trackColors, preferences, view, taskProgressMinimized, taskProgressHeightPx]);
+  }, [storageReady, task, taskFileName, tracks, enabledTrackIdsKey, trackColors, preferences, view, taskProgressMinimized, taskProgressHeightPx, playbackPersistTick]);
+
+  useEffect(() => {
+    if (!storageReady || view !== 'review' || !task) return;
+
+    const flushPlaybackTime = () => {
+      setPlaybackPersistTick((tick) => tick + 1);
+    };
+
+    document.addEventListener('visibilitychange', flushPlaybackTime);
+    window.addEventListener('pagehide', flushPlaybackTime);
+    return () => {
+      document.removeEventListener('visibilitychange', flushPlaybackTime);
+      window.removeEventListener('pagehide', flushPlaybackTime);
+    };
+  }, [storageReady, view, task]);
 
   const onSaveToHistory = useCallback(async () => {
     if (!task) return;
@@ -704,6 +769,7 @@ export default function App() {
   }, []);
 
   const goToReview = useCallback(() => {
+    seekPlaybackToGateOnEnterRef.current = true;
     setView('review');
     pushReviewHistoryEntry();
   }, []);
@@ -1068,6 +1134,7 @@ const applyPersistedSession = useCallback((session: {
   view?: AppView;
   taskProgressMinimized?: boolean;
   taskProgressHeightPx?: number;
+  playbackTimeMs?: number;
 }) => {
   hadTaskRef.current = true;
   syncAppDocumentTitle(session.task, session.taskFileName ?? '');
@@ -1086,6 +1153,11 @@ const applyPersistedSession = useCallback((session: {
   if (session.view === 'review') {
     setView('review');
     pushReviewHistoryEntry();
+    if (session.playbackTimeMs !== undefined) {
+      pendingRestoredPlaybackMsRef.current = session.playbackTimeMs;
+    } else {
+      seekPlaybackToGateOnEnterRef.current = true;
+    }
   } else {
     leaveReviewView();
   }
@@ -1143,6 +1215,7 @@ const onSessionBundleExport = useCallback(async () => {
       view,
       taskProgressMinimized: taskProgressMinimized || undefined,
       taskProgressHeightPx: normalizeTaskProgressPanelHeight(taskProgressHeightPx),
+      ...(view === 'review' ? { playbackTimeMs: currentTimeRef.current.getTime() } : {}),
     });
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to export session bundle');
@@ -1320,6 +1393,7 @@ const onSessionBundleExport = useCallback(async () => {
       return;
     }
     pendingWalkthroughAfterReviewRef.current = true;
+    seekPlaybackToGateOnEnterRef.current = true;
     setView('review');
   }, [canEnterReview, showReview, startReviewWalkthrough]);
 
@@ -1407,6 +1481,7 @@ const onSessionBundleExport = useCallback(async () => {
             turnpointReachMarkers={sliderTurnpointReachMarkers}
             startTurnpointTooltip={startTurnpointTooltip}
             finishTurnpointTooltip={finishTurnpointTooltip}
+            startGateSssPhase={startGateSssPhase}
             distanceUnit={preferences.distanceUnit}
             playing={playing}
             speed={preferences.playbackSpeed}

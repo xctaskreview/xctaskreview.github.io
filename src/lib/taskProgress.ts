@@ -23,7 +23,10 @@ import { computePilotTaskVerification, type PilotTaskVerification } from './task
 import {
   buildPilotNextTurnpointMilestones,
   lookupPilotNextTurnpointTarget,
+  resolveNextTurnpointTarget,
+  resolvePlaybackNextProgressIndex,
   type NextTurnpointMilestone,
+  type TaskNextTurnpointTimeline,
 } from './nextTurnpoint';
 import { progressLegStartPoint } from './taskMapStyle';
 
@@ -292,13 +295,19 @@ function nextTurnpointFieldsAtTime(
   track: EnrichedFlightTrack,
   route: OptimizedRoute,
   timeMs: number,
+  fleetTimeline?: TaskNextTurnpointTimeline,
 ): { nextTurnpointName: string; nextTurnpointNumber: number | null; nextTurnpointRadiusM: number | null } {
-  const target = lookupPilotNextTurnpointTarget(
-    track.nextTurnpointMilestones,
-    route,
-    track.taskStartMs,
-    timeMs,
-  );
+  const target = fleetTimeline
+    ? resolveNextTurnpointTarget(
+        route,
+        resolvePlaybackNextProgressIndex(fleetTimeline, track, timeMs),
+      )
+    : lookupPilotNextTurnpointTarget(
+        track.nextTurnpointMilestones,
+        route,
+        track.taskStartMs,
+        timeMs,
+      );
   if (!target) {
     return { nextTurnpointName: '—', nextTurnpointNumber: null, nextTurnpointRadiusM: null };
   }
@@ -376,6 +385,7 @@ export function getTrackSnapshotAtTime(
   track: EnrichedFlightTrack,
   time: Date,
   route: OptimizedRoute,
+  fleetTimeline?: TaskNextTurnpointTimeline,
 ): {
   lat: number;
   lon: number;
@@ -397,7 +407,7 @@ export function getTrackSnapshotAtTime(
   if (t < points[0]!.timeMs) {
     const first = points[0]!;
     const launchAlt = track.launchAltitudeM ?? first.displayAlt;
-    const nextFields = nextTurnpointFieldsAtTime(track, route, t);
+    const nextFields = nextTurnpointFieldsAtTime(track, route, t, fleetTimeline);
     return {
       lat: first.lat,
       lon: first.lon,
@@ -430,7 +440,7 @@ export function getTrackSnapshotAtTime(
     taskPercent = state.taskPercent + (next.taskPercent - state.taskPercent) * ratio;
   }
 
-  const nextFields = nextTurnpointFieldsAtTime(track, route, t);
+  const nextFields = nextTurnpointFieldsAtTime(track, route, t, fleetTimeline);
 
   return {
     lat,
@@ -523,9 +533,9 @@ export function enrichTracksWithTaskProgress(
   return attachLegTimingsToTracks(enriched, route, taskStart);
 }
 
-/** First SSS exit (start gate crossing) from enriched track points. */
+/** First in-sequence SSS exit (race start) from verification, not leg progress on the map. */
 export function getPilotSssExitTime(track: EnrichedFlightTrack): Date | undefined {
-  return track.points.find((point) => point.hasStarted)?.time;
+  return track.verification?.sssCrossTime ?? undefined;
 }
 
 /** Whole seconds: start gate minus SSS exit (negative = crossed after the gate). */

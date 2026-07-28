@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
+  clampPlaybackTimeMs,
   REVIEW_PLAYBACK_STEP_MS,
   seekPlaybackByDelta,
   seekTurnpointTime,
   stepPlaybackSpeed,
 } from '../src/lib/reviewKeyboard';
+
+describe('clampPlaybackTimeMs', () => {
+  it('clamps to track bounds', () => {
+    const start = new Date(1000);
+    const end = new Date(5000);
+    expect(clampPlaybackTimeMs(0, start, end)).toBe(1000);
+    expect(clampPlaybackTimeMs(3000, start, end)).toBe(3000);
+    expect(clampPlaybackTimeMs(9000, start, end)).toBe(5000);
+  });
+});
 
 describe('stepPlaybackSpeed', () => {
   it('steps through playback speeds', () => {

@@ -63,6 +63,7 @@ interface StoredSessionPayloadV1 {
   view?: PersistedView;
   taskProgressMinimized?: boolean;
   taskProgressHeightPx?: number;
+  playbackTimeMs?: number;
 }
 
 interface StoredSessionPayloadV2Monolithic {
@@ -77,6 +78,7 @@ interface StoredSessionPayloadV2Monolithic {
   view?: PersistedView;
   taskProgressMinimized?: boolean;
   taskProgressHeightPx?: number;
+  playbackTimeMs?: number;
 }
 
 interface StoredSessionPayloadV2Split {
@@ -91,6 +93,7 @@ interface StoredSessionPayloadV2Split {
   view?: PersistedView;
   taskProgressMinimized?: boolean;
   taskProgressHeightPx?: number;
+  playbackTimeMs?: number;
 }
 
 type StoredSessionRecord =
@@ -108,6 +111,8 @@ export interface PersistedSession {
   view?: PersistedView;
   taskProgressMinimized?: boolean;
   taskProgressHeightPx?: number;
+  /** Playback clock while in review; omitted on welcome. */
+  playbackTimeMs?: number;
 }
 
 export type SaveSessionResult = 'saved' | 'partial' | 'failed';
@@ -357,6 +362,7 @@ function finalizeSession(
   view?: PersistedView,
   taskProgressMinimized?: boolean,
   taskProgressHeightPx?: number,
+  playbackTimeMs?: number,
 ): PersistedSession {
   const trackIds = new Set(tracks.map((track) => track.id));
   const enabled = enabledTrackIds.filter((id) => trackIds.has(id));
@@ -374,10 +380,18 @@ function finalizeSession(
     ...(typeof taskProgressHeightPx === 'number' && Number.isFinite(taskProgressHeightPx)
       ? { taskProgressHeightPx: Math.round(taskProgressHeightPx) }
       : {}),
+    ...(typeof playbackTimeMs === 'number' && Number.isFinite(playbackTimeMs)
+      ? { playbackTimeMs: Math.round(playbackTimeMs) }
+      : {}),
   };
 }
 
 function readStoredTaskProgressHeightPx(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  return Math.round(value);
+}
+
+function readStoredPlaybackTimeMs(value: unknown): number | undefined {
   if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
   return Math.round(value);
 }
@@ -400,6 +414,7 @@ function deserializeMonolithicSession(
     isValidView(payload.view) ? payload.view : undefined,
     payload.taskProgressMinimized === true,
     readStoredTaskProgressHeightPx(payload.taskProgressHeightPx),
+    readStoredPlaybackTimeMs(payload.playbackTimeMs),
   );
 }
 
@@ -572,6 +587,7 @@ async function loadSplitSession(
     isValidView(meta.view) ? meta.view : undefined,
     meta.taskProgressMinimized === true,
     readStoredTaskProgressHeightPx(meta.taskProgressHeightPx),
+    readStoredPlaybackTimeMs(meta.playbackTimeMs),
   );
 }
 
@@ -606,6 +622,7 @@ function buildMonolithicPayload(session: PersistedSession): StoredSessionPayload
     ...(session.taskProgressHeightPx !== undefined
       ? { taskProgressHeightPx: session.taskProgressHeightPx }
       : {}),
+    ...(session.playbackTimeMs !== undefined ? { playbackTimeMs: session.playbackTimeMs } : {}),
   };
 }
 
@@ -624,6 +641,7 @@ function buildSplitMeta(session: PersistedSession, trackIds: string[]): StoredSe
     ...(session.taskProgressHeightPx !== undefined
       ? { taskProgressHeightPx: session.taskProgressHeightPx }
       : {}),
+    ...(session.playbackTimeMs !== undefined ? { playbackTimeMs: session.playbackTimeMs } : {}),
   };
 }
 
