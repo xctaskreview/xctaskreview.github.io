@@ -114,6 +114,25 @@ function FitBounds({ bounds, fitBoundsKey }: { bounds: [[number, number], [numbe
   return null;
 }
 
+/** Leaflet does not always reflow when the map panel is resized (e.g. task progress dock opens). */
+function MapLayoutSync() {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    const target = container.parentElement ?? container;
+    const sync = () => {
+      map.invalidateSize();
+    };
+    sync();
+    const observer = new ResizeObserver(() => {
+      sync();
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
+}
+
 function TurnpointCircle({
   circle,
   route,
@@ -415,6 +434,7 @@ export function MapView({
           <TileLayer url={tile.overlay.url} opacity={tile.overlay.opacity} />
         ) : null}
         <FitBounds bounds={bounds} fitBoundsKey={fitBoundsKey} />
+        <MapLayoutSync />
         <MapTaskOverlay
           circles={circles}
           optimizedRoute={optimizedRoute}

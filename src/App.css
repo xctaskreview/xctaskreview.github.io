@@ -144,14 +144,45 @@ body,
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
+}
+
+.review-screen .map-panel {
+  grid-row: 1;
+  position: relative;
+  min-height: 0;
+  width: 100%;
+  height: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 0;
+}
+
+.review-screen .map-panel .task-map {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
+
+.review-screen .review-chart-slot {
+  grid-row: 2;
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  flex-shrink: 0;
+  z-index: auto;
+  width: 100%;
 }
 
 .review-chart-slot {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1050;
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
   width: 100%;
   min-height: 0;
   pointer-events: auto;
@@ -2109,15 +2140,6 @@ html.turnpoint-drag-active .welcome-scroll {
   border-bottom: 1px solid #e2e8f0;
 }
 
-.review-screen .map-panel {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  border-bottom: 0;
-}
-
 .map-legend-overlay {
   position: absolute;
   top: 12px;
@@ -3112,8 +3134,9 @@ button.app-home-link.time-controls-home-link:hover {
   min-height: 0;
   border: 0;
   border-radius: 0;
+  border-top: 1px solid #e2e8f0;
   background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
   backdrop-filter: blur(8px);
   display: flex;
   flex-direction: column;
@@ -3122,7 +3145,7 @@ button.app-home-link.time-controls-home-link:hover {
 
 .review-screen .chart-panel.minimized {
   height: auto;
-  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.1);
+  box-shadow: none;
 }
 
 .chart-panel-header {
@@ -4432,11 +4455,11 @@ button.app-home-link.time-controls-home-link:hover {
     align-items: center;
     justify-content: center;
     position: absolute;
-    left: 50%;
+    left: 8px;
     bottom: 12px;
     z-index: 1100;
-    transform: translateX(-50%);
-    padding: 10px 14px;
+    transform: none;
+    padding: 10px 12px;
     border: 1px solid rgba(226, 232, 240, 0.95);
     border-radius: 10px;
     background: rgba(255, 255, 255, 0.94);
@@ -4448,34 +4471,31 @@ button.app-home-link.time-controls-home-link:hover {
     cursor: pointer;
   }
 
+  .review-chart-toggle .map-data-panel-toggle-label {
+    display: none;
+  }
+
   .review-chart-toggle:hover {
     background: rgba(248, 250, 252, 0.96);
   }
 
   .review-chart-slot {
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
+    display: none;
     pointer-events: none;
     visibility: hidden;
-    transform: translateY(8px);
-    opacity: 0;
-    transition:
-      opacity 0.18s ease,
-      transform 0.18s ease,
-      visibility 0.18s ease;
+    transform: none;
+    opacity: 1;
+    transition: none;
   }
 
   .review-chart-slot.open {
+    display: flex;
     pointer-events: auto;
     visibility: visible;
-    transform: translateY(0);
-    opacity: 1;
   }
 
   .review-screen .chart-panel-body {
-    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.16);
+    box-shadow: none;
   }
 
   .review-screen .chart-panel-header {

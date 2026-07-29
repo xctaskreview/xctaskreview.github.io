@@ -1511,9 +1511,12 @@ const onSessionBundleExport = useCallback(async () => {
                   className="review-chart-toggle"
                   aria-expanded={false}
                   aria-controls="review-altitude-chart"
+                  aria-label="Task Progress"
                   onClick={() => setMobileChartOpen(true)}
                 >
-                  <IconButtonContent icon={LineChart}>Task Progress</IconButtonContent>
+                  <IconButtonContent icon={LineChart}>
+                    <span className="map-data-panel-toggle-label">Task Progress</span>
+                  </IconButtonContent>
                 </button>
               )}
 
