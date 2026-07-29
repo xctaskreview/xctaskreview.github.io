@@ -27,6 +27,7 @@ interface SessionManifest {
   taskProgressMinimized?: boolean;
   taskProgressHeightPx?: number;
   playbackTimeMs?: number;
+  playbackPlaying?: boolean;
   tracks: SessionManifestTrack[];
 }
 
@@ -65,6 +66,7 @@ function buildManifest(session: PersistedSession, tracks: SessionManifestTrack[]
       ? { taskProgressHeightPx: session.taskProgressHeightPx }
       : {}),
     ...(session.playbackTimeMs !== undefined ? { playbackTimeMs: session.playbackTimeMs } : {}),
+    ...(session.playbackPlaying !== undefined ? { playbackPlaying: session.playbackPlaying } : {}),
     tracks,
   };
 }
@@ -171,6 +173,9 @@ function finalizeImportedSession(
       : {}),
     ...(typeof manifest.playbackTimeMs === 'number' && Number.isFinite(manifest.playbackTimeMs)
       ? { playbackTimeMs: Math.round(manifest.playbackTimeMs) }
+      : {}),
+    ...(manifest.playbackPlaying === true || manifest.playbackPlaying === false
+      ? { playbackPlaying: manifest.playbackPlaying }
       : {}),
   };
 }

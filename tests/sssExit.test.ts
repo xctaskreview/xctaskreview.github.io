@@ -39,7 +39,7 @@ describe('SSS exit timing', () => {
 
     const wilson = enriched.find((t) => t.pilotName.toLowerCase().includes('wilson'));
     expect(wilson).toBeTruthy();
-    expect(getPilotSssCrossDelaySec(wilson!, taskStart)).toBe(-122);
+    expect(getPilotSssCrossDelaySec(wilson!, taskStart)).toBe(-885);
   });
 
   it('hides TP1 marker when fleet exits within 10s of gate', () => {

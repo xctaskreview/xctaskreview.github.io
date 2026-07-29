@@ -139,14 +139,17 @@ function resolveAssignedStartGate(
 }
 
 /**
- * Race SSS exit: latest SSS cylinder exit before the pilot enters the next turnpoint
- * (includes re-exits after an early start).
+ * Race SSS exit after the start gate opens: SSS cylinder exits on or after task start,
+ * before the next turnpoint enter. When three or more such exits occur (false start
+ * flicker, valid exit, then re-entry), the second exit is the race start.
  */
 export function resolveEffectiveSssCrossTime(
   crossings: TurnpointCrossing[],
   route: OptimizedRoute,
+  taskStartMs?: number,
 ): Date | null {
   const startIndex = route.sssIndex;
+  const openMs = taskStartMs ?? Number.NEGATIVE_INFINITY;
 
   let nextTpEnterMs: number | null = null;
   for (const crossing of crossings) {
@@ -157,17 +160,20 @@ export function resolveEffectiveSssCrossTime(
     break;
   }
 
-  let latestExit: Date | null = null;
+  const candidates: TurnpointCrossing[] = [];
   for (const crossing of crossings) {
     if (crossing.role !== 'SSS' || crossing.direction !== 'EXIT') continue;
     const exitMs = crossing.time.getTime();
+    if (exitMs < openMs) continue;
     if (nextTpEnterMs !== null && exitMs >= nextTpEnterMs) continue;
-    if (!latestExit || exitMs > latestExit.getTime()) {
-      latestExit = crossing.time;
-    }
+    candidates.push(crossing);
   }
 
-  return latestExit;
+  if (candidates.length === 0) return null;
+  // A brief false exit (often in-sequence) followed by a real start and later re-exit is common;
+  // use the second post-start exit when three or more are recorded before TP1.
+  if (candidates.length >= 3) return candidates[1]!.time;
+  return candidates[0]!.time;
 }
 
 function medianFixIntervalSec(points: TrackPoint[]): number | null {
@@ -294,7 +300,8 @@ export function computePilotTaskVerification(
     });
   }
 
-  const effectiveSssCrossTime = resolveEffectiveSssCrossTime(crossings, route) ?? sssCrossTime;
+  const effectiveSssCrossTime =
+    resolveEffectiveSssCrossTime(crossings, route, taskStartMs) ?? sssCrossTime;
   sssCrossTime = effectiveSssCrossTime;
   const effectiveSssMs = sssCrossTime?.getTime() ?? null;
 

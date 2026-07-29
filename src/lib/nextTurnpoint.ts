@@ -55,7 +55,8 @@ export function buildPilotNextTurnpointMilestones(
   const milestones: NextTurnpointMilestone[] = [{ timeMs: taskStartMs, nextProgressIndex: 0 }];
 
   const effectiveSss =
-    verification.sssCrossTime ?? resolveEffectiveSssCrossTime(verification.crossings, route);
+    verification.sssCrossTime ??
+    resolveEffectiveSssCrossTime(verification.crossings, route, taskStartMs);
   if (effectiveSss) {
     milestones.push({ timeMs: effectiveSss.getTime(), nextProgressIndex: 1 });
   }

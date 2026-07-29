@@ -70,16 +70,11 @@ import {
   type ReviewWalkthroughStepId,
 } from './lib/reviewWalkthrough';
 import {
-  isEditableKeyboardTarget,
-  isReviewBackspaceKey,
-  isReviewShortcutModifier,
   clampPlaybackTimeMs,
-  reviewStartTime,
+  collectTurnpointSeekTimesMs,
+  resolveReviewKeyboardAction,
   reviewTaskStartTime,
-  REVIEW_PLAYBACK_STEP_MS,
-  seekPlaybackByDelta,
-  seekTurnpointTime,
-  stepPlaybackSpeed,
+  shouldHandleReviewShortcut,
 } from './lib/reviewKeyboard';
 import { useThrottledDate } from './lib/useThrottledDate';
 import './App.css';
@@ -92,9 +87,7 @@ interface ReviewWalkthroughUiSnapshot {
   selectedPilotTrackId: string | null;
 }
 
-function isMobileReviewLayout(): boolean {
-  return typeof window !== 'undefined' && window.matchMedia('(max-width: 800px)').matches;
-}
+import { isMobileReviewLayout } from './lib/reviewLayout';
 
 type AppView = 'welcome' | 'review';
 
@@ -248,6 +241,7 @@ export default function App() {
           if (persisted.view === 'review') {
             setView('review');
             pushReviewHistoryEntry();
+            setPlaying(persisted.playbackPlaying ?? true);
             if (persisted.playbackTimeMs !== undefined) {
               pendingRestoredPlaybackMsRef.current = persisted.playbackTimeMs;
             } else {
@@ -477,14 +471,15 @@ export default function App() {
     return [sssExitTp1Marker, ...withoutSss];
   }, [turnpointReachMarkers, sssExitTp1Marker, route]);
 
-  const turnpointSeekTimesMs = useMemo(() => {
-    const times = new Set<number>();
-    times.add(reviewStartTime(timing.taskStart, timing.trackStart).getTime());
-    for (const marker of sliderTurnpointReachMarkers) {
-      times.add(marker.time.getTime());
-    }
-    return [...times].sort((a, b) => a - b);
-  }, [sliderTurnpointReachMarkers, timing.taskStart, timing.trackStart]);
+  const turnpointSeekTimesMs = useMemo(
+    () =>
+      collectTurnpointSeekTimesMs(
+        timing.taskStart,
+        timing.trackStart,
+        sliderTurnpointReachMarkers.map((marker) => marker.time.getTime()),
+      ),
+    [sliderTurnpointReachMarkers, timing.taskStart, timing.trackStart],
+  );
 
   const pilotSssCrossDelaySec = useMemo(() => {
     const delays = new Map<string, number>();
@@ -522,7 +517,7 @@ export default function App() {
 
     if (seekPlaybackToGateOnEnterRef.current) {
       seekPlaybackToGateOnEnterRef.current = false;
-      const start = reviewStartTime(timing.taskStart, timing.trackStart);
+      const start = reviewTaskStartTime(timing.taskStart, timing.trackStart);
       currentTimeRef.current = start;
       setCurrentTime(start);
       return;
@@ -557,8 +552,8 @@ export default function App() {
   }, [showReview, playing, currentTime]);
 
   useEffect(() => {
-    setPlaying(showReview);
     if (!showReview) {
+      setPlaying(false);
       setMobileChartOpen(false);
     }
   }, [showReview]);
@@ -693,7 +688,10 @@ export default function App() {
       taskProgressMinimized: taskProgressMinimized || undefined,
       taskProgressHeightPx: normalizeTaskProgressPanelHeight(taskProgressHeightPx),
       ...(view === 'review'
-        ? { playbackTimeMs: currentTimeRef.current.getTime() }
+        ? {
+            playbackTimeMs: currentTimeRef.current.getTime(),
+            playbackPlaying: playing,
+          }
         : {}),
     }).then((result) => {
       if (result === 'failed') {
@@ -702,7 +700,7 @@ export default function App() {
         setError('Task saved locally, but the tracklogs were too large to store in this browser.');
       }
     });
-  }, [storageReady, task, taskFileName, tracks, enabledTrackIdsKey, trackColors, preferences, view, taskProgressMinimized, taskProgressHeightPx, playbackPersistTick]);
+  }, [storageReady, task, taskFileName, tracks, enabledTrackIdsKey, trackColors, preferences, view, taskProgressMinimized, taskProgressHeightPx, playbackPersistTick, playing]);
 
   useEffect(() => {
     if (!storageReady || view !== 'review' || !task) return;
@@ -772,6 +770,7 @@ export default function App() {
 
   const goToReview = useCallback(() => {
     seekPlaybackToGateOnEnterRef.current = true;
+    setPlaying(true);
     setView('review');
     pushReviewHistoryEntry();
   }, []);
@@ -992,7 +991,6 @@ export default function App() {
       !showReview ||
       reviewWalkthroughActive ||
       appMenuOpen ||
-      reviewKeymapOpen ||
       pilotQuickSearchOpen ||
       reviewTimeSeekMode !== null
     ) {
@@ -1000,113 +998,61 @@ export default function App() {
     }
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isEditableKeyboardTarget(event.target)) return;
-      if (isReviewShortcutModifier(event)) return;
+      if (!shouldHandleReviewShortcut(event.target, event)) return;
 
-      const handle = () => {
-        event.preventDefault();
-        event.stopPropagation();
-      };
-      if (event.key === 'f' || event.key === 'F') {
-        handle();
-        toggleFollowPilot();
-        return;
-      }
+      const action = resolveReviewKeyboardAction(event, {
+        playbackSpeed: preferences.playbackSpeed,
+        currentTimeMs: currentTimeRef.current.getTime(),
+        turnpointSeekTimesMs,
+        trackStartMs: timing.trackStart.getTime(),
+        trackEndMs: timing.trackEnd.getTime(),
+        taskStart: timing.taskStart,
+        trackStart: timing.trackStart,
+        hasSelectedPilot: selectedPilotTrackId !== null,
+      });
+      if (!action) return;
 
-      if (event.key === '0') {
-        handle();
-        resetMapToTaskView();
-        return;
-      }
+      event.preventDefault();
+      event.stopPropagation();
 
-      if (event.key === ' ') {
-        handle();
-        setPlaying((current) => !current);
-        return;
-      }
-
-      if (event.key === '+' || event.key === '=') {
-        handle();
-        onPlaybackSpeedChange(
-          stepPlaybackSpeed(preferences.playbackSpeed, 1),
-        );
-        return;
-      }
-
-      if (event.key === '-' || event.key === '_') {
-        handle();
-        onPlaybackSpeedChange(
-          stepPlaybackSpeed(preferences.playbackSpeed, -1),
-        );
-        return;
-      }
-
-      if (event.key === 'l' || event.key === 'L') {
-        handle();
-        toggleLeaderboardPanel();
-        return;
-      }
-
-      if (event.key === '/') {
-        handle();
-        setPilotQuickSearchOpen(true);
-        return;
-      }
-
-      if (event.key === '?') {
-        handle();
-        setReviewKeymapOpen(true);
-        return;
-      }
-
-      if (event.key === 'c' || event.key === 'C') {
-        handle();
-        setReviewTimeSeekMode('clock');
-        return;
-      }
-
-      if (event.key === 't' || event.key === 'T') {
-        handle();
-        setReviewTimeSeekMode('timer');
-        return;
-      }
-
-      if (isReviewBackspaceKey(event)) {
-        handle();
-        seekReviewTime(reviewTaskStartTime(timing.taskStart, timing.trackStart));
-        return;
-      }
-
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-        const direction = event.key === 'ArrowRight' ? 1 : -1;
-        if (event.shiftKey) {
-          const nextTime = seekTurnpointTime(
-            currentTimeRef.current.getTime(),
-            turnpointSeekTimesMs,
-            direction,
-          );
-          if (nextTime) {
-            handle();
-            seekReviewTime(nextTime);
-          }
-        } else {
-          handle();
-          seekReviewTime(
-            seekPlaybackByDelta(
-              currentTimeRef.current.getTime(),
-              direction * REVIEW_PLAYBACK_STEP_MS,
-              timing.trackStart.getTime(),
-              timing.trackEnd.getTime(),
-            ),
-          );
-        }
-        return;
-      }
-
-      if (event.key === 'Escape') {
-        if (selectedPilotTrackId) {
-          handle();
+      switch (action.type) {
+        case 'toggle-follow':
+          toggleFollowPilot();
+          break;
+        case 'reset-map':
+          resetMapToTaskView();
+          break;
+        case 'toggle-play':
+          setPlaying((current) => !current);
+          break;
+        case 'set-playback-speed':
+          onPlaybackSpeedChange(action.speed);
+          break;
+        case 'toggle-leaderboard':
+          toggleLeaderboardPanel();
+          break;
+        case 'open-pilot-search':
+          setPilotQuickSearchOpen(true);
+          break;
+        case 'toggle-keymap':
+          setReviewKeymapOpen((open) => !open);
+          break;
+        case 'seek-clock':
+          setReviewTimeSeekMode('clock');
+          break;
+        case 'seek-timer':
+          setReviewTimeSeekMode('timer');
+          break;
+        case 'seek-time':
+          seekReviewTime(action.time);
+          if (action.pausePlayback) setPlaying(false);
+          break;
+        case 'clear-pilot-focus':
           onClosePilotDetail();
+          break;
+        default: {
+          const _exhaustive: never = action;
+          return _exhaustive;
         }
       }
     };
@@ -1117,7 +1063,6 @@ export default function App() {
     showReview,
     reviewWalkthroughActive,
     appMenuOpen,
-    reviewKeymapOpen,
     pilotQuickSearchOpen,
     reviewTimeSeekMode,
     preferences.playbackSpeed,
@@ -1146,6 +1091,7 @@ const applyPersistedSession = useCallback((session: {
   taskProgressMinimized?: boolean;
   taskProgressHeightPx?: number;
   playbackTimeMs?: number;
+  playbackPlaying?: boolean;
 }) => {
   hadTaskRef.current = true;
   syncAppDocumentTitle(session.task, session.taskFileName ?? '');
@@ -1164,6 +1110,7 @@ const applyPersistedSession = useCallback((session: {
   if (session.view === 'review') {
     setView('review');
     pushReviewHistoryEntry();
+    setPlaying(session.playbackPlaying ?? true);
     if (session.playbackTimeMs !== undefined) {
       pendingRestoredPlaybackMsRef.current = session.playbackTimeMs;
     } else {
@@ -1226,7 +1173,7 @@ const onSessionBundleExport = useCallback(async () => {
       view,
       taskProgressMinimized: taskProgressMinimized || undefined,
       taskProgressHeightPx: normalizeTaskProgressPanelHeight(taskProgressHeightPx),
-      ...(view === 'review' ? { playbackTimeMs: currentTimeRef.current.getTime() } : {}),
+      ...(view === 'review' ? { playbackTimeMs: currentTimeRef.current.getTime(), playbackPlaying: playing } : {}),
     });
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to export session bundle');
@@ -1405,6 +1352,7 @@ const onSessionBundleExport = useCallback(async () => {
     }
     pendingWalkthroughAfterReviewRef.current = true;
     seekPlaybackToGateOnEnterRef.current = true;
+    setPlaying(true);
     setView('review');
   }, [canEnterReview, showReview, startReviewWalkthrough]);
 

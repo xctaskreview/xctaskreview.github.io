@@ -16,7 +16,7 @@ function point(time: Date, lat: number, lon: number): TrackPoint {
 }
 
 describe('resolveEffectiveSssCrossTime', () => {
-  it('uses the latest SSS exit before the next TP enter', () => {
+  it('uses the first SSS exit on or after task start, before the next TP enter', () => {
     const task = parseXcTask(readFileSync(JAPIRA_FIXTURE, 'utf8'));
     const route = buildOptimizedRoute(task);
     const referenceDate = new Date('2026-03-21T12:00:00.000Z');
@@ -41,7 +41,7 @@ describe('resolveEffectiveSssCrossTime', () => {
       taskStart.getTime(),
     );
 
-    expect(resolveEffectiveSssCrossTime(verification.crossings, route)?.getTime()).toBe(
+    expect(resolveEffectiveSssCrossTime(verification.crossings, route, taskStart.getTime())?.getTime()).toBe(
       lateExit.getTime(),
     );
     expect(verification.sssCrossTime?.getTime()).toBe(lateExit.getTime());
@@ -71,5 +71,37 @@ describe('resolveEffectiveSssCrossTime', () => {
         lateExit.getTime() + 1000,
       )?.progressIndex,
     ).toBe(1);
+  });
+
+  it('ignores a later SSS re-exit after the first post-start exit', () => {
+    const task = parseXcTask(readFileSync(JAPIRA_FIXTURE, 'utf8'));
+    const route = buildOptimizedRoute(task);
+    const referenceDate = new Date('2026-03-21T12:00:00.000Z');
+    const taskStart = getTaskStartTime(task, referenceDate)!;
+    const sss = route.sssCenter;
+    const firstExitAfterOpen = new Date(taskStart.getTime() + 83_000);
+    const laterReExit = new Date(taskStart.getTime() + 400_000);
+
+    const points = [
+      point(new Date(taskStart.getTime() - 120_000), sss.lat, sss.lon),
+      point(new Date(taskStart.getTime() - 60_000), -23.85, -50.35),
+      point(new Date(taskStart.getTime() + 30_000), sss.lat, sss.lon),
+      point(firstExitAfterOpen, -23.86, -50.36),
+      point(new Date(taskStart.getTime() + 200_000), sss.lat, sss.lon),
+      point(laterReExit, -23.87, -50.37),
+    ];
+
+    const { verification } = computePilotTaskVerification(
+      points,
+      task,
+      route,
+      referenceDate,
+      taskStart.getTime(),
+    );
+
+    expect(
+      resolveEffectiveSssCrossTime(verification.crossings, route, taskStart.getTime())?.getTime(),
+    ).toBe(firstExitAfterOpen.getTime());
+    expect(verification.sssCrossTime?.getTime()).toBe(firstExitAfterOpen.getTime());
   });
 });

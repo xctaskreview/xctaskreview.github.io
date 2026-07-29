@@ -1,23 +1,37 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { X } from 'lucide-react';
+import { reviewFineSeekShortcutKeysLabel } from '../lib/reviewKeyboard';
 import { Icon } from './Icon';
 import { ModalDialogBackdrop } from './ModalDialogBackdrop';
 
-const REVIEW_SHORTCUTS: { keys: string; description: string }[] = [
-  { keys: '?', description: 'Show or hide this keymap' },
-  { keys: 'f', description: 'Follow or unfollow the focused pilot (map always pans; task progress chart pans only when zoomed in)' },
-  { keys: '0', description: 'Reset map zoom to show the full task (turns off follow)' },
-  { keys: 'Space', description: 'Play or pause replay' },
-  { keys: '← / →', description: 'Step replay 30 seconds backward / forward' },
-  { keys: 'Shift + ← / →', description: 'Jump to previous / next time (start, then turnpoints)' },
-  { keys: 'Backspace', description: 'Jump to task start gate time' },
-  { keys: '+ / −', description: 'Increase or decrease playback speed' },
-  { keys: 'l', description: 'Toggle leaderboard panel' },
-  { keys: 'c', description: 'Set clock time (13:45); also click Time in the toolbar' },
-  { keys: 't', description: 'Set elapsed task time (1:23:45); also click Elapsed in the toolbar' },
-  { keys: '/', description: 'Quick pilot search — type to filter, ↑↓ to move, Enter to focus' },
-  { keys: 'esc', description: 'Clear focused pilot (closes search or keymap first)' },
-];
+function buildReviewShortcuts(): { keys: string; description: string }[] {
+  return [
+    { keys: '?', description: 'Show or hide this keymap' },
+    {
+      keys: 'f',
+      description:
+        'Follow or unfollow the focused pilot (map always pans; task progress chart pans only when zoomed in)',
+    },
+    { keys: '0', description: 'Reset map zoom to show the full task (turns off follow)' },
+    { keys: 'Space', description: 'Play or pause replay' },
+    { keys: '← / →', description: 'Step replay 30 seconds backward / forward' },
+    {
+      keys: reviewFineSeekShortcutKeysLabel(),
+      description: 'Step replay 1 second backward / forward',
+    },
+    {
+      keys: 'Shift + ← / →',
+      description: 'Jump to previous / next time (start, then turnpoints)',
+    },
+    { keys: 'Backspace', description: 'Jump to task start gate time' },
+    { keys: '+ / −', description: 'Increase or decrease playback speed' },
+    { keys: 'l', description: 'Toggle leaderboard panel' },
+    { keys: 'c', description: 'Set clock time (13:45); also click Time in the toolbar' },
+    { keys: 't', description: 'Set elapsed task time (1:23:45); also click Elapsed in the toolbar' },
+    { keys: '/', description: 'Quick pilot search — type to filter, ↑↓ to move, Enter to focus' },
+    { keys: 'esc', description: 'Clear focused pilot (closes search or keymap first)' },
+  ];
+}
 
 interface ReviewKeymapDialogProps {
   open: boolean;
@@ -25,6 +39,8 @@ interface ReviewKeymapDialogProps {
 }
 
 export function ReviewKeymapDialog({ open, onClose }: ReviewKeymapDialogProps) {
+  const reviewShortcuts = useMemo(() => buildReviewShortcuts(), []);
+
   useEffect(() => {
     if (!open) return;
 
@@ -58,7 +74,7 @@ export function ReviewKeymapDialog({ open, onClose }: ReviewKeymapDialogProps) {
         </div>
         <p className="review-keymap-intro">Shortcuts for the task review screen.</p>
         <dl className="review-keymap-list">
-          {REVIEW_SHORTCUTS.map((row) => (
+          {reviewShortcuts.map((row) => (
             <div key={row.keys} className="review-keymap-row">
               <dt>
                 <kbd>{row.keys}</kbd>
