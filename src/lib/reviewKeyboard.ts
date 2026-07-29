@@ -116,6 +116,9 @@ export function reviewTaskStartTime(taskStart: Date | undefined, trackStart: Dat
 
 export const REVIEW_PLAYBACK_STEP_MS = 30_000;
 
+/** After a turnpoint crossing, Shift+← skips an extra marker when still within this window. */
+export const TURNPOINT_SEEK_GRACE_AFTER_MS = 3_000;
+
 export function seekPlaybackByDelta(
   currentMs: number,
   deltaMs: number,
@@ -130,6 +133,7 @@ export function seekTurnpointTime(
   currentMs: number,
   seekTimesMs: number[],
   direction: -1 | 1,
+  graceAfterMs = TURNPOINT_SEEK_GRACE_AFTER_MS,
 ): Date | null {
   if (seekTimesMs.length === 0) return null;
   const sorted = [...seekTimesMs].sort((a, b) => a - b);
@@ -137,6 +141,15 @@ export function seekTurnpointTime(
   if (direction === 1) {
     const next = sorted.find((ms) => ms > currentMs);
     return new Date(next ?? sorted[sorted.length - 1]!);
+  }
+
+  const recentTurnpointMs = [...sorted]
+    .reverse()
+    .find((ms) => currentMs > ms && currentMs - ms < graceAfterMs);
+
+  if (recentTurnpointMs !== undefined) {
+    const prev = [...sorted].reverse().find((ms) => ms < recentTurnpointMs);
+    return new Date(prev ?? sorted[0]!);
   }
 
   const prev = [...sorted].reverse().find((ms) => ms < currentMs);

@@ -97,9 +97,16 @@ describe('seekTurnpointTime', () => {
   });
 
   it('seeks backward to the previous marker', () => {
-    expect(seekTurnpointTime(2500, points, -1)?.getTime()).toBe(2000);
+    expect(seekTurnpointTime(6000, points, -1)?.getTime()).toBe(3000);
     expect(seekTurnpointTime(1000, points, -1)?.getTime()).toBe(start);
     expect(seekTurnpointTime(start, points, -1)?.getTime()).toBe(start);
+  });
+
+  it('skips an extra marker backward when within grace after a turnpoint', () => {
+    expect(seekTurnpointTime(2050, points, -1)?.getTime()).toBe(1000);
+    expect(seekTurnpointTime(2500, points, -1)?.getTime()).toBe(1000);
+    expect(seekTurnpointTime(4100, points, -1)?.getTime()).toBe(2000);
+    expect(seekTurnpointTime(6500, points, -1)?.getTime()).toBe(3000);
   });
 
   it('sorts unsorted seek times', () => {
