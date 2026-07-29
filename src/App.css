@@ -4478,6 +4478,32 @@ button.app-home-link.time-controls-home-link:hover {
     box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.16);
   }
 
+  .review-screen .chart-panel-header {
+    padding: 5px 8px;
+    gap: 6px;
+  }
+
+  .review-screen .chart-panel-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .review-screen .chart-panel-title-button.map-data-panel-toggle-text {
+    gap: 5px;
+  }
+
+  .review-screen .chart-panel-icon-button,
+  .review-screen .chart-panel-resize-handle {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+  }
+
+  .review-screen .chart-panel-header .ui-icon {
+    width: 14px;
+    height: 14px;
+  }
+
   .map-data-panels.expanded-leaderboard .scoreboard-table-scroll,
   .map-data-panels.expanded-leg-statistics .leg-statistics-table-scroll,
   .map-data-panels.expanded-pilot-detail .pilot-detail-panel {
@@ -4486,6 +4512,49 @@ button.app-home-link.time-controls-home-link:hover {
 
   .map-legend-overlay.expanded {
     width: min(280px, calc(100% - 24px));
+  }
+
+  .map-data-panel-toggle:not(.map-data-panel-toggle-pilot) {
+    gap: 6px;
+    padding: 10px 12px;
+  }
+
+  .map-data-panel-toggle:not(.map-data-panel-toggle-pilot) .map-data-panel-toggle-label {
+    display: none;
+  }
+
+  .map-legend-toggle .map-data-panel-toggle-label {
+    display: none;
+  }
+
+  .map-legend-toggle {
+    padding: 10px 12px;
+  }
+
+  .xcdemon-dialog-backdrop:has(.review-keymap-dialog) {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .review-keymap-dialog {
+    width: 100%;
+    max-height: min(92dvh, 100%);
+    border-radius: 14px 14px 0 0;
+    padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .review-keymap-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    padding: 10px 0;
+  }
+
+  .review-keymap-row kbd {
+    font-size: 0.78rem;
+  }
+
+  .review-keymap-row dd {
+    font-size: 0.88rem;
   }
 }
 

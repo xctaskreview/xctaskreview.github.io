@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildChartAltitudeTicks,
   buildChartDistanceTicks,
   buildChartPathPixels,
   buildChartPolylineD,
@@ -10,6 +11,8 @@ import {
   chartPlotRect,
   clampChartTaskDistanceDisplay,
   countChartTaggedTurnpointsByMilestone,
+  formatChartAltitudeAxisTick,
+  formatChartDistanceAxisTick,
   formatChartDistanceTick,
   hasChartMaxProgressLink,
   isChartTurnpointTaggedByMilestone,
@@ -60,12 +63,35 @@ describe('chart path pixels', () => {
 });
 
 describe('chart distance axis', () => {
-  it('builds ticks that end exactly at the task distance', () => {
+  it('builds round distance ticks within the task length', () => {
     const maxDistance = 30.293761332973567;
     const ticks = buildChartDistanceTicks(maxDistance);
-    expect(ticks[0]).toBe(0);
-    expect(ticks.at(-1)).toBe(maxDistance);
+    expect(ticks).toEqual([0, 10, 20, 30]);
+    expect(ticks.length).toBeLessThanOrEqual(5);
     expect(Math.max(...ticks)).toBeLessThanOrEqual(maxDistance);
+  });
+
+  it('uses coarse steps for long tasks and finer steps when zoomed in', () => {
+    expect(buildChartDistanceTicks(100)).toEqual([0, 50, 100]);
+    expect(buildChartDistanceTicks(80, 5, 20)).toEqual([20, 40, 60, 80]);
+    expect(buildChartDistanceTicks(30)).toEqual([0, 10, 20, 30]);
+    expect(buildChartDistanceTicks(22)).toEqual([0, 5, 10, 15, 20]);
+    expect(buildChartDistanceTicks(4, 5, 0)).toEqual([0, 1, 2, 3, 4]);
+    expect(buildChartDistanceTicks(14, 5, 10)).toEqual([10, 11, 12, 13, 14]);
+  });
+
+  it('formats axis ticks in thousands', () => {
+    expect(formatChartDistanceAxisTick(10)).toBe('10');
+    expect(formatChartDistanceAxisTick(30.293761332973567)).toBe('30');
+    expect(formatChartAltitudeAxisTick(2500)).toBe('3k');
+  });
+
+  it('limits altitude ticks to at most five labels', () => {
+    const ticks = buildChartAltitudeTicks(1000, 9000);
+    expect(ticks.length).toBeLessThanOrEqual(5);
+    expect(ticks[0]).toBe(1000);
+    expect(ticks.at(-1)).toBe(9000);
+    expect(buildChartAltitudeTicks(1000, 9000)).toEqual([1000, 2500, 5000, 7500, 9000]);
   });
 
   it('formats the goal tick without rounding up past the task distance label', () => {

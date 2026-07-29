@@ -7,11 +7,13 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type MouseEvent,
   type RefObject,
 } from 'react';
 import { CartesianGrid, ComposedChart, Customized, Line, ReferenceLine, XAxis, YAxis } from 'recharts';
 import {
+  buildChartAltitudeTicks,
   buildChartDistanceTicks,
   buildChartPathPixels,
   buildChartPolylineD,
@@ -25,7 +27,8 @@ import {
   chartPlotRect,
   clampChartTaskDistanceDisplay,
   countChartTaggedTurnpointsByMilestone,
-  formatChartDistanceTick,
+  formatChartAltitudeAxisTick,
+  formatChartDistanceAxisTick,
   hasChartMaxProgressLink,
   isChartTurnpointTaggedByMilestone,
   isFullChartDistanceDomain,
@@ -50,13 +53,14 @@ import {
 } from '../lib/pilotTrail';
 import type { AppPreferences } from '../lib/preferences';
 import {
-  buildChartAltitudeTicks,
   formatAltitude,
   kmToDistanceUnit,
   metersToAltitudeUnit,
   normalizePilotTrailLengthM,
 } from '../lib/preferences';
 import { flyingModeLabelSegments, flyingModeLabelSegmentsKey, getFlyingModeStateAtTime } from '../lib/flyingMode';
+import { pilotMapLabelName } from '../lib/igc';
+import { isMobileReviewLayout, subscribeMobileReviewLayout } from '../lib/reviewLayout';
 import type { EnrichedFlightTrack } from '../lib/taskProgress';
 import { getPilotMaxProgressAtTime, getTrackSnapshotAtTime, resolveSeekTimeForTaskPercent, chartMaxTaskPercentForDisplay, chartTaskPercentAtSnapshot } from '../lib/taskProgress';
 import type { TaskFieldTimeline } from '../lib/taskTimeline';
@@ -108,13 +112,18 @@ function applySvgTextSegments(
 }
 
 /** Fixed layout so vertical resize does not shift the plot area horizontally. */
-const CHART_Y_AXIS_WIDTH = 56;
-const CHART_MARGIN = { top: 12, right: 12, bottom: 6, left: 8 } as const;
+const CHART_Y_AXIS_WIDTH = 16;
+const CHART_X_AXIS_HEIGHT = 14;
+const CHART_MARGIN = { top: 12, right: 12, bottom: 2, left: 4 } as const;
+const CHART_TICK_FONT_SIZE = 9;
+const CHART_Y_TICK_FONT_SIZE = 8;
 const CHART_PAN_CLICK_THRESHOLD_PX = 5;
 const CHART_SEEK_CLICK_DELAY_MS = 250;
 
 const CHART_TICK_FONT =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+const CHART_AXIS_STROKE = '#cbd5e1';
+const CHART_AXIS_TICK_SIZE = 3;
 
 function renderFixedYAxisTick(props: {
   x?: number;
@@ -126,25 +135,33 @@ function renderFixedYAxisTick(props: {
     return <g />;
   }
   return (
-    <text
-      x={x}
-      y={y}
-      dy={4}
-      textAnchor="end"
-      fill="#64748b"
-      fontSize={10}
-      fontFamily={CHART_TICK_FONT}
-      style={{ fontVariantNumeric: 'tabular-nums' }}
-    >
-      {payload.value}
-    </text>
+    <g>
+      <line
+        x1={x}
+        x2={x + CHART_AXIS_TICK_SIZE}
+        y1={y}
+        y2={y}
+        stroke={CHART_AXIS_STROKE}
+        strokeWidth={1}
+      />
+      <text
+        x={x}
+        y={y}
+        dx={-2}
+        dy={3}
+        textAnchor="end"
+        fill="#64748b"
+        fontSize={CHART_Y_TICK_FONT_SIZE}
+        fontFamily={CHART_TICK_FONT}
+        style={{ fontVariantNumeric: 'tabular-nums' }}
+      >
+        {formatChartAltitudeAxisTick(payload.value)}
+      </text>
+    </g>
   );
 }
 
-function renderFixedXAxisTick(
-  maxDistance: number,
-  distanceUnit: AppPreferences['distanceUnit'],
-) {
+function renderFixedXAxisTick() {
   return function FixedXAxisTick(props: {
     x?: number;
     y?: number;
@@ -155,21 +172,33 @@ function renderFixedXAxisTick(
       return <g />;
     }
     return (
-      <text
-        x={x}
-        y={y}
-        dy={12}
-        textAnchor="middle"
-        fill="#64748b"
-        fontSize={10}
-        fontFamily={CHART_TICK_FONT}
-        style={{ fontVariantNumeric: 'tabular-nums' }}
-      >
-        {formatChartDistanceTick(payload.value, maxDistance, distanceUnit)}
-      </text>
+      <g>
+        <line
+          x1={x}
+          x2={x}
+          y1={y}
+          y2={y - CHART_AXIS_TICK_SIZE}
+          stroke={CHART_AXIS_STROKE}
+          strokeWidth={1}
+        />
+        <text
+          x={x}
+          y={y}
+          dy={7}
+          textAnchor="middle"
+          fill="#64748b"
+          fontSize={CHART_TICK_FONT_SIZE}
+          fontFamily={CHART_TICK_FONT}
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+        >
+          {formatChartDistanceAxisTick(payload.value)}
+        </text>
+      </g>
     );
   };
 }
+
+const chartAxisLineStyle = { stroke: CHART_AXIS_STROKE, strokeWidth: 1 };
 
 export interface AltitudeChartProps {
   enrichedTracks: EnrichedFlightTrack[];
@@ -192,7 +221,6 @@ export interface AltitudeChartProps {
   followPilotTrackId?: string | null;
   altitudeMin: number;
   altitudeMax: number;
-  altitudeStep: number;
   taskDistanceKm: number;
   preferences: AppPreferences;
   taskProgressMarkerRef: RefObject<TaskProgressMarker | null>;
@@ -563,6 +591,12 @@ function ChartLiveLayer({
   xAxisMap,
   yAxisMap,
 }: ChartLiveLayerProps) {
+  const mobileMapLabels = useSyncExternalStore(
+    subscribeMobileReviewLayout,
+    isMobileReviewLayout,
+    () => false,
+  );
+
   const idSuffix = useId().replace(/:/g, '');
   const trophyId = `chart-live-trophy-${idSuffix}`;
   const clipId = `chart-live-clip-${idSuffix}`;
@@ -716,8 +750,13 @@ function ChartLiveLayer({
 
       entry.track = track;
       entry.index = index;
-      if (entry.pilotLabel.textContent !== track.compactName) {
-        entry.pilotLabel.textContent = track.compactName;
+      const pilotLabelText = pilotMapLabelName(
+        track.pilotName,
+        track.compactName,
+        mobileMapLabels,
+      );
+      if (entry.pilotLabel.textContent !== pilotLabelText) {
+        entry.pilotLabel.textContent = pilotLabelText;
       }
 
       // Appending in track order keeps the drawing order stable when the field changes.
@@ -731,7 +770,7 @@ function ChartLiveLayer({
     }
 
     entriesRef.current = ordered;
-  }, [enrichedTracks, onProgressFocusRef, trophyId, syncFutureTrailPathD]);
+  }, [enrichedTracks, mobileMapLabels, onProgressFocusRef, trophyId, syncFutureTrailPathD]);
 
   useEffect(() => {
     const pool = poolRef.current;
@@ -1409,7 +1448,6 @@ export const AltitudeChart = memo(function AltitudeChart({
   followPilotTrackId = null,
   altitudeMin,
   altitudeMax,
-  altitudeStep,
   taskDistanceKm,
   preferences,
   taskProgressMarkerRef,
@@ -1449,10 +1487,7 @@ export const AltitudeChart = memo(function AltitudeChart({
   const xDomainMin = xZoomDomain?.[0] ?? 0;
   const xDomainMax = xZoomDomain?.[1] ?? taskDistanceDisplay;
 
-  const xAxisTick = useMemo(
-    () => renderFixedXAxisTick(taskDistanceDisplay, preferences.distanceUnit),
-    [taskDistanceDisplay, preferences.distanceUnit],
-  );
+  const xAxisTick = useMemo(() => renderFixedXAxisTick(), []);
 
   const reachMarkerByNumber = useMemo(() => {
     const map = new Map<number, TurnpointReachMarker>();
@@ -1463,8 +1498,8 @@ export const AltitudeChart = memo(function AltitudeChart({
   }, [turnpointReachMarkers]);
 
   const yTicks = useMemo(
-    () => buildChartAltitudeTicks(altitudeMin, altitudeMax, altitudeStep),
-    [altitudeMin, altitudeMax, altitudeStep],
+    () => buildChartAltitudeTicks(altitudeMin, altitudeMax),
+    [altitudeMin, altitudeMax],
   );
 
   const xTicks = useMemo(
@@ -1974,8 +2009,10 @@ export const AltitudeChart = memo(function AltitudeChart({
               scale="linear"
               allowDataOverflow
               ticks={xTicks}
+              height={CHART_X_AXIS_HEIGHT}
+              tickMargin={1}
               padding={{ left: 0, right: 0 }}
-              axisLine={false}
+              axisLine={chartAxisLineStyle}
               tickLine={false}
               tick={xAxisTick}
             />
@@ -1985,8 +2022,9 @@ export const AltitudeChart = memo(function AltitudeChart({
               width={CHART_Y_AXIS_WIDTH}
               domain={[altitudeMin, altitudeMax]}
               ticks={yTicks}
+              tickMargin={0}
               allowDataOverflow={false}
-              axisLine={false}
+              axisLine={chartAxisLineStyle}
               tickLine={false}
               tick={renderFixedYAxisTick}
               interval={0}

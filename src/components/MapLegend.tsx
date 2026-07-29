@@ -270,9 +270,12 @@ export function MapLegend({ forceOpen = false }: MapLegendProps) {
         className="map-legend-toggle"
         aria-expanded={expanded}
         aria-controls="map-legend-panel"
+        aria-label="Legend"
         onClick={() => setOpen((prev) => !prev)}
       >
-        <IconButtonContent icon={ListTree}>Legend</IconButtonContent>
+        <IconButtonContent icon={ListTree}>
+          <span className="map-data-panel-toggle-label">Legend</span>
+        </IconButtonContent>
       </button>
 
       {expanded && (

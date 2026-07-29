@@ -1539,7 +1539,6 @@ const onSessionBundleExport = useCallback(async () => {
                 selectedPilotTrackId={selectedPilotTrackId}
                 altitudeMin={altitudeRange.min}
                 altitudeMax={altitudeRange.max}
-                altitudeStep={altitudeRange.step}
                 taskDistanceKm={taskDistanceKm}
                 preferences={preferences}
                 taskProgressMarkerRef={taskProgressMarkerRef}

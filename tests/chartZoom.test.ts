@@ -48,8 +48,8 @@ describe('chartClientXToTaskDistanceDisplay with domain', () => {
 });
 
 describe('buildChartDistanceTicks', () => {
-  it('includes min and max for a zoom window', () => {
-    expect(buildChartDistanceTicks(80, 4, 20)).toEqual([20, 35, 50, 65, 80]);
+  it('includes min and max for a zoom window on a 20 km step grid', () => {
+    expect(buildChartDistanceTicks(80, 5, 20)).toEqual([20, 40, 60, 80]);
   });
 });
 

@@ -340,17 +340,116 @@ export function taskDistanceDisplayToPercent(taskDistance: number, maxDistance: 
   return (clampChartTaskDistanceDisplay(taskDistance, maxDistance) / maxDistance) * 100;
 }
 
-export function buildChartDistanceTicks(maxDistance: number, segments = 5, minDistance = 0): number[] {
-  if (maxDistance <= minDistance) return [minDistance];
-  const span = maxDistance - minDistance;
-  if (span <= 0) return [minDistance, maxDistance];
+const CHART_DISTANCE_TICK_STEPS = [1, 2, 5, 10, 20, 50, 100] as const;
+const CHART_ALTITUDE_TICK_STEPS = [1000, 2000, 2500, 5000, 10000] as const;
 
-  if (segments <= 0) return [minDistance, maxDistance];
+function buildAlignedChartTicks(min: number, max: number, step: number): number[] {
+  if (max <= min) return [min];
+  if (step <= 0) return [min, max];
 
-  const step = span / segments;
-  return Array.from({ length: segments + 1 }, (_, index) =>
-    index === segments ? maxDistance : minDistance + index * step,
+  const ticks: number[] = [min];
+  let value = Math.ceil(min / step) * step;
+  if (value <= min + 1e-9) {
+    value += step;
+  }
+
+  while (value < max - 1e-9) {
+    ticks.push(value);
+    value += step;
+  }
+
+  if (Math.abs(ticks[ticks.length - 1] - max) > 1e-9) {
+    ticks.push(max);
+  }
+
+  return ticks;
+}
+
+/** Step-aligned ticks only (no fractional task length on the axis). */
+function buildRoundGridTicks(min: number, max: number, step: number): number[] {
+  if (max <= min || step <= 0) return [];
+
+  const start = min <= 1e-9 ? 0 : Math.ceil(min / step) * step;
+  const end = Math.floor(max / step) * step;
+  if (end + 1e-9 < start) return [];
+
+  const ticks: number[] = [];
+  for (let value = start; value <= end + 1e-9; value += step) {
+    ticks.push(value);
+  }
+  return ticks;
+}
+
+function buildChartTicksWithSteps(
+  min: number,
+  max: number,
+  steps: readonly number[],
+  maxTickCount: number,
+  buildTicks: (min: number, max: number, step: number) => number[] = buildAlignedChartTicks,
+): number[] {
+  if (max <= min) return [min];
+
+  let bestTicks: number[] | null = null;
+  let bestStep = Infinity;
+
+  for (const step of steps) {
+    const ticks = buildTicks(min, max, step);
+    if (ticks.length === 0 || ticks.length > maxTickCount) continue;
+    if (
+      !bestTicks ||
+      ticks.length > bestTicks.length ||
+      (ticks.length === bestTicks.length && step < bestStep)
+    ) {
+      bestTicks = ticks;
+      bestStep = step;
+    }
+  }
+
+  if (bestTicks) return bestTicks;
+
+  const span = max - min;
+  const coarsest = steps[steps.length - 1] ?? 1000;
+  const fallbackStep = Math.max(
+    coarsest,
+    Math.ceil(span / Math.max(1, maxTickCount - 1) / coarsest) * coarsest,
   );
+  return buildTicks(min, max, fallbackStep);
+}
+
+/** At most `maxTickCount` ticks on 1/2/5/10/20/50/100 km (or mi) intervals; respects zoom window. */
+export function buildChartDistanceTicks(
+  maxDistance: number,
+  maxTickCount = 5,
+  minDistance = 0,
+): number[] {
+  return buildChartTicksWithSteps(
+    minDistance,
+    maxDistance,
+    CHART_DISTANCE_TICK_STEPS,
+    maxTickCount,
+    buildRoundGridTicks,
+  );
+}
+
+/** At most `maxTickCount` altitude labels on 1k/2k/5k/10k display-unit steps. */
+export function buildChartAltitudeTicks(
+  minAltitude: number,
+  maxAltitude: number,
+  maxTickCount = 5,
+): number[] {
+  return buildChartTicksWithSteps(minAltitude, maxAltitude, CHART_ALTITUDE_TICK_STEPS, maxTickCount);
+}
+
+/** X-axis labels in the active distance unit (km or mi), whole numbers only. */
+export function formatChartDistanceAxisTick(value: number): string {
+  if (!Number.isFinite(value)) return '';
+  return String(Math.round(value));
+}
+
+/** Compact y-axis labels in thousands of the altitude display unit (e.g. 1k, 2k). */
+export function formatChartAltitudeAxisTick(value: number): string {
+  if (!Number.isFinite(value)) return '';
+  return `${Math.round(value / 1000)}k`;
 }
 
 export function formatChartDistanceTick(

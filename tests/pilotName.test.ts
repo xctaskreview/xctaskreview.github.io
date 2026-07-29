@@ -1,6 +1,11 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseIgc, pilotCompactDisplayName, resolvePilotDisplayName } from '../src/lib/igc';
+import {
+  parseIgc,
+  pilotCompactDisplayName,
+  pilotMapInitials,
+  resolvePilotDisplayName,
+} from '../src/lib/igc';
 
 describe('pilotCompactDisplayName', () => {
   it('returns the sole name unchanged', () => {
@@ -10,6 +15,17 @@ describe('pilotCompactDisplayName', () => {
   it('uses first name plus initials for additional parts', () => {
     expect(pilotCompactDisplayName('Pablo Nahuel Rodriguez Merlo')).toBe('Pablo N. R. M.');
     expect(pilotCompactDisplayName('Klaus Ashorn')).toBe('Klaus A.');
+  });
+});
+
+describe('pilotMapInitials', () => {
+  it('uses first and last name letters', () => {
+    expect(pilotMapInitials('Casey Gerstle')).toBe('CG');
+    expect(pilotMapInitials('Klaus Ashorn')).toBe('KA');
+  });
+
+  it('uses up to two letters for a single name', () => {
+    expect(pilotMapInitials('Sheth')).toBe('SH');
   });
 });
 

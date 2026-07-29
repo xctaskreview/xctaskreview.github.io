@@ -89,12 +89,13 @@ export function MapDataPanels({
             type="button"
             className={`map-data-panel-toggle${leaderboardExpanded ? ' active' : ''}`}
             aria-expanded={leaderboardExpanded}
+            aria-label="Leaderboard"
             data-walkthrough="leaderboard"
             onClick={() => togglePanel('leaderboard')}
           >
             <span className="map-data-panel-toggle-text">
               <Icon icon={Trophy} size="sm" />
-              Leaderboard
+              <span className="map-data-panel-toggle-label">Leaderboard</span>
             </span>
             <span className="map-data-panel-toggle-icon" aria-hidden="true">
               <Icon icon={leaderboardExpanded ? ChevronUp : ChevronDown} size="sm" />
@@ -106,12 +107,13 @@ export function MapDataPanels({
             type="button"
             className={`map-data-panel-toggle${legStatisticsExpanded ? ' active' : ''}`}
             aria-expanded={legStatisticsExpanded}
+            aria-label="Legs stats"
             data-walkthrough="leg-statistics"
             onClick={() => togglePanel('leg-statistics')}
           >
             <span className="map-data-panel-toggle-text">
               <Icon icon={Route} size="sm" />
-              Legs stats
+              <span className="map-data-panel-toggle-label">Legs stats</span>
             </span>
             <span className="map-data-panel-toggle-icon" aria-hidden="true">
               <Icon icon={legStatisticsExpanded ? ChevronUp : ChevronDown} size="sm" />

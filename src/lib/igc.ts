@@ -395,3 +395,31 @@ export function pilotCompactDisplayName(name: string): string {
   const initials = rest.map(initialFromNamePart).filter(Boolean);
   return initials.length > 0 ? `${first} ${initials.join(' ')}` : first;
 }
+
+function firstLetterUpper(namePart: string): string {
+  const match = namePart.match(/[\p{L}]/u);
+  return match ? match[0].toUpperCase() : '';
+}
+
+/** Two-letter map marker label from first and last name parts (e.g. "Casey Gerstle" → "CG"). */
+export function pilotMapInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return name;
+  if (parts.length === 1) {
+    const letters = [...parts[0].matchAll(/[\p{L}]/gu)].map((match) => match[0].toUpperCase());
+    if (letters.length >= 2) return `${letters[0]}${letters[1]}`;
+    return letters[0] ?? parts[0].slice(0, 2).toUpperCase();
+  }
+  const first = firstLetterUpper(parts[0]);
+  const last = firstLetterUpper(parts[parts.length - 1]);
+  return `${first}${last}`;
+}
+
+/** Map / task-progress pilot label (compact name, or initials on narrow layouts). */
+export function pilotMapLabelName(
+  pilotName: string,
+  compactName: string,
+  useInitials: boolean,
+): string {
+  return useInitials ? pilotMapInitials(pilotName) : compactName;
+}

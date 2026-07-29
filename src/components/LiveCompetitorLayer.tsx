@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useRef, useSyncExternalStore, type RefObject } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { clampDisplayAltitudeMeters, computeSpeedsAtTime, LANDED_COLOR } from '../lib/geo';
@@ -59,7 +59,13 @@ import {
   type TaskProgressMarker,
 } from '../lib/taskProgressMarker';
 import type { OptimizedRoute, RoutePoint } from '../lib/types';
+import { pilotMapLabelName } from '../lib/igc';
+import { isMobileReviewLayout, subscribeMobileReviewLayout } from '../lib/reviewLayout';
 import { trophyIconHtml } from '../lib/trophyIcon';
+
+function resolveMapPilotLabelName(track: EnrichedFlightTrack, useInitials: boolean): string {
+  return pilotMapLabelName(track.pilotName, track.compactName, useInitials);
+}
 
 function escapeHtml(text: string): string {
   return text
@@ -69,8 +75,8 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
-function formatCompetitorMapLabelHtml(position: number, firstName: string): string {
-  const name = escapeHtml(firstName);
+function formatCompetitorMapLabelHtml(position: number, mapLabelName: string): string {
+  const name = escapeHtml(mapLabelName);
   if (position === 1) {
     return `${trophyIconHtml(12)}<span>${name}</span>`;
   }
@@ -118,7 +124,7 @@ function markerZIndexOffset(
 
 function createCompetitorIcon(
   color: string,
-  firstName: string,
+  mapLabelName: string,
   landed: boolean,
   scale = 1,
 ): L.DivIcon {
@@ -133,7 +139,7 @@ function createCompetitorIcon(
     html: `<div class="competitor-marker-column${landed ? ' landed' : ''}${focusedClass}">
       <div class="competitor-marker" style="background:${markerColor}"></div>
       <div class="${labelBoxClass}">
-        <span class="competitor-label">${escapeHtml(firstName)}</span>
+        <span class="competitor-label">${escapeHtml(mapLabelName)}</span>
         <span class="competitor-stat-line competitor-alt"></span>
         <span class="competitor-stat-line competitor-mode"></span>
       </div>
@@ -167,7 +173,7 @@ interface MarkerEntry {
   markerEl: HTMLDivElement | null;
   columnEl: HTMLDivElement | null;
   color: string;
-  firstName: string;
+  mapLabelName: string;
   landed: boolean;
   markerScale: number;
   isFocused: boolean;
@@ -251,6 +257,11 @@ export function LiveCompetitorLayer({
   onPilotMarkerClick,
 }: LiveCompetitorLayerProps) {
   const map = useMap();
+  const mobileMapLabels = useSyncExternalStore(
+    subscribeMobileReviewLayout,
+    isMobileReviewLayout,
+    () => false,
+  );
   const markersRef = useRef<Map<string, MarkerEntry>>(new Map());
   const trailsRef = useRef<Map<string, TrailEntry>>(new Map());
   const selectedPathRef = useRef<SelectedPathEntry | null>(null);
@@ -496,8 +507,8 @@ export function LiveCompetitorLayer({
 
       if (markers.has(track.id)) continue;
 
-      const firstName = track.compactName;
-      const icon = createCompetitorIcon(color, firstName, false);
+      const mapLabelName = resolveMapPilotLabelName(track, mobileMapLabels);
+      const icon = createCompetitorIcon(color, mapLabelName, false);
       const marker = L.marker([0, 0], { icon, zIndexOffset: MARKER_Z_INDEX_BASE });
       marker.on('click', () => {
         onPilotMarkerClickRef.current?.(track.id);
@@ -521,7 +532,7 @@ export function LiveCompetitorLayer({
         markerEl,
         columnEl,
         color,
-        firstName,
+        mapLabelName,
         landed: false,
         markerScale: 1,
         isFocused: false,
@@ -530,6 +541,24 @@ export function LiveCompetitorLayer({
       });
     }
   }, [tracks, trackColors, map, preferences.showFutureTrail]);
+
+  useEffect(() => {
+    for (const track of tracksRef.current) {
+      const entry = markersRef.current.get(track.id);
+      if (!entry) continue;
+
+      const nextLabel = resolveMapPilotLabelName(track, mobileMapLabels);
+      if (entry.mapLabelName === nextLabel) continue;
+
+      entry.mapLabelName = nextLabel;
+      const markerColor = trackColorsRef.current[track.id] ?? entry.color;
+      const displayColor = entry.landed ? LANDED_COLOR : markerColor;
+      entry.marker.setIcon(
+        createCompetitorIcon(displayColor, entry.mapLabelName, entry.landed, entry.markerScale),
+      );
+      Object.assign(entry, readMarkerDomRefs(entry.marker));
+    }
+  }, [mobileMapLabels]);
 
   useEffect(() => {
     return () => {
@@ -712,7 +741,7 @@ export function LiveCompetitorLayer({
 
       if (needsIconRefresh) {
         entry.marker.setIcon(
-          createCompetitorIcon(displayColor, entry.firstName, snapshot.landed, markerScale),
+          createCompetitorIcon(displayColor, entry.mapLabelName, snapshot.landed, markerScale),
         );
         Object.assign(entry, readMarkerDomRefs(entry.marker));
         entry.isFocused = isFocused;
@@ -748,9 +777,9 @@ export function LiveCompetitorLayer({
 
         if (entry.labelEl) {
           if (position !== undefined) {
-            entry.labelEl.innerHTML = formatCompetitorMapLabelHtml(position, entry.firstName);
+            entry.labelEl.innerHTML = formatCompetitorMapLabelHtml(position, entry.mapLabelName);
           } else {
-            entry.labelEl.textContent = entry.firstName;
+            entry.labelEl.textContent = entry.mapLabelName;
           }
         }
 
