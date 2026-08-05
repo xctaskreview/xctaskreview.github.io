@@ -1,3 +1,3 @@
 # XC Task Review
 
-This site redirects to [xctrack.github.io/review](https://xctrack.github.io/review).
+This site redirects to [xctask.github.io/review](https://xctask.github.io/review).
